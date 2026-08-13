@@ -19,18 +19,20 @@ reciprocal rank fusion against the cosine ranking.
 
 Expect this to matter more than any amount of tuning elsewhere.
 
-## 2. Calibrating the score floor
+## 2. Recalibrating the score floor on a real codebase
 
-`Retriever.MinimumScore` is 0.4 because something had to go there. That number
-is not evidence-based, and embedding spaces are anisotropic — two unrelated
-texts commonly score 0.5 to 0.7, so a floor of 0.4 filters almost nothing.
+Done once, on this repository. Four answerable questions scored 0.59 to 0.68 at
+the top; three unanswerable ones scored 0.00, 0.46 and 0.47. The floor sits at
+0.52, inside the gap. The original 0.4 was intuition, and it filtered nothing —
+embedding spaces are anisotropic, so an unrelated question still scores near 0.5.
 
-To set it honestly: index a real repository, ask ten questions with known
-answers and five with no answer in the code, record the top score for each. The
-floor belongs between the two clusters. If they overlap, an absolute floor
-cannot separate them and a relative one is needed as well — discard anything
-below some fraction of the best score for that query, which adapts to how hard
-the question is.
+Seven questions against a 21-file repository is thin, and the number is tied to
+`nomic-embed-text`. Repeat the measurement on a large legacy codebase, and again
+after any change of embedding model.
+
+If the two clusters ever overlap, an absolute floor cannot separate them and a
+relative one is needed as well — discard anything below some fraction of the best
+score for that query, which adapts to how hard the question is.
 
 ## 3. A frontend
 
@@ -74,9 +76,11 @@ will find them anyway.
 - **The over-fetch multiplier in `Retriever` is currently free.** The store
   scores every chunk regardless. It is there for a store that does not exist yet.
 
-## Not yet exercised
+## Observed, not yet fixed
 
-The pipeline has never run end to end against a real repository with a model
-loaded. Every layer is unit-tested and the container serves requests, but the
-quality of the answers is unmeasured — and the score floor above cannot be
-calibrated until it has been.
+- **A 1.5B model follows the "say you do not know" rule badly.** On a question
+  it had answered correctly from the excerpts, `qwen2.5-coder:1.5b` appended a
+  contradictory closing sentence claiming the answer was not present. The
+  retrieval and the citations were right; the model tacked the escape hatch on
+  as a formula. Larger models do this less. Worth measuring across model sizes
+  before rewording the prompt, since the prompt is not obviously at fault.

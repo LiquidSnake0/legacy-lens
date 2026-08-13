@@ -14,8 +14,22 @@ public class Retriever
     /// <summary>
     /// Below this, a "match" is noise. Returning nothing is a better answer
     /// than six irrelevant excerpts and an invitation to improvise.
+    ///
+    /// Measured, not guessed. Indexing this repository and asking questions
+    /// with and without an answer in the code gave two separated clusters:
+    ///
+    ///   answerable      0.59  0.59  0.66  0.68
+    ///   unanswerable    0.00  0.46  0.47
+    ///
+    /// The gap sits between 0.47 and 0.59; this lands just inside it, biased
+    /// low because wrongly refusing to answer is more annoying than showing a
+    /// weak excerpt the user can see the score of.
+    ///
+    /// Seven questions against one small repository is thin evidence, and the
+    /// figure is specific to nomic-embed-text — recalibrate on a real codebase,
+    /// and again if the embedding model changes.
     /// </summary>
-    public const float MinimumScore = 0.4f;
+    public const float MinimumScore = 0.52f;
 
     /// <summary>Stops one verbose file from crowding out the one that holds the answer.</summary>
     public const int MaxChunksPerFile = 3;

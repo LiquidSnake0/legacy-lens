@@ -11,8 +11,10 @@ public class RetrieverTests
     [Fact]
     public void Best_matches_come_first()
     {
+        // All three sit clearly above MinimumScore, so this exercises ordering
+        // and nothing else.
         var ranked = Retriever.Rank(
-            [Hit("a.cs", 1, 0.55f), Hit("b.cs", 1, 0.91f), Hit("c.cs", 1, 0.72f)], 3);
+            [Hit("a.cs", 1, 0.65f), Hit("b.cs", 1, 0.91f), Hit("c.cs", 1, 0.72f)], 3);
 
         Assert.Equal(["b.cs", "c.cs", "a.cs"], ranked.Select(h => h.Chunk.FilePath));
     }
@@ -63,9 +65,11 @@ public class RetrieverTests
     {
         // Capping must not become "keep whichever three came out of the database
         // first".
+        // Every score is above MinimumScore, so line 100 can only be dropped by
+        // the per-file cap — which is what this test is about.
         var candidates = new[]
         {
-            Hit("Huge.cs", 100, 0.51f),
+            Hit("Huge.cs", 100, 0.56f),
             Hit("Huge.cs", 200, 0.93f),
             Hit("Huge.cs", 300, 0.62f),
             Hit("Huge.cs", 400, 0.88f),

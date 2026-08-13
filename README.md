@@ -144,17 +144,20 @@ run `dotnet add package <name>` to pin whatever your SDK resolves.
 
 ## Status
 
-The pipeline is complete and unit-tested end to end: walking, chunking,
-embedding, storage, retrieval, prompting, answering. 45 tests, no network and no
-model involved, 80 ms for the suite.
+Working. 45 unit tests covering every layer — no network, no model, 100 ms for
+the suite — and the pipeline has been run end to end against a real repository:
+this one.
 
-What has **not** happened yet is a run against a real repository with a real
-model loaded. Everything below the API boundary is verified; the quality of the
-answers coming out of it is not, because that is measured by using it rather
-than by asserting on it. The retrieval score floor in particular is a placeholder
-until it has been calibrated against a real index — see [docs/NEXT.md](docs/NEXT.md).
+Indexing its own 21 source files produced 58 chunks in 48 seconds on a laptop
+CPU, and it answers questions about itself correctly, citing lines that hold
+what the answer claims.
 
-No frontend yet.
+The retrieval floor was set by measurement rather than intuition — the method
+and the numbers are in `Retriever.MinimumScore`. On seven questions it now
+answers the four that the code covers and declines the three it does not.
+
+Known gaps, in order of impact: no lexical search alongside the vector search,
+no frontend, no streaming. See [docs/NEXT.md](docs/NEXT.md).
 
 ## Licence
 
