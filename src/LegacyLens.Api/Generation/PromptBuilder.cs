@@ -6,9 +6,13 @@ namespace LegacyLens.Api.Generation;
 /// </summary>
 public class PromptBuilder
 {
-    private readonly int _maxChars;
+    /// <summary>
+    /// Character budget for the whole prompt. A rough stand-in for the model's
+    /// token limit — roughly four characters per token for source code.
+    /// </summary>
+    public int MaxChars { get; }
 
-    public PromptBuilder(int maxChars = 12_000) => _maxChars = maxChars;
+    public PromptBuilder(int maxChars = 12_000) => MaxChars = maxChars;
 
     /// <summary>
     /// Builds the prompt. <paramref name="hits"/> arrives ordered by score,

@@ -6,13 +6,19 @@ namespace LegacyLens.Api.Ingestion;
 /// </summary>
 public class CodeChunker
 {
-    private readonly int _maxChars;
-    private readonly int _overlapLines;
+    /// <summary>Target size of a chunk, in characters.</summary>
+    public int MaxChars { get; }
+
+    /// <summary>
+    /// Lines repeated between neighbouring chunks, so a definition landing
+    /// exactly on a boundary is not cut in half.
+    /// </summary>
+    public int OverlapLines { get; }
 
     public CodeChunker(int maxChars = 1_500, int overlapLines = 3)
     {
-        _maxChars = maxChars;
-        _overlapLines = overlapLines;
+        MaxChars = maxChars;
+        OverlapLines = overlapLines;
     }
 
     /// <summary>
