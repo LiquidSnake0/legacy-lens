@@ -6,7 +6,7 @@ namespace LegacyLens.Tests;
 /// <summary>
 /// These check what can be checked deterministically: that the evidence reaches
 /// the prompt intact and that the budget holds. Whether the model then behaves
-/// is measured by using it — see docs/TODO.md #3.
+/// is measured by using it, not asserted on.
 /// </summary>
 public class PromptBuilderTests
 {

@@ -57,6 +57,10 @@ app.MapPost("/api/ingest", async (
     {
         return Results.BadRequest(new { error = ex.Message });
     }
+    catch (HttpRequestException ex)
+    {
+        return ModelUnreachable(ex);
+    }
 });
 
 app.MapPost("/api/ask", async (
@@ -65,7 +69,14 @@ app.MapPost("/api/ask", async (
     if (string.IsNullOrWhiteSpace(request.Question))
         return Results.BadRequest(new { error = "A question is required." });
 
-    return Results.Ok(await service.AnswerAsync(request, ct));
+    try
+    {
+        return Results.Ok(await service.AnswerAsync(request, ct));
+    }
+    catch (HttpRequestException ex)
+    {
+        return ModelUnreachable(ex);
+    }
 });
 
 app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
@@ -73,5 +84,17 @@ app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
     await store.ClearAsync(ct);
     return Results.NoContent();
 });
+
+// Ollama being down is the single most likely thing to go wrong, and a bare 500
+// with an empty body sends the reader looking in the wrong place.
+IResult ModelUnreachable(HttpRequestException exception) => Results.Json(
+    new
+    {
+        error = $"Could not reach the model at {ollamaUrl}.",
+        hint = "Start Ollama, and check the models are pulled: "
+             + "`docker compose exec ollama ollama pull nomic-embed-text`.",
+        detail = exception.Message,
+    },
+    statusCode: StatusCodes.Status503ServiceUnavailable);
 
 app.Run();

@@ -144,9 +144,17 @@ run `dotnet add package <name>` to pin whatever your SDK resolves.
 
 ## Status
 
-The plumbing is in place: ingestion, HTTP clients, storage, endpoints, container,
-CI. Four pieces are deliberately unimplemented, each with failing tests
-describing the expected behaviour — see [docs/TODO.md](docs/TODO.md).
+The pipeline is complete and unit-tested end to end: walking, chunking,
+embedding, storage, retrieval, prompting, answering. 45 tests, no network and no
+model involved, 80 ms for the suite.
+
+What has **not** happened yet is a run against a real repository with a real
+model loaded. Everything below the API boundary is verified; the quality of the
+answers coming out of it is not, because that is measured by using it rather
+than by asserting on it. The retrieval score floor in particular is a placeholder
+until it has been calibrated against a real index — see [docs/NEXT.md](docs/NEXT.md).
+
+No frontend yet.
 
 ## Licence
 

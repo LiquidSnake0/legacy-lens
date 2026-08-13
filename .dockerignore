@@ -1,0 +1,23 @@
+# Local build output must never reach the image. obj/ carries a
+# project.assets.json full of host paths, and copying it in overwrites the
+# restore the container just did — the build then fails looking for packages
+# on a machine it is not running on.
+**/bin/
+**/obj/
+
+**/node_modules/
+web/dist/
+web/.angular/
+
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+
+# Neither the index nor the code being indexed belongs in the image.
+repos/
+*.db
+*.db-shm
+*.db-wal
+.env

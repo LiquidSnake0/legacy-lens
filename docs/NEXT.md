@@ -1,0 +1,82 @@
+# What this does not do yet
+
+In rough order of how much each would improve the answers.
+
+---
+
+## 1. Hybrid search
+
+The largest gap, and the one specific to code.
+
+Vector search is weak on rare identifiers. Someone typing `PriceEngine` wants
+that exact token, and an embedding — which encodes meaning — has no particular
+reason to favour an exact match on a proper noun it never saw during training.
+Lexical search is simply better at that job.
+
+The fix is to run both and fuse the scores. SQLite ships FTS5, so this costs no
+new dependency: a full-text index over the same chunks, a BM25 score, and
+reciprocal rank fusion against the cosine ranking.
+
+Expect this to matter more than any amount of tuning elsewhere.
+
+## 2. Calibrating the score floor
+
+`Retriever.MinimumScore` is 0.4 because something had to go there. That number
+is not evidence-based, and embedding spaces are anisotropic — two unrelated
+texts commonly score 0.5 to 0.7, so a floor of 0.4 filters almost nothing.
+
+To set it honestly: index a real repository, ask ten questions with known
+answers and five with no answer in the code, record the top score for each. The
+floor belongs between the two clusters. If they overlap, an absolute floor
+cannot separate them and a relative one is needed as well — discard anything
+below some fraction of the best score for that query, which adapts to how hard
+the question is.
+
+## 3. A frontend
+
+`ng new web --routing --style=scss`. Chat view, the answer, and the citations as
+links that open the file at the right lines.
+
+## 4. Streaming
+
+`OllamaChatClient` asks for `stream: false` and waits. On a CPU-only machine a
+3B model takes tens of seconds to produce an answer, and watching nothing happen
+for that long feels broken. Server-sent events from the API, token by token.
+
+## 5. Reranking
+
+A cross-encoder rescoring the top twenty candidates, comparing each against the
+question directly rather than through separately-computed vectors. Markedly more
+accurate and markedly slower — worth it only once there is hardware to spare.
+
+## 6. Incremental indexing
+
+Re-indexing currently walks and embeds everything. Chunk ids are stable, so
+skipping files whose modification time predates the last index is
+straightforward and turns a full re-run into seconds.
+
+---
+
+## Known approximations
+
+Written down because they are deliberate, and because someone reading the code
+will find them anyway.
+
+- **Brace counting ignores strings and comments.** `CodeChunker` counts `{` and
+  `}` wherever they appear. It is picking somewhere plausible to cut, not
+  parsing; a real parser costs one implementation per language, in a tool whose
+  purpose is reading code in languages nobody chose.
+- **Indentation-based languages chunk poorly.** Python has no braces, so the
+  boundary quality heuristic falls back to blank lines alone. Tracking
+  indentation depth would fix it.
+- **Brute-force similarity search.** Deliberate up to roughly a million vectors
+  — see the README. `IVectorStore` exists so that changing it is a new class.
+- **The over-fetch multiplier in `Retriever` is currently free.** The store
+  scores every chunk regardless. It is there for a store that does not exist yet.
+
+## Not yet exercised
+
+The pipeline has never run end to end against a real repository with a model
+loaded. Every layer is unit-tested and the container serves requests, but the
+quality of the answers is unmeasured — and the score floor above cannot be
+calibrated until it has been.
