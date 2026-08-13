@@ -53,10 +53,31 @@ public class VectorMathTests
     [Fact]
     public void Works_at_embedding_model_dimensions()
     {
-        // nomic-embed-text emits 768 dimensions. If a SIMD implementation
-        // mishandles the tail beyond the last full vector width, this catches it.
+        // nomic-embed-text emits 768 dimensions.
         var a = Enumerable.Range(0, 768).Select(i => (float)(i % 7)).ToArray();
         var b = Enumerable.Range(0, 768).Select(i => (float)(i % 7)).ToArray();
         Assert.Equal(1f, VectorMath.CosineSimilarity(a, b), 3);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(13)]
+    [InlineData(255)]
+    [InlineData(769)]
+    public void Handles_lengths_that_are_not_a_multiple_of_the_SIMD_width(int length)
+    {
+        // 768 divides evenly by every plausible Vector<float>.Count, so it
+        // cannot catch a SIMD implementation that drops the leftover tail.
+        // These lengths can.
+        var a = Enumerable.Range(0, length).Select(i => (float)(i % 5 + 1)).ToArray();
+        var b = Enumerable.Range(0, length).Select(i => (float)(i % 5 + 1)).ToArray();
+        Assert.Equal(1f, VectorMath.CosineSimilarity(a, b), 3);
+
+        // And a case where the tail is what makes the two differ.
+        var c = (float[])a.Clone();
+        c[^1] = -c[^1] * 100f;
+        Assert.True(VectorMath.CosineSimilarity(a, c) < 0.999f,
+            "A difference in the final element must change the score.");
     }
 }
