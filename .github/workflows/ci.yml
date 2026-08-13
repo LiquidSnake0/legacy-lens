@@ -1,0 +1,46 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore
+
+      - run: dotnet build --no-restore --configuration Release
+
+      - run: dotnet test --no-build --configuration Release --verbosity normal
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Building the image in CI is the only way to know the Dockerfile still
+      # works — it is the one artefact nobody exercises locally.
+      - run: docker build -f src/LegacyLens.Api/Dockerfile -t legacy-lens:ci .
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No indexed code or local config may be committed
+        run: |
+          leaked=$(git ls-files | grep -E '(^|/)(repos/|\.env$)|\.db$' || true)
+          if [ -n "$leaked" ]; then
+            echo "These must never be tracked:"
+            echo "$leaked"
+            exit 1
+          fi
