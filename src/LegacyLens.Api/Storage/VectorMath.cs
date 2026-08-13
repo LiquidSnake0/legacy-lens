@@ -9,15 +9,35 @@ public static class VectorMath
     /// <exception cref="ArgumentException">If the lengths differ.</exception>
     public static float CosineSimilarity(ReadOnlySpan<float> a, ReadOnlySpan<float> b)
     {
-        // ---------------------------------------------------------------
-        // TODO — see docs/TODO.md #2.
-        //
-        // Tests in tests/LegacyLens.Tests/VectorMathTests.cs cover the
-        // identical / orthogonal / opposite cases, mismatched lengths, and
-        // the zero vector — which has no direction, so it has no cosine.
-        // Decide what that returns and make it explicit.
-        // ---------------------------------------------------------------
-        throw new NotImplementedException(
-            "VectorMath.CosineSimilarity is not implemented yet — see docs/TODO.md #2.");
+        if (a.Length != b.Length)
+            throw new ArgumentException(
+                $"Vectors must have the same number of dimensions: got {a.Length} and {b.Length}. " +
+                "In practice this means the index was built with a different embedding model " +
+                "than the one answering queries — reindex rather than compare across spaces.",
+                nameof(b));
+
+        // One pass, three accumulators. In double, because summing hundreds of
+        // squared floats accumulates enough rounding error to make a vector
+        // score 0.9998 against itself.
+        double dot = 0, squaredA = 0, squaredB = 0;
+
+        for (var i = 0; i < a.Length; i++)
+        {
+            double x = a[i], y = b[i];
+            dot      += x * y;
+            squaredA += x * x;
+            squaredB += y * y;
+        }
+
+        // A zero vector has no direction, so there is no angle to measure. The
+        // arithmetic would say NaN, and NaN poisons everything downstream:
+        // every comparison against it is false, so the ranking silently stops
+        // being a ranking. Zero is a number that sorts.
+        if (squaredA == 0 || squaredB == 0) return 0f;
+
+        var cosine = dot / (Math.Sqrt(squaredA) * Math.Sqrt(squaredB));
+
+        // Rounding can push an exact match a hair beyond 1.
+        return (float)Math.Clamp(cosine, -1.0, 1.0);
     }
 }
