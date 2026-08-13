@@ -20,9 +20,12 @@ VOLUME /data
 ENV INDEX_PATH=/data/index.db \
     ASPNETCORE_URLS=http://+:8080
 
-# Unlike the CV generator, nothing here needs root.
-RUN useradd --create-home --uid 1000 lens && chown -R lens:lens /app
-USER lens
+# Unlike the CV generator, nothing here needs root — and the aspnet image
+# already ships a non-root "app" user, so there is none to create.
+# /data has to be chowned before dropping privileges or the index cannot be
+# written: a named volume inherits the ownership of the image directory.
+RUN mkdir -p /data && chown -R app:app /app /data
+USER app
 
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "LegacyLens.Api.dll"]
