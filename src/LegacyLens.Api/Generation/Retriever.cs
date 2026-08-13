@@ -31,8 +31,13 @@ public class Retriever
     {
         var queryVector = await _embeddings.EmbedAsync(question, ct);
 
-        // Over-fetch, because the per-file cap and the score floor will both
-        // discard candidates and topK still has to be reachable afterwards.
+        // Over-fetch, because the score floor and the per-file cap both discard
+        // candidates and topK still has to be reachable afterwards.
+        //
+        // Against the current store this multiplier buys nothing and costs
+        // nothing: the scan already scores every chunk, so asking for more only
+        // changes how many rows survive a Take. It exists for the day an
+        // approximate index makes asking for more actually cost something.
         var candidates = await _store.SearchAsync(queryVector, topK * 4, ct);
 
         return Rank(candidates, topK);
@@ -43,13 +48,24 @@ public class Retriever
     /// </summary>
     public static IReadOnlyList<SearchHit> Rank(IReadOnlyList<SearchHit> candidates, int topK)
     {
-        // ---------------------------------------------------------------
-        // TODO — see docs/TODO.md #4.
+        // The order of these steps is load-bearing.
         //
-        // Tests in tests/LegacyLens.Tests/RetrieverTests.cs cover the score
-        // floor, the per-file cap, ordering, and topK.
-        // ---------------------------------------------------------------
-        throw new NotImplementedException(
-            "Retriever.Rank is not implemented yet — see docs/TODO.md #4.");
+        // Capping per file has to happen before the global cut, not after:
+        // trimming to topK first and then discarding the surplus of a
+        // dominant file leaves fewer results than asked for, and the file
+        // that should have taken the freed slots is already gone.
+        //
+        // The final sort is a contract with PromptBuilder, which fills its
+        // budget from the front and stops. An unordered list here means the
+        // strongest evidence is what gets dropped there.
+        return candidates
+            .Where(hit => hit.Score >= MinimumScore)
+            .GroupBy(hit => hit.Chunk.FilePath, StringComparer.Ordinal)
+            .SelectMany(file => file
+                .OrderByDescending(hit => hit.Score)
+                .Take(MaxChunksPerFile))
+            .OrderByDescending(hit => hit.Score)
+            .Take(topK)
+            .ToList();
     }
 }
