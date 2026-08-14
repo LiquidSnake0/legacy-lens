@@ -1,18 +1,48 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { of, throwError } from 'rxjs';
 
 import { App } from './app';
+import { LensService } from './services/lens';
+import { Citation } from './models/lens';
 
+/**
+ * The health check still goes through HttpClient and is tested with Angular's
+ * testing backend. The answer stream goes through fetch, which that backend
+ * cannot intercept, so the service is replaced instead. Replacing it is also
+ * the better test: what matters is how the component reacts to a sequence of
+ * events, not how the bytes arrive.
+ */
 describe('App', () => {
   let http: HttpTestingController;
+  let events: { name: string; data: unknown }[];
+
+  const fake = {
+    health: () => of({ status: 'ok', indexedChunks: 58 }),
+    stream: async function* () {
+      for (const event of events) yield event;
+    },
+  };
+
+  const citation: Citation = {
+    filePath: 'Billing/PriceEngine.cs',
+    startLine: 84,
+    endLine: 131,
+    score: 0.81,
+    foundBy: 'both',
+  };
 
   beforeEach(async () => {
+    events = [];
+
     await TestBed.configureTestingModule({
       imports: [App],
-      // The component calls the API on init, so the test needs a fake backend
-      // rather than a real one. Nothing here touches the network.
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: LensService, useValue: fake },
+      ],
     }).compileComponents();
 
     http = TestBed.inject(HttpTestingController);
@@ -22,10 +52,6 @@ describe('App', () => {
 
   function build() {
     const fixture = TestBed.createComponent(App);
-    fixture.detectChanges();
-    // ngOnInit fires a health check; answer it so verify() stays happy.
-    http.expectOne((r) => r.url.endsWith('/health'))
-        .flush({ status: 'ok', indexedChunks: 58 });
     fixture.detectChanges();
     return fixture;
   }
@@ -39,50 +65,89 @@ describe('App', () => {
     expect(element.querySelector('.status')?.textContent).toContain('58');
   });
 
-  it('rejects a question too short to retrieve anything', () => {
+  it('rejects a question too short to retrieve anything', async () => {
     const app = build().componentInstance;
 
     app.form.setValue({ question: 'why?' });
-    app.submit();
+    await app.submit();
 
-    // No request goes out, and the error surfaces on the control rather than
-    // as a failed round trip.
-    http.expectNone((r) => r.url.endsWith('/ask'));
     expect(app.questionControl.hasError('minlength')).toBe(true);
+    expect(app.answer()).toBeNull();
   });
 
-  it('asks the API and keeps both the answer and its sources', () => {
-    const fixture = build();
-    const app = fixture.componentInstance;
+  it('shows the citations before any of the answer text', async () => {
+    // Retrieval finishes long before generation does. Holding the sources back
+    // until the end would waste the only part of the wait that is informative.
+    events = [{ name: 'sources', data: [citation] }];
 
+    const app = build().componentInstance;
     app.form.setValue({ question: 'Where is pricing calculated?' });
-    app.submit();
+    await app.submit();
 
-    http.expectOne((r) => r.url.endsWith('/ask')).flush({
-      answer: 'Pricing is computed in PriceEngine.',
-      sources: [{ filePath: 'Billing/PriceEngine.cs', startLine: 84, endLine: 131, score: 0.81 }],
-    });
-
-    expect(app.answer()).toContain('PriceEngine');
     expect(app.sources().length).toBe(1);
+    expect(app.answer()).toBe('');
+  });
+
+  it('assembles the answer from the tokens as they arrive', async () => {
+    events = [
+      { name: 'sources', data: [citation] },
+      { name: 'token', data: 'Pricing is computed ' },
+      { name: 'token', data: 'in PriceEngine.' },
+      { name: 'done', data: {} },
+    ];
+
+    const app = build().componentInstance;
+    app.form.setValue({ question: 'Where is pricing calculated?' });
+    await app.submit();
+
+    expect(app.answer()).toBe('Pricing is computed in PriceEngine.');
     expect(app.loading()).toBe(false);
   });
 
-  it('surfaces the API hint when the model is unreachable', () => {
+  it('surfaces a failure that arrives mid-stream', async () => {
+    // Ollama can die halfway through an answer. The message the API wrote is
+    // what the reader needs, not 'stream closed'.
+    events = [
+      { name: 'sources', data: [citation] },
+      { name: 'token', data: 'Pricing is ' },
+      { name: 'failed', data: 'Could not reach the model at http://localhost:11434.' },
+    ];
+
     const app = build().componentInstance;
-
     app.form.setValue({ question: 'Where is pricing calculated?' });
-    app.submit();
+    await app.submit();
 
-    http.expectOne((r) => r.url.endsWith('/ask')).flush(
-      { error: 'Could not reach the model at http://localhost:11434.', hint: 'Start Ollama.' },
-      { status: 503, statusText: 'Service Unavailable' },
-    );
-
-    // The message shown is the one the API wrote, not "Http failure response
-    // for http://..." which would send the reader looking in the wrong place.
     expect(app.error()).toContain('Could not reach the model');
-    expect(app.error()).toContain('Start Ollama');
+    expect(app.loading()).toBe(false);
+  });
+
+  it('reports a stream that never opens', async () => {
+    const failing = {
+      ...fake,
+      stream: async function* () {
+        throw new Error('The API answered 503.');
+        yield { name: 'never', data: null };
+      },
+    };
+
+    await TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: LensService, useValue: failing },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+
+    const app = fixture.componentInstance;
+    app.form.setValue({ question: 'Where is pricing calculated?' });
+    await app.submit();
+
+    expect(app.error()).toContain('503');
     expect(app.loading()).toBe(false);
   });
 });

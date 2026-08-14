@@ -27,6 +27,53 @@ export class LensService {
       .pipe(catchError(this.explain));
   }
 
+  /**
+   * Streams an answer as server-sent events.
+   *
+   * fetch with a reader rather than EventSource: the latter only issues GET
+   * requests, and the question belongs in a body rather than a query string.
+   *
+   * Citations arrive first, before a single token, because retrieval finishes
+   * long before generation does. The reader sees which files are about to be
+   * discussed while the model is still working.
+   */
+  async *stream(question: string, topK = 6, signal?: AbortSignal) {
+    const response = await fetch(`${this.baseUrl}/ask/stream`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ question, topK }),
+      signal,
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`The API answered ${response.status}.`);
+    }
+
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += value;
+
+      // Events are separated by a blank line, and one read can carry a
+      // fraction of an event or several at once.
+      let boundary: number;
+      while ((boundary = buffer.indexOf('\n\n')) >= 0) {
+        const raw = buffer.slice(0, boundary);
+        buffer = buffer.slice(boundary + 2);
+
+        const name = raw.match(/^event: (.+)$/m)?.[1];
+        const data = raw.match(/^data: (.+)$/m)?.[1];
+        if (!name || !data) continue;
+
+        yield { name, data: JSON.parse(data) as unknown };
+      }
+    }
+  }
+
   health(): Observable<Health> {
     return this.http
       .get<Health>(`${this.baseUrl}/health`)

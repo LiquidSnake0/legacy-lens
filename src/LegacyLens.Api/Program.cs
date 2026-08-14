@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LegacyLens.Analysis;
 using LegacyLens.Api;
 using LegacyLens.Api.Embeddings;
@@ -77,6 +78,47 @@ app.MapPost("/api/ask", async (
     catch (HttpRequestException ex)
     {
         return ModelUnreachable(ex);
+    }
+});
+
+// The same answer, streamed as server-sent events.
+//
+// SSE rather than WebSockets: the traffic is one-way, it survives proxies that
+// mangle upgrade requests, and the browser reconnects on its own. A WebSocket
+// would add a protocol for nothing.
+app.MapPost("/api/ask/stream", async (
+    AskRequest request, AnswerService service, HttpContext context, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Question))
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsJsonAsync(new { error = "A question is required." }, ct);
+        return;
+    }
+
+    context.Response.Headers.ContentType = "text/event-stream";
+    context.Response.Headers.CacheControl = "no-cache";
+    // Tells nginx and friends not to buffer, which would hold every token back
+    // until the answer finished and undo the whole point.
+    context.Response.Headers["X-Accel-Buffering"] = "no";
+
+    // The same conventions ASP.NET Core applies to its own JSON responses.
+    // Serialising by hand here would otherwise emit PascalCase while /api/ask
+    // emits camelCase, and a client reading both would break on one of them.
+    var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+    await foreach (var item in service.StreamAsync(request, ct))
+    {
+        var (name, payload) = item switch
+        {
+            AnswerEvent.Sources s => ("sources", JsonSerializer.Serialize(s.Citations, json)),
+            AnswerEvent.Token t   => ("token", JsonSerializer.Serialize(t.Text, json)),
+            AnswerEvent.Failed f  => ("failed", JsonSerializer.Serialize(f.Message, json)),
+            _                     => ("done", "{}"),
+        };
+
+        await context.Response.WriteAsync($"event: {name}\ndata: {payload}\n\n", ct);
+        await context.Response.Body.FlushAsync(ct);
     }
 });
 

@@ -47,7 +47,7 @@ export class App implements OnInit {
     });
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.form.invalid || this.loading()) {
       this.form.markAllAsTouched();
       return;
@@ -60,17 +60,30 @@ export class App implements OnInit {
     this.answer.set(null);
     this.sources.set([]);
 
-    this.lens.ask(question).subscribe({
-      next: (response) => {
-        this.answer.set(response.answer);
-        this.sources.set(response.sources);
-        this.loading.set(false);
-      },
-      error: (failure: Error) => {
-        this.error.set(failure.message);
-        this.loading.set(false);
-      },
-    });
+    try {
+      for await (const event of this.lens.stream(question)) {
+        switch (event.name) {
+          case 'sources':
+            this.sources.set(event.data as Citation[]);
+            // Generation has started, so the answer box appears now rather
+            // than when the first token lands.
+            this.answer.set('');
+            break;
+
+          case 'token':
+            this.answer.update((text) => (text ?? '') + (event.data as string));
+            break;
+
+          case 'failed':
+            this.error.set(event.data as string);
+            break;
+        }
+      }
+    } catch (failure) {
+      this.error.set(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   useExample(question: string): void {
