@@ -20,6 +20,22 @@ A rule that holds across every milestone:
 
 *The prerequisite. Nothing below is demonstrable until this is true.*
 
+**Done, with one thing that stays true: the first index is slow and cannot be
+made fast on a CPU.**
+
+Batching embedding requests made it 40% slower. Concurrency made it slower
+still, at every thread count from two to eight, because one embedding already
+saturates all eight cores. Both were measured rather than assumed, and both
+were wrong.
+
+What worked: tracking files by content hash so nothing is re-indexed, skipping
+generated code entirely, and dropping files that vanish. A second run over an
+unchanged repository takes 10 ms instead of 522 seconds; one edited file takes
+1.2 seconds.
+
+Still open: a progress stream, so a two-hour first index reports where it is
+rather than appearing to hang.
+
 Indexing this repository takes 48 seconds for 21 files. A real legacy solution
 has 500 to 2000 files. Linear scaling puts that in hours, which is not a demo,
 it is an overnight job.

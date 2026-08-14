@@ -180,6 +180,9 @@ app.MapPost("/api/diagram", (DiagramRequest request) =>
 app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
 {
     await store.ClearAsync(ct);
+    // The ledger has to go too. Left behind, it would report every file as
+    // already indexed and the next ingest would do nothing at all.
+    new IngestionLedger(store.Connection).Clear();
     return Results.NoContent();
 });
 

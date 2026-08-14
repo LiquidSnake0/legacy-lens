@@ -93,7 +93,7 @@ public class CodeMetrics
     /// banner at the top, and reading a 12,000 line proxy to look for it would
     /// cost more than the whole analysis.
     /// </summary>
-    internal static bool LooksGenerated(string path, string source, bool hasAttribute)
+    public static bool LooksGenerated(string path, string source, bool hasAttribute)
     {
         if (hasAttribute) return true;
 
@@ -118,7 +118,7 @@ public class CodeMetrics
     /// mark their tests. The path is a fallback for helpers and fixtures that
     /// sit beside the tests without carrying an attribute themselves.
     /// </summary>
-    internal static bool LooksLikeTest(string path, bool hasTestAttribute)
+    public static bool LooksLikeTest(string path, bool hasTestAttribute)
     {
         if (hasTestAttribute) return true;
 

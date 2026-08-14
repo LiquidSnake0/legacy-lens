@@ -369,6 +369,50 @@ Set `CHAT_PROVIDER=openai` only when that trade is acceptable.
 
 ---
 
+## Indexing at scale
+
+Embedding is the expensive half of this system, by an enormous margin.
+
+| Corpus | Files | Chunks | First index |
+|---|---|---|---|
+| This repository | 65 | 423 | 8 minutes |
+| nopCommerce 3.90 | 2,639 | 16,061 | roughly 2 hours |
+
+Those numbers are on a laptop CPU with no GPU, at about 470 ms per chunk.
+
+**Two optimisations that look obvious and do not work.** Ollama accepts batched
+embedding requests, and batching made it 40% slower. Issuing requests
+concurrently made it slower still, at every thread count from two to eight. A
+single embedding already saturates all eight cores, so both changes only added
+contention. Measured before being believed, and worth recording so nobody tries
+again.
+
+**What does work is not re-indexing.** Files are tracked by a hash of their
+content, so a second run over an unchanged repository does nothing:
+
+```
+first run          65 files, 423 chunks    522 s
+second run         65 files,   0 chunks     10 ms
+one file edited    65 files,   2 chunks    1.2 s
+```
+
+Content hash rather than modification time, because a checkout, a branch switch
+or a restored backup all rewrite timestamps without changing a line.
+
+**Generated code is not indexed at all.** A WSDL proxy answers no question
+anyone asks, and embedding twelve thousand lines of it costs minutes that buy
+nothing.
+
+**Files that disappear are dropped.** Nothing else would ever mention them
+again, so their chunks would sit in the index answering questions with code that
+no longer exists.
+
+The first index of a large solution still takes as long as it takes. On CPU that
+is irreducible without a GPU, and pretending otherwise would be the kind of
+claim this project is built to avoid.
+
+---
+
 ## Development
 
 ```bash

@@ -4,6 +4,13 @@ namespace LegacyLens.Api.Storage;
 
 public interface IVectorStore
 {
+    /// <summary>
+    /// The underlying connection, so that the ingestion ledger lives in the
+    /// same file. Two databases that must agree with each other are two
+    /// databases that will eventually disagree.
+    /// </summary>
+    SqliteConnection Connection { get; }
+
     Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default);
     Task<IReadOnlyList<SearchHit>> SearchAsync(float[] query, int topK, CancellationToken ct = default);
 
@@ -29,6 +36,8 @@ public interface IVectorStore
 public class SqliteVectorStore : IVectorStore, IDisposable
 {
     private readonly SqliteConnection _connection;
+
+    public SqliteConnection Connection => _connection;
 
     public SqliteVectorStore(IConfiguration config)
     {
