@@ -3,10 +3,16 @@
 Legacy Lens answers questions about code. The next milestones extend that in one
 direction: **reading a codebase and reporting what is actually there.**
 
-Nothing here writes code. Editing agents already exist and are built by teams
-with years of head start. The gap worth filling is elsewhere: analysis of
-inherited .NET, running locally, for organisations that are not allowed to send
-their source anywhere.
+For M0 through M7, nothing here writes code. Editing agents exist and are built
+by teams with years of head start. The gap worth filling is elsewhere: analysis
+of inherited .NET, running locally, for organisations that are not allowed to
+send their source anywhere.
+
+M8 revisits that, narrowly. Not because the position was wrong, but because
+Microsoft moved: it replaced a deterministic upgrade tool with a generative one
+and shipped the failure mode this codebase exists to avoid. The scope stays
+small on purpose, and the line is drawn at "the tool proposes a diff, a person
+approves it".
 
 A rule that holds across every milestone:
 
@@ -36,17 +42,20 @@ unchanged repository takes 10 ms instead of 522 seconds; one edited file takes
 Still open: a progress stream, so a two-hour first index reports where it is
 rather than appearing to hang.
 
-Indexing this repository takes 48 seconds for 21 files. A real legacy solution
-has 500 to 2000 files. Linear scaling puts that in hours, which is not a demo,
-it is an overnight job.
+Now measured on a real one rather than estimated. See **Measured on Orchard**
+below: 1.55 chunks per second, which puts a quarter of a million lines of C# at
+roughly 1.7 hours on a CPU. The overnight-job prediction was right.
 
-- Index a genuinely old .NET Framework solution and measure honestly
-- Batch and parallelise embedding calls where Ollama allows it
-- Incremental indexing: chunk ids are already stable, so skipping files whose
-  mtime predates the last run is straightforward
-- Persist the projection so a restart does not re-index
+- ~~Index a genuinely old .NET Framework solution and measure honestly~~ done
+- ~~Batch and parallelise embedding calls~~ tried, both made it slower
+- ~~Incremental indexing~~ done, by content hash rather than mtime
+- Still open: **resumable ingestion with progress.** Today the run embeds every
+  chunk and writes once at the end, so a crash at 95% loses the whole run and
+  nothing reports where it is. On a two-hour job that is the wrong shape, and it
+  is what blocks the first-run flow in M6.
 
 **Done when** a 1000-file solution indexes in minutes and re-indexes in seconds.
+Half true: re-indexing is 10 ms, the first pass is still hours without a GPU.
 
 ---
 
@@ -88,6 +97,32 @@ or they rank as complex and untested, and a control character placed literally
 in a source file degrades silently between editors, which broke the git parser
 in a way no build error revealed.
 
+**A defect found by measuring, not by reading.** The default history window is
+24 months. Orchard has 11,873 commits and 119 of them fall inside it, roughly
+0.26 commits per ranked file. The churn half of the score was measuring noise
+while `HistoryStatus` cheerfully reported `Available`.
+
+Comparing the two windows on the same repository:
+
+| 24 months | full history |
+|---|---|
+| WebAppHosting.cs (3 commits) | OutputCacheFilter.cs (82 commits, 24 authors) |
+| AdminController.cs (4) | CoreShapes.cs (79 commits, 18 authors) |
+| AdminController.cs (9) | WebAppHosting.cs (55) |
+| BlogPostAdminController.cs (3) | DefaultContentManager.cs (127 commits, 24 authors) |
+| QueryPartDriver.cs (3) | DefaultDataMigrationInterpreter.cs (43) |
+| OrchardLog4netLogger.cs (2) | DefaultContentQuery.cs (44) |
+
+**One file in common out of six.** The left column puts a test-support file at
+the top of the danger list. The right column names the core of the CMS, which is
+what anyone who worked on Orchard would say.
+
+The cause is structural rather than a bad constant: legacy code has stopped
+changing, by definition, and a sliding window is calibrated for code that is
+alive. Widening the default would only move the arbitrary line. The fix is to
+adapt the window to the repository's actual activity, and to say so when the
+window holds too few commits to rank anything.
+
 Still open: coverage is inferred from file names. Knowing what a test actually
 exercises needs resolved symbols, and requiring compilation would give up the
 property that makes this usable on inherited code.
@@ -97,7 +132,7 @@ Crossing three signals that are all already on disk:
 | Signal | Source |
 |---|---|
 | Size and complexity | Roslyn: lines, cyclomatic complexity, nesting depth |
-| Change frequency | git log over the last 24 months |
+| Change frequency | git log over the last 24 months (see the defect below) |
 | Test coverage | presence of tests referencing the type |
 
 A file that is large, changed constantly, and untested is where the next
@@ -204,13 +239,143 @@ Two things found on the way that were not on the list:
 
 ---
 
+## Measured on Orchard
+
+Everything above M5 was built against this repository and nopCommerce. To find
+out what actually breaks at scale, the tool was pointed at **Orchard CMS**:
+archived, .NET Framework, 89 projects, 6,203 files, 414,611 lines of which
+258,589 are C#, 11,873 commits. Never compiled, which is the point.
+
+| Operation | Time | Needs a model |
+|---|---|---|
+| Map: 89 projects, 319 dependencies, 50 findings | **0.38 s** | no |
+| Risk ranking over 458 files, with git history | **1.73 s** | no |
+| Semantic indexing, 1,976 chunks from 55,481 lines | **21.4 min** | yes |
+| Same, extrapolated to 258,589 lines of C# | **~1.7 h** | yes |
+| Embedding one question, per query | **57 ms** | yes |
+
+Throughput was 1.55 chunks per second, flat across ten samples, on eight CPU
+cores with no GPU. A machine with one is 20 to 50 times faster, so this is the
+worst case rather than the typical one.
+
+### The brute-force scan is not the wall
+
+`SearchAsync` reads every vector and computes cosine in process. That was
+expected to be the ceiling once several projects shared an instance. It is not.
+Latency to the `sources` event, which is retrieval finishing. Indexes below
+1,976 chunks were built by deleting rows from the real one; those above it by
+duplicating real embeddings under new ids, so the vectors stay genuine and only
+the count is synthetic:
+
+| chunks | 250 | 1,000 | 4,000 | 16,000 | 32,000 | 64,000 |
+|---|---|---|---|---|---|---|
+| latency | 162 ms | 143 ms | 195 ms | 187 ms | 155 ms | 183 ms |
+
+**256 times the data, no measurable change.** The scan is linear, at roughly
+2.7 microseconds per chunk, but the constant is small enough that it would take
+around 500,000 chunks, somewhere near 14 million lines, to cost a second. The
+fixed costs dominate everything below that: 57 ms to embed the question, plus
+HTTP.
+
+So `sqlite-vec` and HNSW indexes are premature. They solve a problem this tool
+does not have. **The wall is ingestion, and only ingestion.**
+
+---
+
+## M6. First run
+
+*The gap between "a thing I built" and "a thing someone else can start".*
+
+Today the tool assumes an index already exists and that whoever runs it knows
+the curl commands. Everything below follows from one measured fact: the fast
+half answers in two seconds and the slow half takes hours, so they cannot sit
+behind the same button.
+
+- **A form on first launch.** Where is the code: a local folder, or a public
+  repository URL. Private repositories take a read-scoped token used for the
+  clone and never stored. A tool whose argument is "your code stays yours" has
+  no business holding your keys.
+- **Answer immediately with the free half.** Map, risk ranking, findings, in
+  seconds, before any model is involved. Semantic indexing becomes a background
+  job the reader comes back to, not a spinner they watch.
+- **Which model.** Local Ollama by default, or the user's own API key. Both
+  keep the operator out of the loop. Hosting a shared instance is a different
+  product with different obligations, and it is deliberately not this one.
+- **Workspaces.** One index per project, selectable. This is the real work: a
+  `workspace_id` on chunks and a schema migration. The form is an afternoon.
+
+**Why now.** The measurements say the fast half is a genuine product on its own
+and it is currently invisible.
+
+**Effort:** a weekend for workspaces, an afternoon for the form.
+
+---
+
+## M7. The deliverable
+
+*The output that a buyer can put on a desk.*
+
+The tool produces JSON and a web page. Neither is something a client keeps. What
+consultancies sell for this problem is a document: what the system is, what will
+hurt, in what order to fix it. They produce it by hand, in weeks, and it is stale
+the month after.
+
+- A generated assessment: shape, dependency cycles, dead weight, ranked risk,
+  test gaps, with the evidence behind each claim
+- Regenerated on every commit, so it stops being a snapshot
+- Exportable, readable by someone who does not open an IDE
+
+**Why this is the product.** Every number in it is measured. The model only
+turns facts into sentences, which is the rule this roadmap opens with. It is
+also the only output that survives contact with a non-technical reader.
+
+**Effort:** a weekend, most of it on what to leave out.
+
+---
+
+## M8. Mechanical migrations
+
+*The transformations that are the same in every codebase.*
+
+Legacy systems are each broken in their own way, so a push-button migration is a
+promise that breaks on the third customer. But a large fraction of the work is
+identical everywhere: `packages.config` to `PackageReference`, old csproj to
+SDK-style, package version bumps, `ConfigurationManager` to `IConfiguration`.
+
+Automate that fraction, one reviewable change at a time, and be explicit that
+the rest needs a human. Every change lands as a diff a person approves, never
+as a commit the tool makes on its own.
+
+**The market says this is the opening.** Microsoft shipped GitHub Copilot app
+modernization for .NET in September 2025 and deprecated the free .NET Upgrade
+Assistant it replaced. The public complaints are specific: less deterministic
+than the tool it replaced, partial upgrades leaving hundreds of hours of manual
+repair, and NuGet package references that do not exist.
+
+That last one is the failure mode this codebase is built against. The map, the
+risk ranking and the diagrams read the disk. They cannot invent a package.
+
+**Effort:** unknown, and deliberately last. Nothing here ships before the
+reviewing workflow does.
+
+---
+
 ## Deliberately out of scope
 
-**Writing or refactoring code.** Cursor, Copilot Workspace, aider and others do
-this, with teams behind them. Competing there means losing quietly.
+**Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
+this, with teams behind them. Competing there means losing quietly. M8 takes one
+narrow slice of it, the transformations that are mechanical and identical across
+every codebase, and nothing beyond that.
+
+**Merging anything.** The tool proposes; a person approves. This is not a
+limitation to be lifted later. A tool that upgrades a bank's framework
+unsupervised is a liability, and the reviewing human is the product.
 
 **Cloud hosting.** The entire premise is that the code does not leave the
-machine. A hosted version would contradict the one thing this tool offers.
+machine. A hosted version would contradict the one thing this tool offers, and
+it would make the operator a data processor with the obligations that follow.
+Running it *for* someone, on their behalf and on their premises, is a different
+arrangement and does not require hosting anything.
 
 **Languages beyond .NET, at first.** The chunker is already language-agnostic,
 but Roslyn is not. Depth on one ecosystem beats a shallow pass over five.
