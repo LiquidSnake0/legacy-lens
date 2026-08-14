@@ -60,7 +60,13 @@ jobs:
 
       - name: No indexed code or local config may be committed
         run: |
-          leaked=$(git ls-files | grep -E '(^|/)(repos/|\.env$)|\.db$' || true)
+          # repos/.gitkeep is the one allowed path under repos/: an empty
+          # marker so `docker compose up` does not create the bind mount
+          # target as root. Exactly that path, not a pattern, so anything
+          # else appearing under repos/ still fails.
+          leaked=$(git ls-files \
+                   | grep -E '(^|/)(repos/|\.env$)|\.db$' \
+                   | grep -vx 'repos/.gitkeep' || true)
           if [ -n "$leaked" ]; then
             echo "These must never be tracked:"
             echo "$leaked"
