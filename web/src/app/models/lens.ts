@@ -11,6 +11,11 @@ export interface Citation {
   startLine: number;
   endLine: number;
   score: number;
+  /**
+   * Which search retrieved this chunk: 'vector', 'text' or 'both'.
+   * A text-only match has no cosine score, so none is shown for it.
+   */
+  foundBy: 'vector' | 'text' | 'both';
 }
 
 export interface AskResponse {

@@ -103,6 +103,19 @@ immediately, and it makes an argument rather than describing a state.
 
 *The retrieval gap, and the largest quality win available.*
 
+**Done.** BM25 through SQLite's FTS5, merged with the cosine ranking by
+reciprocal rank fusion. Existing indexes are backfilled on open rather than
+re-embedded, which takes milliseconds instead of minutes.
+
+Measured on this repository: `MaxChars` and `OverlapLines` returned nothing at
+all before, and now return the file that defines them.
+
+The design mistake worth remembering: the first version applied the cosine floor
+to every chunk, including those both searches found. That discarded exactly what
+the feature was added to rescue, since a chunk with a middling cosine score and
+an exact term match is the case in question. The floor now applies only to
+chunks the text search did not find.
+
 Vector search is weak on rare identifiers. Someone typing `PriceEngine` wants
 that exact token, and an embedding has no particular reason to favour an exact
 match on a proper noun it never saw in training.

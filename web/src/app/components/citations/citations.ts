@@ -31,6 +31,19 @@ export class Citations {
     return ((clamped - floor) / (ceiling - floor)) * 100;
   }
 
+  /** What to show where a score would go, when there is no score. */
+  label(citation: Citation): string {
+    return citation.foundBy === 'text' ? 'exact' : citation.score.toFixed(2);
+  }
+
+  hint(citation: Citation): string {
+    return citation.foundBy === 'both'
+      ? `Found by both searches. Cosine similarity: ${citation.score.toFixed(3)}`
+      : citation.foundBy === 'text'
+        ? 'Matched by exact term, not by meaning. No cosine score was computed.'
+        : `Cosine similarity: ${citation.score.toFixed(3)}`;
+  }
+
   lines(citation: Citation): string {
     return citation.startLine === citation.endLine
       ? `line ${citation.startLine}`

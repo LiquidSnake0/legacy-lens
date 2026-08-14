@@ -34,6 +34,17 @@ public class Retriever
     /// <summary>Stops one verbose file from crowding out the one that holds the answer.</summary>
     public const int MaxChunksPerFile = 3;
 
+    /// <summary>
+    /// How far down the text ranking a chunk may sit and still be trusted
+    /// without a cosine score to back it.
+    ///
+    /// The score floor cannot apply to these: a chunk found only by exact
+    /// identifier is precisely the case the vector search missed, so requiring
+    /// it to also score well by vector would discard it for the reason it was
+    /// needed. Its position in the BM25 ranking stands in for that check.
+    /// </summary>
+    public const int TrustedTextRank = 5;
+
     public Retriever(IEmbeddingClient embeddings, IVectorStore store)
     {
         _embeddings = embeddings;
@@ -52,9 +63,50 @@ public class Retriever
         // nothing: the scan already scores every chunk, so asking for more only
         // changes how many rows survive a Take. It exists for the day an
         // approximate index makes asking for more actually cost something.
-        var candidates = await _store.SearchAsync(queryVector, topK * 4, ct);
+        var wide = topK * 4;
 
-        return Rank(candidates, topK);
+        var vector = await _store.SearchAsync(queryVector, wide, ct);
+        var text = await _store.SearchTextAsync(question, wide, ct);
+
+        return Rank(Merge(vector, text), topK);
+    }
+
+    /// <summary>
+    /// Turns the two rankings into one list of candidates.
+    ///
+    /// A chunk both searches found keeps its cosine score and is marked as
+    /// such; one only the text search found carries no score, because none was
+    /// computed for it and inventing one would be worse than admitting it.
+    /// </summary>
+    internal static IReadOnlyList<SearchHit> Merge(
+        IReadOnlyList<SearchHit> vector, IReadOnlyList<SearchHit> text)
+    {
+        var fused = HybridFusion.Fuse(vector, text);
+        var merged = new List<SearchHit>(fused.Count);
+
+        foreach (var hit in fused)
+        {
+            var source = (hit.VectorRank, hit.TextRank) switch
+            {
+                (not null, not null) => MatchSource.Both,
+                (null, not null)     => MatchSource.Text,
+                _                    => MatchSource.Vector,
+            };
+
+            // Chunks the text search found are admitted on their text rank
+            // rather than on a cosine score, whether or not the vector search
+            // also saw them. Rank a text match far enough down and it is noise:
+            // BM25 returns something for almost any term.
+            if (hit.TextRank > TrustedTextRank && source != MatchSource.Vector
+                && hit.VectorScore is null or < MinimumScore)
+            {
+                continue;
+            }
+
+            merged.Add(new SearchHit(hit.Chunk, hit.VectorScore ?? 0f, source));
+        }
+
+        return merged;
     }
 
     /// <summary>
@@ -73,7 +125,16 @@ public class Retriever
         // budget from the front and stops. An unordered list here means the
         // strongest evidence is what gets dropped there.
         return candidates
-            .Where(hit => hit.Score >= MinimumScore)
+            // The floor applies only to chunks the text search did not find.
+            //
+            // It exists to reject chunks whose only claim is a middling cosine
+            // score. A chunk the full-text search ranked highly has a different
+            // claim: its terms match. Applying the floor to those would discard
+            // the exact-identifier matches this whole path was added to rescue,
+            // and applying it to chunks BOTH searches found would be worse
+            // still, since agreement between two independent rankings is the
+            // strongest evidence available.
+            .Where(hit => hit.Source != MatchSource.Vector || hit.Score >= MinimumScore)
             .GroupBy(hit => hit.Chunk.FilePath, StringComparer.Ordinal)
             .SelectMany(file => file
                 .OrderByDescending(hit => hit.Score)

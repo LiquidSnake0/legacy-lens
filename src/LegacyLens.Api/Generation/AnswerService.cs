@@ -31,7 +31,9 @@ public class AnswerService
         var answer = await _chat.CompleteAsync(_prompts.Build(request.Question, hits), ct);
 
         var sources = hits
-            .Select(h => new Citation(h.Chunk.FilePath, h.Chunk.StartLine, h.Chunk.EndLine, h.Score))
+            .Select(h => new Citation(
+                h.Chunk.FilePath, h.Chunk.StartLine, h.Chunk.EndLine, h.Score,
+                h.Source.ToString().ToLowerInvariant()))
             .ToList();
 
         return new AskResponse(answer, sources);

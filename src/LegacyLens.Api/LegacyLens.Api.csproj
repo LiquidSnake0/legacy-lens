@@ -21,4 +21,10 @@
     <ProjectReference Include="..\LegacyLens.Analysis\LegacyLens.Analysis.csproj" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <!-- Merge stays internal: it is how retrieval works, not what it offers. -->
+    <InternalsVisibleTo Include="LegacyLens.Tests" />
+  </ItemGroup>
+
 </Project>

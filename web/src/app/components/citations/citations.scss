@@ -89,4 +89,8 @@ li {
   color: var(--muted);
   width: 2.5rem;
   text-align: right;
+
+  &.exact {
+    font-style: italic;
+  }
 }

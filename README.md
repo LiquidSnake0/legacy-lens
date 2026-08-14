@@ -40,6 +40,18 @@ confident, wrong answer. Retrieval-augmented generation exists to stop that: the
 model only sees excerpts actually pulled from your repository, and every claim
 carries the file and lines it came from.
 
+Retrieval runs two searches. **Vector search** finds excerpts that mean the same
+thing as the question. **Full-text search** finds the ones containing the exact
+term, which matters because embeddings are weak on rare identifiers: someone
+typing `PriceEngine` wants that token, and a model that never saw the name in
+training has no reason to favour an exact match on it.
+
+The two rankings are merged by reciprocal rank fusion, on position rather than
+score, since cosine similarity and BM25 share no unit. Each citation states
+which search found it, and a chunk found only by term carries no similarity
+score, because none was computed and inventing one would be the exact failure
+this project is built around.
+
 If the answer looks wrong, you open the file and see it in ten seconds. That is
 the whole design goal: the tool is not asking for trust, it is showing its work.
 
@@ -389,8 +401,8 @@ The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
-Known gaps for the question-answering half, in order of impact: no lexical search alongside the vector search,
-no streaming, no persistence. See [docs/NEXT.md](docs/NEXT.md) for the detail,
+Known gaps for the question-answering half, in order of impact: no streaming,
+no persistence, no reranking. See [docs/NEXT.md](docs/NEXT.md) for the detail,
 and [docs/ROADMAP.md](docs/ROADMAP.md) for where this is going.
 
 ## Licence

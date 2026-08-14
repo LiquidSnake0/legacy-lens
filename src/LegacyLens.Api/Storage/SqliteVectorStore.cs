@@ -6,6 +6,15 @@ public interface IVectorStore
 {
     Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default);
     Task<IReadOnlyList<SearchHit>> SearchAsync(float[] query, int topK, CancellationToken ct = default);
+
+    /// <summary>
+    /// Full-text search over the same chunks.
+    ///
+    /// Vector search is weak on rare identifiers: someone typing PriceEngine
+    /// wants that exact token, and an embedding has no reason to favour an
+    /// exact match on a proper noun it never saw in training.
+    /// </summary>
+    Task<IReadOnlyList<SearchHit>> SearchTextAsync(string query, int topK, CancellationToken ct = default);
     Task ClearAsync(CancellationToken ct = default);
     Task<int> CountAsync(CancellationToken ct = default);
 }
@@ -37,8 +46,48 @@ public class SqliteVectorStore : IVectorStore, IDisposable
                 content    TEXT NOT NULL,
                 embedding  BLOB NOT NULL
             );
+
+            -- Full-text index over the same rows. FTS5 ships with SQLite, so
+            -- lexical search costs no new dependency.
+            --
+            -- The default tokeniser splits on non-alphanumerics, which turns
+            -- PriceEngine into one token and Price_Engine into two. That suits
+            -- code: an identifier searched for is usually typed the way it is
+            -- written.
+            CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+                id UNINDEXED,
+                content,
+                tokenize = 'unicode61'
+            );
             """;
         create.ExecuteNonQuery();
+
+        Backfill();
+    }
+
+    /// <summary>
+    /// Fills the full-text index from chunks already stored.
+    ///
+    /// An index built before this table existed holds vectors and no text, and
+    /// lexical search over it would silently return nothing. Re-indexing the
+    /// repository would work too, and costs the embedding of every chunk again;
+    /// this is the same result in a few milliseconds.
+    /// </summary>
+    private void Backfill()
+    {
+        using var count = _connection.CreateCommand();
+        count.CommandText =
+            "SELECT (SELECT COUNT(*) FROM chunks) - (SELECT COUNT(*) FROM chunks_fts)";
+
+        if (Convert.ToInt32(count.ExecuteScalar()) <= 0) return;
+
+        using var fill = _connection.CreateCommand();
+        fill.CommandText = """
+            INSERT INTO chunks_fts (id, content)
+            SELECT id, content FROM chunks
+            WHERE id NOT IN (SELECT id FROM chunks_fts);
+            """;
+        fill.ExecuteNonQuery();
     }
 
     public async Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default)
@@ -78,6 +127,25 @@ public class SqliteVectorStore : IVectorStore, IDisposable
             await command.ExecuteNonQueryAsync(ct);
         }
 
+        // FTS5 has no ON CONFLICT, so a re-index would otherwise accumulate
+        // duplicate rows for the same chunk id.
+        await using var fts = _connection.CreateCommand();
+        fts.Transaction = transaction;
+        fts.CommandText = """
+            DELETE FROM chunks_fts WHERE id = $id;
+            INSERT INTO chunks_fts (id, content) VALUES ($id, $content);
+            """;
+        var ftsId = fts.Parameters.Add("$id", SqliteType.Text);
+        var ftsContent = fts.Parameters.Add("$content", SqliteType.Text);
+
+        foreach (var item in chunks)
+        {
+            ct.ThrowIfCancellationRequested();
+            ftsId.Value = item.Chunk.Id;
+            ftsContent.Value = item.Chunk.Content;
+            await fts.ExecuteNonQueryAsync(ct);
+        }
+
         await transaction.CommitAsync(ct);
     }
 
@@ -109,10 +177,70 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         return hits.OrderByDescending(h => h.Score).Take(topK).ToList();
     }
 
+    public async Task<IReadOnlyList<SearchHit>> SearchTextAsync(
+        string query, int topK, CancellationToken ct = default)
+    {
+        var terms = Tokenise(query);
+        if (terms.Length == 0) return [];
+
+        var hits = new List<SearchHit>();
+
+        await using var command = _connection.CreateCommand();
+        // bm25() returns a negative number, more negative meaning a better
+        // match. Negating it gives the usual "higher is better" ordering.
+        command.CommandText = """
+            SELECT c.id, c.file_path, c.start_line, c.end_line, c.content,
+                   -bm25(chunks_fts) AS relevance
+            FROM chunks_fts
+            JOIN chunks c ON c.id = chunks_fts.id
+            WHERE chunks_fts MATCH $query
+            ORDER BY relevance DESC
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$query", string.Join(" OR ", terms));
+        command.Parameters.AddWithValue("$limit", topK);
+
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                hits.Add(new SearchHit(
+                    new Chunk(reader.GetString(0), reader.GetString(1),
+                              reader.GetInt32(2), reader.GetInt32(3), reader.GetString(4)),
+                    (float)reader.GetDouble(5)));
+            }
+        }
+        catch (SqliteException)
+        {
+            // A malformed MATCH expression is a bad question, not a broken
+            // store. Returning nothing lets the vector half answer alone.
+            return [];
+        }
+
+        return hits;
+    }
+
+    /// <summary>
+    /// Splits a question into terms FTS5 will accept.
+    ///
+    /// User text reaches MATCH directly otherwise, and characters like " ( -
+    /// and * are query syntax there: a question containing any of them would
+    /// throw rather than search.
+    /// </summary>
+    internal static string[] Tokenise(string query) =>
+        new string(query.Select(c => char.IsLetterOrDigit(c) ? c : ' ').ToArray())
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            // Single characters match almost everything and rank nothing.
+            .Where(term => term.Length > 1)
+            .Select(term => $"\"{term}\"")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     public async Task ClearAsync(CancellationToken ct = default)
     {
         await using var command = _connection.CreateCommand();
-        command.CommandText = "DELETE FROM chunks";
+        command.CommandText = "DELETE FROM chunks; DELETE FROM chunks_fts;";
         await command.ExecuteNonQueryAsync(ct);
     }
 

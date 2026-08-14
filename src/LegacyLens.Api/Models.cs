@@ -17,9 +17,21 @@ public record Chunk(
 
 public record EmbeddedChunk(Chunk Chunk, float[] Embedding);
 
-public record SearchHit(Chunk Chunk, float Score);
+/// <summary>Which search found a chunk. Both is the strongest signal.</summary>
+public enum MatchSource { Vector, Text, Both }
 
-public record Citation(string FilePath, int StartLine, int EndLine, float Score);
+public record SearchHit(Chunk Chunk, float Score, MatchSource Source = MatchSource.Vector);
+
+public record Citation(
+    string FilePath,
+    int StartLine,
+    int EndLine,
+    float Score,
+    /// <summary>
+    /// How this chunk was retrieved. A chunk found by text alone has no
+    /// meaningful cosine score, and showing one would invent a number.
+    /// </summary>
+    string FoundBy);
 
 public record IngestRequest(string Path);
 
