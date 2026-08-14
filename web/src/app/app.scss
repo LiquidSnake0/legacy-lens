@@ -1,8 +1,12 @@
+/* La feuille posee sur le mur. Un filet plutot qu'une ombre portee: chez
+   Ando le contact entre deux matieres est net, jamais degrade. */
 main {
   max-width: 46rem;
   margin: 0 auto;
   padding: 3.5rem 1.5rem 4rem;
   background: var(--paper);
+  border-left: 1px solid var(--line-faint);
+  border-right: 1px solid var(--line-faint);
   min-height: 100vh;
 }
 
