@@ -1,7 +1,7 @@
 main {
   max-width: 46rem;
   margin: 0 auto;
-  padding: 3rem 1.5rem 4rem;
+  padding: 3.5rem 1.5rem 4rem;
   background: var(--paper);
   min-height: 100vh;
 }
@@ -9,16 +9,17 @@ main {
 /* ---- header ---- */
 
 h1 {
-  font-size: 1.5rem;
+  font-size: 1.625rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  margin: 0 0 0.375rem;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.5rem;
 }
 
 .tagline {
   color: var(--muted);
-  margin: 0 0 0.875rem;
+  margin: 0 0 1rem;
   max-width: 52ch;
+  font-size: 0.9375rem;
 }
 
 .status {
@@ -27,17 +28,19 @@ h1 {
   gap: 0.5rem;
   font-size: 0.8125rem;
   color: var(--muted);
-  margin: 0 0 2rem;
+  margin: 0 0 2.25rem;
 }
 
+/* The accent means "the tool found something". An index with chunks in it is
+   the first thing it ever finds, so this is the one dot that gets it. */
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: var(--ok);
+  background: var(--accent);
   flex-shrink: 0;
 
-  &.empty { background: #d9a441; }
+  &.empty { background: var(--faint); }
   &.offline { background: var(--danger); }
 }
 
@@ -45,9 +48,9 @@ h1 {
 
 label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 0.5rem;
@@ -57,17 +60,20 @@ textarea {
   width: 100%;
   padding: 0.75rem 0.875rem;
   font: inherit;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--ink);
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--radius);
   resize: vertical;
+
+  &::placeholder {
+    color: var(--faint);
+  }
 
   &:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(20, 48, 74, 0.08);
   }
 
   &.invalid {
@@ -84,22 +90,26 @@ textarea {
 .actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.875rem;
-  margin-top: 0.875rem;
+  margin-top: 1rem;
 }
 
 button[type='submit'] {
-  padding: 0.5rem 1.25rem;
+  padding: 0.5rem 1.5rem;
   font: inherit;
-  font-weight: 500;
-  color: var(--paper);
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: #ffffff;
   background: var(--accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
+  transition: background 120ms ease;
 
-  &:hover:not(:disabled) { background: #1d4468; }
-  &:disabled { opacity: 0.55; cursor: default; }
+  &:hover:not(:disabled) { background: var(--accent-ink); }
+  &:disabled { opacity: 0.45; cursor: default; }
 }
 
 .hint {
@@ -107,18 +117,28 @@ button[type='submit'] {
   color: var(--muted);
 }
 
+/* ---- section labels, shared ---- */
+
+.examples h2,
+.answer h2 {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
 /* ---- examples ---- */
 
 .examples {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 
   h2 {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0 0 0.625rem;
+    margin-bottom: 0.375rem;
   }
 }
 
@@ -126,39 +146,30 @@ button[type='submit'] {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 0.5rem 0.75rem;
-  margin-bottom: 0.375rem;
+  padding: 0.5625rem 0.75rem;
   font: inherit;
   font-size: 0.875rem;
   color: var(--muted);
-  background: var(--wash);
-  border: 1px solid transparent;
-  border-radius: 5px;
+  background: transparent;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
 
   &:hover {
     color: var(--ink);
-    border-color: var(--line);
+    border-color: var(--accent);
   }
 }
 
 /* ---- answer ---- */
 
 .answer {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 
-  h2 {
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0 0 0.625rem;
-  }
-
-  p {
-    margin: 0;
-    white-space: pre-wrap;
+  /* Long-form prose wants a narrower measure than the form above it. */
+  lens-answer-text {
+    display: block;
     max-width: 68ch;
   }
 }
@@ -169,10 +180,13 @@ button[type='submit'] {
   margin-top: 1.5rem;
   padding: 0.875rem 1rem;
   background: var(--danger-wash);
-  border-left: 3px solid var(--danger);
-  border-radius: 0 5px 5px 0;
+  border-left: 2px solid var(--danger);
+  border-radius: 0 var(--radius) var(--radius) 0;
 
-  strong { color: var(--danger); }
+  strong {
+    color: var(--danger);
+    font-weight: 600;
+  }
 
   p {
     margin: 0.25rem 0 0;
@@ -185,17 +199,28 @@ button[type='submit'] {
 footer {
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 1rem;
-  margin-top: 3.5rem;
+  margin-top: 4rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--line-faint);
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--faint);
 
   a {
-    color: var(--muted);
+    color: var(--faint);
     text-decoration: none;
+    border-bottom: 1px solid transparent;
 
-    &:hover { color: var(--ink); }
+    &:hover {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+  }
+}
+
+@media (max-width: 34rem) {
+  main {
+    padding: 2.5rem 1.125rem 3rem;
   }
 }

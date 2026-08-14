@@ -1,19 +1,93 @@
-/* Design tokens, defined once and used everywhere.
-   Deliberately restrained: the interface exists to make the answer and its
-   citations readable, not to be looked at. */
-:root {
-  --ink: #1a2530;
-  --muted: #6b7c8a;
-  --line: #dde4ea;
-  --line-faint: #eef2f5;
-  --paper: #ffffff;
-  --wash: #f6f8fa;
-  --accent: #14304a;
-  --danger: #b1402a;
-  --danger-wash: #fbeeea;
-  --ok: #2c7a58;
+/* Montserrat, subset to latin and served from the app rather than a CDN.
+   The tool is meant to run on machines with no internet access, so a webfont
+   URL would silently fall back to a system face exactly where it matters. */
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
 
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/fonts/Montserrat-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
+/* Design tokens, defined once and used everywhere.
+   Greys and one accent, nothing else. The interface exists to make the answer
+   and its citations readable, not to be looked at. */
+:root {
+  --ink: #1a1a1a;
+  --muted: #555555;
+  --faint: #8a8a8a;
+  --line: #c9c9c9;
+  --line-faint: #e6e6e6;
+  --paper: #ffffff;
+  --wash: #f2f2f2;
+
+  /* The single accent. Everything that is not the accent is grey, so the
+     accent always means something: it marks what the tool found. */
+  --accent: #c0561f;
+  --accent-soft: #f7ece4;
+  --accent-ink: #8f3f16;
+
+  --danger: #a33a24;
+  --danger-wash: #f9ece8;
+  --ok: #4a7c59;
+
+  --sans: "Montserrat", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "DejaVu Sans Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --radius: 2px;
+}
+
+/* Dark is the record's own register: near-black ground, the mask in high
+   contrast, one warm accent. Tokens only, so every component follows. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #ececea;
+    --muted: #9d9994;
+    --faint: #6f6b67;
+    --line: #33312e;
+    --line-faint: #262421;
+    --paper: #1a1918;
+    --wash: #121110;
+
+    --accent: #e07a3e;
+    --accent-soft: #2a1d13;
+    --accent-ink: #f0955f;
+
+    --danger: #d9694c;
+    --danger-wash: #2b1712;
+    --ok: #7fae8b;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #ececea;
+  --muted: #9d9994;
+  --faint: #6f6b67;
+  --line: #33312e;
+  --line-faint: #262421;
+  --paper: #1a1918;
+  --wash: #121110;
+
+  --accent: #e07a3e;
+  --accent-soft: #2a1d13;
+  --accent-ink: #f0955f;
+
+  --danger: #d9694c;
+  --danger-wash: #2b1712;
+  --ok: #7fae8b;
 }
 
 * {
@@ -27,10 +101,36 @@ body {
 }
 
 body {
-  font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--sans);
   font-size: 15px;
   line-height: 1.6;
+  font-weight: 400;
   color: var(--ink);
   background: var(--wash);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Montserrat is geometric and wide; without this it reads as shouting at the
+   sizes headings use. */
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

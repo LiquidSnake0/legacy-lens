@@ -76,8 +76,8 @@ li {
   pre {
     margin: 0;
     padding: 0.75rem 0;
-    background: var(--surface, rgba(0, 0, 0, 0.03));
-    border-radius: 4px;
+    background: var(--wash);
+    border-radius: var(--radius);
     // Long lines scroll inside the block instead of widening the page.
     overflow-x: auto;
   }
@@ -112,7 +112,7 @@ li {
   }
 
   .failed {
-    color: var(--danger, #b4453a);
+    color: var(--danger);
   }
 }
 
@@ -149,14 +149,14 @@ li {
   width: 72px;
   height: 4px;
   background: var(--line);
-  border-radius: 2px;
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
 .fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 2px;
+  border-radius: var(--radius);
 }
 
 .value {
