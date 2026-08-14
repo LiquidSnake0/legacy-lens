@@ -8,11 +8,15 @@ by teams with years of head start. The gap worth filling is elsewhere: analysis
 of inherited .NET, running locally, for organisations that are not allowed to
 send their source anywhere.
 
-M8 revisits that, narrowly. Not because the position was wrong, but because
-Microsoft moved: it replaced a deterministic upgrade tool with a generative one
-and shipped the failure mode this codebase exists to avoid. The scope stays
-small on purpose, and the line is drawn at "the tool proposes a diff, a person
-approves it".
+The last two milestones write, and they are ordered by what a wrong output
+costs. **M8 writes tests, never production code**: a generated test that is
+wrong fails on the spot and is discarded before anyone sees it, so the machine
+checks its own work and no human is asked to trust anything. **M9 writes into
+the code itself**, which is why it comes last and why the line is drawn at "the
+tool proposes a diff, a person approves it". M9 is also the one concession to
+the position above, and Microsoft is the reason: it replaced a deterministic
+upgrade tool with a generative one and shipped the exact failure mode this
+codebase exists to avoid.
 
 A rule that holds across every milestone:
 
@@ -381,7 +385,58 @@ report in M6 wants the same split, so that piece gets built either way.
 
 ---
 
-## M8. Mechanical migrations
+## M8. Characterization tests
+
+*A net under the code, before anyone moves it.*
+
+M2 names the files that will hurt and stops there. The honest answer to "this
+file is complicated, changes constantly and nothing tests it" is to put a test
+on it, and that is exactly what nobody does on inherited code: writing a test
+means knowing what the code is supposed to do, and on legacy the intent is gone
+along with whoever held it.
+
+A characterization test does not need the intent. It records what the code
+*does*, not what it should do. That sounds like a weak test, and it is precisely
+the right one before a migration: any change that alters observable behaviour
+breaks it, which is the only guarantee anyone actually wants when moving code
+they do not understand.
+
+**Why this does not break the rule at the top.** It is the one kind of generated
+code whose correctness the machine can settle on its own. A characterization
+test is true if and only if it passes against the code as it stands today. So it
+is compiled and run before it is offered, and one that fails is thrown away
+rather than shown. The model proposes, the compiler and the test runner decide,
+and a person only ever reads output that has already survived both. Nothing is
+asserted on trust.
+
+**What it is not.** It is not a way to produce correct tests. A characterization
+test will happily freeze a bug in place, and the output has to say so: this net
+guarantees that a migration changes nothing, not that what exists is right. A
+tool that blurred those two would be selling a false sense of safety, which is
+worse than no net at all.
+
+- Target the files M2 already ranks, not the repository. The point is a net
+  under the dangerous parts, not coverage as a number to report
+- Generate, compile, run, and discard silently whatever does not pass
+- Write into a new test project only. Nothing this milestone produces ever
+  lands in production code
+- Report what could not be covered and why. Static dependencies, direct I/O,
+  clocks and randomness are where real legacy resists, and naming them is more
+  useful than a coverage figure that hides them
+
+**Why before the migrations.** A mechanical migration without a net is a bet
+that the transformation was faithful. With one, it is a claim anyone can check
+by running the suite. The order is Feathers' and it has not been improved on:
+put the code under test, then change it.
+
+**Effort:** unknown, and the first honest step is one file rather than a plan.
+The dependency-free cases are a weekend. The files that matter most are the ones
+tangled in statics and I/O, and how far this goes on those is exactly the
+question the spike has to answer.
+
+---
+
+## M9. Mechanical migrations
 
 *The transformations that are the same in every codebase.*
 
@@ -453,12 +508,14 @@ repair, and NuGet package references that do not exist.
 That last one is the failure mode this codebase is built against. The map, the
 risk ranking and the diagrams read the disk. They cannot invent a package.
 
-**Why last, and it is not a judgement on the idea.** M0 through M7 read. A
-wrong reading is an embarrassing report, regenerated in seconds. This one
-writes into someone else's system, where a wrong write is their production.
-Same reason an autopilot is not installed on an aircraft whose instrument panel
-is dark: the instruments are not a prerequisite to the automation, they are
-what makes commanding it possible at all.
+**Why last, and it is not a judgement on the idea.** M0 through M7 read: a wrong
+reading is an embarrassing report, regenerated in seconds. M8 writes, but only
+tests, and a wrong one is caught by the runner before anyone reads it. This one
+writes into someone else's system, where a wrong write is their production. That
+is three steps down in what a mistake costs, and it is the whole argument for
+the order. Same reason an autopilot is not installed on an aircraft whose
+instrument panel is dark: the instruments are not a prerequisite to the
+automation, they are what makes commanding it possible at all.
 
 **Effort:** the mechanical conversion is bounded and knowable, a weekend. The
 layer that decides *which* conversions to propose, and says plainly when the
@@ -470,9 +527,12 @@ ships before the surface a person commands it from.
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
-this, with teams behind them. Competing there means losing quietly. M8 takes one
+this, with teams behind them. Competing there means losing quietly. M9 takes one
 narrow slice of it, the transformations that are mechanical and identical across
-every codebase, and nothing beyond that.
+every codebase, and nothing beyond that. M8 takes another, the tests whose
+correctness a test runner settles without asking anyone. Both are narrow for the
+same reason: they are the cases where generated code can be checked rather than
+believed.
 
 **Merging anything.** The tool proposes; a person commands. This is not a
 limitation to be lifted later.
