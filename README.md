@@ -179,7 +179,8 @@ and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
 Known gaps, in order of impact: no lexical search alongside the vector search,
-no streaming, no persistence. See [docs/NEXT.md](docs/NEXT.md).
+no streaming, no persistence. See [docs/NEXT.md](docs/NEXT.md) for the detail,
+and [docs/ROADMAP.md](docs/ROADMAP.md) for where this is going.
 
 ## Licence
 
