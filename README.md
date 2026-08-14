@@ -313,11 +313,18 @@ That distinction is the rule the whole analysis follows:
 Requirements: Docker, and roughly 6 GB of free RAM for the generation model.
 
 ```bash
-cp .env.example .env
 docker compose up -d
-docker compose exec ollama ollama pull nomic-embed-text
-docker compose exec ollama ollama pull qwen2.5-coder:3b
 ```
+
+That is the whole thing: it starts Ollama, pulls both models, starts the API on
+`localhost:8080` and the interface on `localhost:4200`.
+
+The first run downloads several gigabytes of model weights and takes a while.
+They go into a named volume, so it happens once rather than on every start.
+`docker compose logs -f models` shows the progress.
+
+Everything has a working default. To change the models, or to index code that
+lives outside this directory, `cp .env.example .env` and edit it.
 
 Index a repository:
 
@@ -335,10 +342,13 @@ curl -X POST localhost:8080/api/ask \
      -d '{"question":"Where is authentication handled?"}'
 ```
 
-Mount the repository you want to index by editing the `repos` volume in
-`docker-compose.yml`.
+By default it indexes whatever is in `./repos`. Set `REPOS_PATH` in `.env` to
+mount a directory from elsewhere instead.
 
 ### The web interface
+
+`docker compose up` serves it on `http://localhost:4200`. To run it against a
+locally built API instead:
 
 ```bash
 cd web
@@ -346,8 +356,13 @@ npm install
 npm start
 ```
 
-Then open `http://localhost:4200`. The API allows that origin by default; change
-`CORS_ORIGIN` if you serve the frontend from somewhere else.
+Same address either way, which is also the origin the API allows by default;
+change `CORS_ORIGIN` if you serve the frontend from somewhere else.
+
+The answer streams in token by token, because generation on a CPU takes tens of
+seconds and a blank screen for that long reads as a crash. The citations appear
+before the first word: retrieval finishes long before generation does, and
+clicking one shows the text the answer was written from.
 
 Angular 22, standalone components, signals for local state, reactive forms for
 the question. It talks to the same HTTP API as the curl commands above, so

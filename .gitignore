@@ -13,7 +13,8 @@ web/.angular/
 *.db
 *.db-shm
 *.db-wal
-repos/
+repos/*
+!repos/.gitkeep
 
 # Local configuration
 .env

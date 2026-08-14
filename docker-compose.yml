@@ -12,13 +12,39 @@ services:
       timeout: 5s
       retries: 12
 
+  # Pulls the two models, then exits.
+  #
+  # The healthcheck above only proves Ollama answers, not that it has anything
+  # to answer with: `ollama list` succeeds against an empty install. Without
+  # this the stack starts clean and the first question fails with a 404 from a
+  # model that was never downloaded, which reads as a bug in the tool.
+  #
+  # Several gigabytes on a first run. They land in the same named volume, so it
+  # happens once rather than on every `up`.
+  models:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    volumes:
+      - ollama-models:/root/.ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      'ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
+       ollama pull ${CHAT_MODEL:-qwen2.5-coder:3b}'
+    restart: "no"
+
   api:
     build:
       context: .
       dockerfile: src/LegacyLens.Api/Dockerfile
     depends_on:
-      ollama:
-        condition: service_healthy
+      models:
+        # Not service_started: the API is useless until the models are on disk,
+        # and starting it earlier only moves the failure to the first question.
+        condition: service_completed_successfully
     environment:
       OLLAMA_URL: http://ollama:11434
       EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
@@ -31,6 +57,18 @@ services:
       # The repositories to index. Read-only: this tool has no business
       # writing to the code it is being pointed at.
       - ${REPOS_PATH:-./repos}:/repos:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    depends_on:
+      - api
+    ports:
+      # 4200 rather than 80, to match the CORS origin the API allows by
+      # default and the address anyone who has run this in development already
+      # has in their history.
+      - "4200:80"
 
 volumes:
   ollama-models:

@@ -175,14 +175,32 @@ The model's only job is grouping and naming the clusters.
 
 *Small things that decide whether a demonstration lands.*
 
-- **Streaming.** A CPU-bound model takes tens of seconds. Watching nothing
-  happen reads as a crash. Server-sent events, token by token.
-- **Open a citation.** Clicking a source should show the excerpt or hand off to
-  an editor. Today the reader has to find the file themselves, which is most of
-  the friction left in the loop.
-- **A single command to start.** `docker run` and nothing else.
+**Done.** Streaming, openable citations, `docker compose up` and nothing else.
 
-**Effort:** an evening each.
+- **Streaming.** Server-sent events, token by token. The citations go first, as
+  their own event: retrieval finishes in about two seconds while generation is
+  still starting, so most of the wait is now informative rather than blank.
+- **Open a citation.** Served from the index rather than from disk. The stored
+  text is what the model was given, and the file may have changed since;
+  showing the current file would let a citation point at something the answer
+  never saw.
+- **A single command to start.** The stack now pulls its own models. The old
+  healthcheck only proved Ollama answered, not that it had anything to answer
+  with, so a clean start failed on the first question with a 404 from a model
+  nobody had downloaded.
+
+Two things found on the way that were not on the list:
+
+- **Markdown was shown as punctuation.** Models answering about code write
+  backticks and fenced blocks whether or not they were asked to, and rendering
+  them raw made a correct answer look broken. Fences and inline code only, and
+  bound as text rather than injected as HTML: a full markdown renderer means
+  trusting model output with `innerHTML`.
+- **A failure mid-stream cannot be an HTTP status**, the response has already
+  started. It became an event, and the tokens that did arrive are kept rather
+  than discarded.
+
+**Effort:** an evening each, as estimated.
 
 ---
 

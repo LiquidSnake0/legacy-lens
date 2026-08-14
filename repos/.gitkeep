@@ -1,0 +1,6 @@
+# Mount point for the repositories to index, read-only at /repos in the
+# container. Kept in the repository so `docker compose up` does not have
+# to create it as root on the host.
+#
+# Point REPOS_PATH somewhere else in .env to index code that lives
+# elsewhere.
