@@ -3,7 +3,10 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
 
 # Project files first: restore is cached until a dependency actually changes.
+# Every referenced project must be here too, or restore fails on a missing
+# ProjectReference before a single source file has been copied.
 COPY src/LegacyLens.Api/LegacyLens.Api.csproj src/LegacyLens.Api/
+COPY src/LegacyLens.Analysis/LegacyLens.Analysis.csproj src/LegacyLens.Analysis/
 RUN dotnet restore src/LegacyLens.Api/LegacyLens.Api.csproj
 
 COPY src/ src/
