@@ -123,6 +123,14 @@ shown.
 
 *UML per module, extracted rather than imagined.*
 
+**Done.** `POST /api/diagram`, by namespace or around one type.
+
+The interesting problem turned out not to be rendering. Without resolved
+symbols, `class A : B, IC` gives no way to tell a base class from an interface,
+and the IFoo convention is broken constantly in old code. Resolved with a first
+pass that records what the solution declares, so the naming convention is
+consulted only for framework types.
+
 Roslyn gives types, members, inheritance and interface implementations as facts.
 The model's only job is grouping and naming the clusters.
 

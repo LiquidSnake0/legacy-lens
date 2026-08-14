@@ -35,6 +35,33 @@ public class SolutionAnalysis
     }
 
     /// <summary>
+    /// The type graph for a directory, ignoring generated and test files.
+    ///
+    /// Generated proxies declare hundreds of types nobody wrote, and test
+    /// classes clutter a diagram of the design without belonging to it.
+    /// </summary>
+    public TypeMap Types(string rootPath)
+    {
+        if (!Directory.Exists(rootPath))
+            throw new DirectoryNotFoundException($"No such directory: {rootPath}");
+
+        var sources = SourceFiles(rootPath)
+            .Select(path =>
+            {
+                try { return (Path: path, Source: File.ReadAllText(path)); }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    return (Path: path, Source: string.Empty);
+                }
+            })
+            .Where(f => f.Source.Length > 0)
+            .Where(f => !CodeMetrics.LooksGenerated(f.Path, f.Source, false))
+            .Where(f => !CodeMetrics.LooksLikeTest(f.Path, false));
+
+        return new TypeGraph().Build(sources);
+    }
+
+    /// <summary>
     /// Types that appear to be covered by a test, by name.
     ///
     /// A convention rather than a fact: PriceEngineTests is taken to cover

@@ -40,3 +40,5 @@ public record MapResponse(
     string Mermaid);
 
 public record RiskRequest(string Path, int MinimumCodeLines = 100, int HistoryMonths = 24, int Top = 20);
+
+public record DiagramRequest(string Path, string? Namespace = null, string? Type = null, int MaxMembers = 8);

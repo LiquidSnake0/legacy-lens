@@ -199,6 +199,88 @@ codebase where nothing ever changes produce the same empty result. Reporting
 "nothing changes here" when the truth is "I could not look" is exactly the
 confident wrong answer this project exists to avoid.
 
+### Class diagrams
+
+```bash
+curl -X POST localhost:8080/api/diagram \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/my-solution","type":"IShippingRateComputationMethod"}'
+```
+
+Either every type in a namespace, or one type and its immediate neighbours.
+Never the whole solution: nopCommerce declares 1,746 types once generated and
+test code is excluded, and a diagram of all of them is a grey rectangle.
+
+```mermaid
+classDiagram
+  class AustraliaPostComputationMethod {
+    +GetShippingOptions()
+    +GetFixedRate()
+    +GetConfigurationRoute()
+    +4 more
+  }
+  class CanadaPostComputationMethod {
+    +ShippingRateComputationMethodType
+    +ShipmentTracker
+    +GetShippingOptions()
+    +4 more
+  }
+  class FedexComputationMethod {
+    +GetShippingOptions()
+    +GetFixedRate()
+    +GetConfigurationRoute()
+    +4 more
+  }
+  class FixedOrByWeightComputationMethod {
+    +GetShippingOptions()
+    +GetFixedRate()
+    +GetConfigurationRoute()
+    +4 more
+  }
+  class IPlugin {
+    <<interface>>
+  }
+  class IShippingRateComputationMethod {
+    <<interface>>
+  }
+  class UPSComputationMethod {
+    +GetShippingOptions()
+    +GetFixedRate()
+    +GetConfigurationRoute()
+    +4 more
+  }
+  class USPSComputationMethod {
+    +GetShippingOptions()
+    +GetFixedRate()
+    +GetConfigurationRoute()
+    +4 more
+  }
+
+  IPlugin <|-- IShippingRateComputationMethod
+  IShippingRateComputationMethod <|.. FixedOrByWeightComputationMethod
+  IShippingRateComputationMethod <|.. USPSComputationMethod
+  IShippingRateComputationMethod <|.. CanadaPostComputationMethod
+  IShippingRateComputationMethod <|.. AustraliaPostComputationMethod
+  IShippingRateComputationMethod <|.. UPSComputationMethod
+  IShippingRateComputationMethod <|.. FedexComputationMethod
+
+  %% 6 relation(s) to types outside around IShippingRateComputationMethod not drawn
+```
+
+**The hard part is not drawing, it is knowing what a base type is.** In
+`class A : B, IC` the compiler knows B is a class and IC an interface. A syntax
+tree does not, and guessing from the leading capital I is a convention that
+legacy code breaks constantly.
+
+So it runs in two passes. The first records every type the solution declares and
+its shape. The second resolves base lists against that table, and falls back to
+the naming convention only for types the solution does not define, where nothing
+better exists. C# requires the base class first, so anything after position zero
+is an interface with certainty regardless.
+
+The types that could not be resolved are listed rather than hidden: they mark
+where the solution's own graph stops and the framework begins.
+
 ### What it refuses to guess
 
 Project kind is decided by what sits in the folder, not by which assemblies are

@@ -143,6 +143,40 @@ app.MapPost("/api/risk", (RiskRequest request) =>
     }
 });
 
+// A class diagram, extracted rather than imagined. Types, members and
+// relations come from the syntax tree; nothing is inferred by a model.
+app.MapPost("/api/diagram", (DiagramRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (string.IsNullOrWhiteSpace(request.Namespace) && string.IsNullOrWhiteSpace(request.Type))
+        return Results.BadRequest(new { error = "Give a namespace or a type. A diagram of "
+                                              + "every type in a solution is unreadable." });
+
+    try
+    {
+        var map = new SolutionAnalysis().Types(request.Path);
+        var writer = new ClassDiagramWriter { MaxMembers = request.MaxMembers };
+
+        var mermaid = string.IsNullOrWhiteSpace(request.Type)
+            ? writer.ForNamespace(map, request.Namespace!)
+            : writer.Around(map, request.Type!);
+
+        return Results.Ok(new
+        {
+            types = map.Types.Count,
+            relations = map.Relations.Count,
+            unresolvedBases = map.UnresolvedBases,
+            mermaid,
+        });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
 {
     await store.ClearAsync(ct);
