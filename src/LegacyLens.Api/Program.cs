@@ -6,6 +6,16 @@ using LegacyLens.Api.Generation;
 using LegacyLens.Api.Ingestion;
 using LegacyLens.Api.Storage;
 
+// Writing the report is the one capability here that needs no server, no model
+// and no index: it reads a directory and prints markdown. Exposing it as an
+// argument as well as an endpoint is what lets a build regenerate the document
+// on every commit without standing a service up first.
+if (args is ["report", var target, ..])
+{
+    Console.Out.Write(new ReportWriter().Write(new Assessor().Assess(target)));
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
@@ -140,6 +150,35 @@ app.MapGet("/api/excerpt", async (
             endLine = chunk.EndLine,
             content = chunk.Content,
         });
+});
+
+// The assessment, as the document rather than as JSON.
+//
+// Markdown is the response body, not a field inside one. What comes back is
+// meant to be written to a file, converted to PDF or pasted into a ticket, and
+// wrapping it in JSON would mean every caller unescaping it first.
+//
+// No model is involved, and neither is the index: this answers on a repository
+// that has never been ingested, in seconds rather than hours.
+app.MapPost("/api/report", (ReportRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    try
+    {
+        var assessment = new Assessor { HistoryMonths = request.HistoryMonths }
+            .Assess(request.Path);
+
+        return Results.Text(
+            new ReportWriter { TopRisks = request.Top }.Write(assessment),
+            "text/markdown",
+            System.Text.Encoding.UTF8);
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
 });
 
 // How much of a modernisation is mechanical, and what no automation will do.

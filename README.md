@@ -322,6 +322,63 @@ That distinction is the rule the whole analysis follows:
 
 ---
 
+## The assessment
+
+Everything above answers one question each, as JSON. None of it is something a
+client keeps. What gets bought for this problem is a document: what the system
+is, what will hurt, and in what order to deal with it.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- report /repos/my-solution > assessment.md
+```
+
+or, against a running instance:
+
+```bash
+curl -X POST localhost:8080/api/report \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/my-solution"}' -o assessment.md
+```
+
+Markdown comes back as the body rather than as a field inside JSON, because it
+is meant to be written to a file, converted to PDF or pasted into a ticket.
+
+**Orchard CMS, 414,611 lines, assessed in 2 seconds.** The document opens with
+the paragraph for a reader who will read one paragraph:
+
+> orchard is 89 projects and 414,611 lines across 6,203 source files. Everything
+> targets v4.8. No test project references 45 of the 78 projects that ship code,
+> covering 75,908 lines. 449 files were ranked on structure and change frequency
+> together. The one at the top is
+> `src/Orchard.Web/Core/Contents/Controllers/AdminController.cs`. 89 of 89
+> project files are in the pre-SDK format. 73 projects reference packages that
+> exist only inside the .NET Framework, which no conversion tool will fix; 16
+> others are convertible as they stand.
+
+Then the shape of the solution and its diagram, the findings, the ranked files
+with the reasons beside them, what a move to modern .NET runs into, and the
+order of work: what blocks everything else, what a tool does without anyone
+having to decide, what needs a decision, and what may cost nothing at all.
+
+**No model is involved.** The plan was for one to turn the facts into sentences.
+It turned out not to be needed: every sentence is a template filled with a
+measured number. Nothing in the document can be invented because nothing in it
+is generated, which is the only answer worth giving to the question a buyer asks
+about any generated document. It also means the whole thing costs nothing to
+run, so CI regenerates it on every commit instead of it being a snapshot someone
+produced once.
+
+**The order carries no days.** Nothing here measured how fast anyone works, so
+the sequence is a dependency order, which is a property of the codebase, rather
+than a schedule, which is a property of the team.
+
+**What it could not see is printed in the document**, not left in the source for
+the reader to find out afterwards: that nothing was compiled, that test coverage
+is a naming convention which over-reports, and how many packages are
+unclassified rather than quietly assumed to be fine.
+
+---
+
 ## Running it
 
 Requirements: Docker, and roughly 6 GB of free RAM for the generation model.
@@ -445,7 +502,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 45 tests, no network, ~100 ms
+dotnet test                                   # 208 tests, no network, ~400 ms
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 5 tests, no network, ~1 s
@@ -462,9 +519,12 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 77 unit tests covering every layer, no network, no model, 100 ms for
-the suite, and the pipeline has been run end to end against a real repository:
-this one.
+**Question answering** needs an index and a local model. 208 unit tests covering
+every layer, no network, no model, 400 ms for the suite, and the pipeline has
+been run end to end against a real repository: this one.
+
+**The assessment** sits on the first half and inherits its speed: no model, no
+index, no compilation, and a 414,611-line solution documented in two seconds.
 
 Indexing its own 21 source files produced 58 chunks in 48 seconds on a laptop
 CPU, and it answers questions about itself correctly, citing lines that hold
@@ -474,8 +534,9 @@ The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
-Known gaps for the question-answering half, in order of impact: no streaming,
-no persistence, no reranking. See [docs/NEXT.md](docs/NEXT.md) for the detail,
+Known gaps for the question-answering half, in order of impact: no reranking,
+and a first index that cannot be made fast on a CPU. See
+[docs/NEXT.md](docs/NEXT.md) for the detail,
 and [docs/ROADMAP.md](docs/ROADMAP.md) for where this is going.
 
 ## Licence

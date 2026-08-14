@@ -56,3 +56,12 @@ public record RiskRequest(string Path, int MinimumCodeLines = 100, int HistoryMo
 public record DiagramRequest(string Path, string? Namespace = null, string? Type = null, int MaxMembers = 8);
 
 public record ModerniseRequest(string Path, int TopUnknown = 15);
+
+/// <summary>
+/// A request for the assessment document.
+///
+/// <paramref name="Top"/> bounds the ranked file table. The rest of the report
+/// has no knob on purpose: a document whose sections are negotiable per call is
+/// a document nobody can compare against last month's.
+/// </summary>
+public record ReportRequest(string Path, int Top = 15, int HistoryMonths = 24);

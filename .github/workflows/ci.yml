@@ -22,6 +22,40 @@ jobs:
 
       - run: dotnet test --no-build --configuration Release --verbosity normal
 
+  # The assessment, regenerated on every commit so that it stops being a
+  # snapshot somebody produced once and never refreshed. It runs against this
+  # repository, which is small, but it is a real end-to-end exercise of the
+  # whole analysis: a failure here means the document a client would receive
+  # cannot be produced at all.
+  #
+  # Full history rather than a shallow clone, because the ranking reads change
+  # frequency from git and a shallow clone would silently rank on structure
+  # alone.
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate the assessment
+        run: |
+          dotnet run --project src/LegacyLens.Api --configuration Release \
+                     -- report "$GITHUB_WORKSPACE" > assessment.md
+          # An empty or truncated document counts as a failure: the command
+          # exiting zero says nothing about whether it wrote a report.
+          test -s assessment.md
+          grep -q '## In what order' assessment.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: assessment
+          path: assessment.md
+
   web:
     runs-on: ubuntu-latest
     defaults:

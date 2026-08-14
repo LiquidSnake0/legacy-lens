@@ -287,23 +287,51 @@ does not have. **The wall is ingestion, and only ingestion.**
 
 ---
 
-## M6. The deliverable
+## M6. The deliverable ✅
 
 *The output that a buyer can put on a desk.*
 
-The tool produces JSON and a web page. Neither is something a client keeps. What
+**Done.** `POST /api/report`, or `report <path>` on the command line, produces a
+markdown assessment of a solution in seconds. Orchard, 414,611 lines, takes two.
+
+The tool produced JSON and a web page. Neither is something a client keeps. What
 consultancies sell for this problem is a document: what the system is, what will
 hurt, in what order to fix it. They produce it by hand, in weeks, and it is stale
 the month after.
 
-- A generated assessment: shape, dependency cycles, dead weight, ranked risk,
-  test gaps, with the evidence behind each claim
-- Regenerated on every commit, so it stops being a snapshot
-- Exportable, readable by someone who does not open an IDE
+- ~~A generated assessment~~ done: shape, findings, ranked risk, the migration
+  survey and the evidence behind each claim
+- ~~Regenerated on every commit~~ done, as a CI job that fails when the document
+  cannot be produced
+- ~~Exportable, readable by someone who does not open an IDE~~ done: markdown,
+  which renders on its own and converts to both HTML and PDF
 
-**Why this is the product.** Every number in it is measured. The model only
-turns facts into sentences, which is the rule this roadmap opens with. It is
-also the only output that survives contact with a non-technical reader.
+**The model was left out, deliberately.** The plan was for it to turn facts into
+sentences. It is not needed to: every sentence in the document is a template
+filled with a measured number, which is a stronger answer to the only question a
+buyer asks about a generated document. Nothing in it can be hallucinated because
+nothing in it was generated. It also costs nothing to run, which is what lets it
+regenerate on every commit rather than once per quarter.
+
+**Composing the four analyses found a fault none of them could see alone.** The
+risk ranking drops files whose own name looks like a test, which is all it can
+do with the file in front of it. Orchard's top-ranked file was
+`Orchard.Specs/Bindings/WebAppHosting.cs`, support code inside a test project
+that no naming convention identifies. Naming a test fixture as the most
+dangerous file in someone's product discredits every other row in the table. The
+report knows which folders belong to a test project, because it holds the map
+and the ranking does not, so it drops them. That is the argument for composing
+these rather than printing them side by side.
+
+**Three smaller things the first real run exposed.** The diagram had no bound on
+its size and drew 56 boxes for Orchard, a picture that renders as a wall; it now
+raises its own line threshold until it fits, and says in prose what fell off,
+since a Mermaid comment is rendered by nothing. A file could rank high without
+any single reason crossing the threshold that earns a sentence, leaving a blank
+cell that reads as a hole in the analysis. And the paragraph about package drift
+asserted that versions disagreed, on a solution with 279 hand-written binding
+redirects and no divergent version anywhere: true of most drifted legacies,
+false of this one, and contradicted by the table directly above it.
 
 **Why before the first-run flow.** The two milestones serve different readers.
 The report is read by whoever pays; the onboarding form is used by whoever
@@ -313,7 +341,12 @@ front of the codebase's owner, and what that meeting needs is the document, not
 a smoother way for a stranger to start the thing unaccompanied. Building the
 form first is building for a user who does not exist yet.
 
-**Effort:** a weekend, most of it on what to leave out.
+**Still open: the order of work carries no cost.** It is a dependency order, and
+it says so, because nothing here measured how fast anyone works. A reader who
+wants a price still has to supply the one number this tool cannot.
+
+**Effort:** an evening rather than a weekend, because the four analyses
+underneath were already right. Most of it went on what to leave out.
 
 ---
 
@@ -394,10 +427,22 @@ different conversation about the rest. The decision is the deliverable. It is
 unreachable without the instruments.
 
 One result worth recording because it was not expected: **zero version
-divergence across 93 distinct packages, and a single hand-written
-`bindingRedirect`.** Orchard is a *tended* legacy, not a rotten one. Those are
-not the same job and must not carry the same estimate, so the scan has to tell
-them apart before anyone quotes a price.
+divergence across 93 distinct packages, and 279 `bindingRedirect` elements.**
+
+The 279 corrects a figure written here earlier, which said one. The earlier
+count was taken by hand with a case-sensitive search, and .NET names the file
+`Web.config`. The scan, which compares names case-insensitively because Windows
+does, finds 279 across the module configs. Verified independently before this
+was rewritten: `find -iname web.config -o -iname app.config` over the same tree,
+excluding build output, returns the same 279.
+
+**So Orchard is not the tended legacy this section claimed.** Its packages agree
+with each other today, but the redirects are the trace of disagreements that
+were already reconciled once, and they are load-bearing: dropping one during a
+conversion is a runtime failure that nothing in the build predicts. A tended
+legacy and a drifted one are not the same job and must not carry the same
+estimate, which is exactly why the scan has to tell them apart, and exactly why
+a number nobody re-measured is worth less than one the tool produces on demand.
 
 **The market says this is the opening.** Microsoft shipped GitHub Copilot app
 modernization for .NET in September 2025 and deprecated the free .NET Upgrade
