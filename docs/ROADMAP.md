@@ -132,7 +132,7 @@ Crossing three signals that are all already on disk:
 | Signal | Source |
 |---|---|
 | Size and complexity | Roslyn: lines, cyclomatic complexity, nesting depth |
-| Change frequency | git log over the last 24 months (see the defect below) |
+| Change frequency | git log, over a window (see the defect above) |
 | Test coverage | presence of tests referencing the type |
 
 A file that is large, changed constantly, and untested is where the next
