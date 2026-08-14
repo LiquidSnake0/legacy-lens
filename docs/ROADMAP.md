@@ -39,8 +39,11 @@ generated code entirely, and dropping files that vanish. A second run over an
 unchanged repository takes 10 ms instead of 522 seconds; one edited file takes
 1.2 seconds.
 
-Still open: a progress stream, so a two-hour first index reports where it is
-rather than appearing to hang.
+Still open: carrying that progress out of the log. The run now reports every
+file it finishes, but the ingest endpoint answers only once the whole thing
+returns, so anything watching from a browser still sees a request that hangs for
+two hours. The log is enough for the person running it from a terminal, which is
+who runs it today. Turning it into a stream is part of the background job in M7.
 
 Now measured on a real one rather than estimated. See **Measured on Orchard**
 below: 1.55 chunks per second, which puts a quarter of a million lines of C# at
@@ -49,10 +52,12 @@ roughly 1.7 hours on a CPU. The overnight-job prediction was right.
 - ~~Index a genuinely old .NET Framework solution and measure honestly~~ done
 - ~~Batch and parallelise embedding calls~~ tried, both made it slower
 - ~~Incremental indexing~~ done, by content hash rather than mtime
-- Still open: **resumable ingestion with progress.** Today the run embeds every
-  chunk and writes once at the end, so a crash at 95% loses the whole run and
-  nothing reports where it is. On a two-hour job that is the wrong shape, and it
-  is what blocks the first-run flow in M6.
+- ~~Resumable ingestion with progress~~ done, by moving the write inside the
+  loop. Each file is embedded, stored and recorded before the next one starts,
+  so a crash costs the file in flight instead of the whole run, and each file
+  logs where the run is and what the rate implies about the time left. The
+  ledger already keyed files by content hash, so this needed no schema: the
+  granularity to resume at was there before the ability to use it.
 
 **Done when** a 1000-file solution indexes in minutes and re-indexes in seconds.
 Half true: re-indexing is 10 ms, the first pass is still hours without a GPU.
@@ -282,7 +287,37 @@ does not have. **The wall is ingestion, and only ingestion.**
 
 ---
 
-## M6. First run
+## M6. The deliverable
+
+*The output that a buyer can put on a desk.*
+
+The tool produces JSON and a web page. Neither is something a client keeps. What
+consultancies sell for this problem is a document: what the system is, what will
+hurt, in what order to fix it. They produce it by hand, in weeks, and it is stale
+the month after.
+
+- A generated assessment: shape, dependency cycles, dead weight, ranked risk,
+  test gaps, with the evidence behind each claim
+- Regenerated on every commit, so it stops being a snapshot
+- Exportable, readable by someone who does not open an IDE
+
+**Why this is the product.** Every number in it is measured. The model only
+turns facts into sentences, which is the rule this roadmap opens with. It is
+also the only output that survives contact with a non-technical reader.
+
+**Why before the first-run flow.** The two milestones serve different readers.
+The report is read by whoever pays; the onboarding form is used by whoever
+installs. Those are the same person only once the tool is sold self-serve, and
+it is not. Until then the operator is the one holding the keyboard, standing in
+front of the codebase's owner, and what that meeting needs is the document, not
+a smoother way for a stranger to start the thing unaccompanied. Building the
+form first is building for a user who does not exist yet.
+
+**Effort:** a weekend, most of it on what to leave out.
+
+---
+
+## M7. First run
 
 *The gap between "a thing I built" and "a thing someone else can start".*
 
@@ -304,32 +339,12 @@ behind the same button.
 - **Workspaces.** One index per project, selectable. This is the real work: a
   `workspace_id` on chunks and a schema migration. The form is an afternoon.
 
-**Why now.** The measurements say the fast half is a genuine product on its own
-and it is currently invisible.
+**Why it still ranks this high.** The measurements say the fast half is a
+genuine product on its own and it is currently invisible. Answering immediately
+with it is the one item here that does not wait for a self-serve audience: the
+report in M6 wants the same split, so that piece gets built either way.
 
 **Effort:** a weekend for workspaces, an afternoon for the form.
-
----
-
-## M7. The deliverable
-
-*The output that a buyer can put on a desk.*
-
-The tool produces JSON and a web page. Neither is something a client keeps. What
-consultancies sell for this problem is a document: what the system is, what will
-hurt, in what order to fix it. They produce it by hand, in weeks, and it is stale
-the month after.
-
-- A generated assessment: shape, dependency cycles, dead weight, ranked risk,
-  test gaps, with the evidence behind each claim
-- Regenerated on every commit, so it stops being a snapshot
-- Exportable, readable by someone who does not open an IDE
-
-**Why this is the product.** Every number in it is measured. The model only
-turns facts into sentences, which is the rule this roadmap opens with. It is
-also the only output that survives contact with a non-technical reader.
-
-**Effort:** a weekend, most of it on what to leave out.
 
 ---
 

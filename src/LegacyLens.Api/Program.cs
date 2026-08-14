@@ -142,6 +142,62 @@ app.MapGet("/api/excerpt", async (
         });
 });
 
+// How much of a modernisation is mechanical, and what no automation will do.
+// Reads project files only: no compilation, no restore, no call to nuget.org,
+// so it answers on a solution that does not build.
+app.MapPost("/api/modernise", (ModerniseRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    try
+    {
+        var survey = new Modernisation().Survey(request.Path);
+
+        return Results.Ok(new
+        {
+            projects = new
+            {
+                total = survey.Projects.Count,
+                preSdk = survey.PreSdk,
+                sdkStyle = survey.SdkStyle,
+                blocked = survey.Blocked,
+                convertibleAsIs = survey.ConvertibleAsIs,
+            },
+            packaging = new
+            {
+                packagesConfig = survey.UsingPackagesConfig,
+                packageReference = survey.UsingPackageReference,
+                bindingRedirects = survey.BindingRedirects,
+            },
+            packages = new
+            {
+                references = survey.References,
+                distinct = survey.Packages.Count,
+                divergent = survey.Divergent,
+                portable = survey.ReferencesPortable,
+                tiedToSystemWeb = survey.ReferencesTiedToSystemWeb,
+                // Reported separately from portable: an unknown package sold
+                // as fine is a problem discovered after the price is agreed.
+                unclassified = survey.ReferencesUnknown,
+            },
+            // Old but coherent is a different job from old and drifted. The
+            // distinction belongs in the answer, not in the reader's head.
+            tended = survey.Tended,
+            deadEnds = survey.DeadEnds.Select(p => new { p.Id, p.Projects }),
+            unknown = survey.Packages
+                .Where(p => p.Portability == Portability.Unknown)
+                .OrderByDescending(p => p.Projects)
+                .Take(request.TopUnknown)
+                .Select(p => new { p.Id, p.Projects, p.Versions }),
+        });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 // Structural analysis. Unlike /api/ask this touches no model at all: the
 // project files and the folder layout are read directly, which is why it
 // answers in milliseconds and cannot invent anything.
