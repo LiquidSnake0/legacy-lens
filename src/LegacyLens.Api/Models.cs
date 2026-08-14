@@ -38,3 +38,5 @@ public record MapResponse(
     int Dependencies,
     IReadOnlyList<object> Findings,
     string Mermaid);
+
+public record RiskRequest(string Path, int MinimumCodeLines = 100, int HistoryMonths = 24, int Top = 20);

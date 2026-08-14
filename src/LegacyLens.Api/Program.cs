@@ -113,6 +113,36 @@ app.MapPost("/api/map", (MapRequest request) =>
     }
 });
 
+// Where the code is likely to hurt. Complexity from Roslyn, change frequency
+// from git, test coverage by naming convention. No model involved: every
+// number here is measured, and the ones that could not be measured say so.
+app.MapPost("/api/risk", (RiskRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    try
+    {
+        var report = new SolutionAnalysis
+        {
+            MinimumCodeLines = request.MinimumCodeLines,
+            HistoryMonths = request.HistoryMonths,
+        }.Analyse(request.Path);
+
+        return Results.Ok(new
+        {
+            history = new { status = report.HistoryStatus.ToString(), note = report.HistoryNote },
+            generatedFilesExcluded = report.GeneratedFilesExcluded,
+            ranked = report.Entries.Count,
+            entries = report.Entries.Take(request.Top),
+        });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
 {
     await store.ClearAsync(ct);

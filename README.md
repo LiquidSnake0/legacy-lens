@@ -164,6 +164,41 @@ The third one is the interesting kind. A library named Core that depends on
 reused from a service or a desktop client. Nothing about the file layout says
 so; nothing about the build complains. It surfaces the day someone tries.
 
+### Where the code will hurt
+
+```bash
+curl -X POST localhost:8080/api/risk \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/my-solution"}'
+```
+
+Three signals, all already on disk: complexity from Roslyn's parser, change
+frequency from git, test coverage by naming convention. 1,731 files of
+nopCommerce ranked in 1.4 seconds.
+
+| Score | File | Why |
+|---|---|---|
+| 1.33 | `Administration/Controllers/ProductController.cs` | 3,800 lines, `PrepareProductModel` at complexity 36, nested 8 deep, untested |
+| 1.33 | `Nop.Services/Catalog/ProductService.cs` | `SearchProducts` at complexity 101, nested 9 deep, untested |
+| 1.27 | `Administration/Controllers/CustomerController.cs` | `Edit` at complexity 56, untested |
+
+A cyclomatic complexity of 101 means covering that method's branches would take
+101 tests. That number is the argument; the score beside it is only a sort key.
+
+**The ranking uses the geometric mean of structure and churn**, not the average.
+A file has to score high on both to reach the top: complicated but never touched
+is not urgent, and touched constantly but trivial is not dangerous. Averaging
+would let either one alone carry a file up.
+
+**Generated code is excluded.** nopCommerce holds a WSDL proxy with 1,944
+methods that topped every chart until it was filtered out, and told the reader
+nothing they could act on.
+
+**When git history is unavailable, the report says so.** A shallow clone and a
+codebase where nothing ever changes produce the same empty result. Reporting
+"nothing changes here" when the truth is "I could not look" is exactly the
+confident wrong answer this project exists to avoid.
+
 ### What it refuses to guess
 
 Project kind is decided by what sits in the folder, not by which assemblies are

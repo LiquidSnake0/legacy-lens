@@ -1,0 +1,226 @@
+using LegacyLens.Analysis;
+
+namespace LegacyLens.Tests;
+
+public class CodeMetricsTests
+{
+    private static FileMetrics Measure(string source, string path = "/src/Thing.cs") =>
+        new CodeMetrics().Measure(path, source);
+
+    // ---- complexity ----------------------------------------------------
+
+    [Fact]
+    public void A_method_with_no_branches_has_complexity_one()
+    {
+        var m = Measure("class C { void M() { var x = 1; } }");
+        Assert.Equal(1, m.WorstMethodComplexity);
+    }
+
+    [Fact]
+    public void Each_branch_adds_one_path()
+    {
+        var m = Measure("""
+            class C {
+                void M(int x) {
+                    if (x > 0) { }
+                    if (x > 1) { }
+                    while (x > 2) { }
+                }
+            }
+            """);
+        Assert.Equal(4, m.WorstMethodComplexity);   // 1 + three decisions
+    }
+
+    [Fact]
+    public void Short_circuiting_operators_branch_but_arithmetic_does_not()
+    {
+        var branching = Measure("class C { bool M(bool a, bool b) => a && b; }");
+        var arithmetic = Measure("class C { int M(int a, int b) => a + b; }");
+
+        Assert.Equal(2, branching.WorstMethodComplexity);
+        Assert.Equal(1, arithmetic.WorstMethodComplexity);
+    }
+
+    [Fact]
+    public void Every_case_label_is_its_own_path()
+    {
+        // "case 1: case 2:" falling through to one body is two ways in.
+        var m = Measure("""
+            class C {
+                void M(int x) {
+                    switch (x) {
+                        case 1:
+                        case 2:
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+            """);
+        Assert.Equal(4, m.WorstMethodComplexity);
+    }
+
+    [Fact]
+    public void A_lambda_does_not_reset_the_enclosing_method()
+    {
+        // Naive walkers lose the outer tally when they descend into a lambda,
+        // which quietly understates exactly the methods worth finding.
+        var m = Measure("""
+            class C {
+                void M(int x) {
+                    if (x > 0) { }
+                    System.Action a = () => { if (x > 1) { } };
+                    if (x > 2) { }
+                }
+            }
+            """);
+        Assert.True(m.WorstMethodComplexity >= 3,
+            $"outer method scored {m.WorstMethodComplexity}, lambda swallowed its branches");
+    }
+
+    [Fact]
+    public void The_worst_method_is_named()
+    {
+        var m = Measure("""
+            class C {
+                void Simple() { }
+                void Gnarly(int x) { if (x > 0) { } if (x > 1) { } if (x > 2) { } }
+            }
+            """);
+        Assert.Equal("Gnarly", m.WorstMethod);
+    }
+
+    [Fact]
+    public void Nesting_depth_is_measured()
+    {
+        var m = Measure("""
+            class C {
+                void M(int x) {
+                    if (x > 0) {
+                        while (x > 1) {
+                            foreach (var i in new int[0]) { }
+                        }
+                    }
+                }
+            }
+            """);
+        Assert.Equal(3, m.MaxNesting);
+    }
+
+    // ---- counting ------------------------------------------------------
+
+    [Fact]
+    public void Comments_and_blank_lines_are_not_code()
+    {
+        var m = Measure("""
+            // a comment
+
+            /* a block
+               of comment */
+            class C { }
+            """);
+        Assert.Equal(1, m.CodeLines);
+    }
+
+    [Fact]
+    public void Types_of_every_shape_are_counted()
+    {
+        var m = Measure("class A { } struct B { } interface I { } record R(int X);");
+        Assert.Equal(4, m.Types);
+    }
+
+    [Fact]
+    public void A_property_with_a_body_counts_as_a_method()
+    {
+        // Legacy code hides a great deal inside accessors, and a getter with a
+        // dozen branches is exactly what this is meant to surface.
+        var m = Measure("class C { int P { get { if (true) return 1; return 0; } } }");
+        Assert.True(m.Methods >= 1);
+        Assert.Equal(2, m.WorstMethodComplexity);
+    }
+
+    [Fact]
+    public void An_auto_property_is_not_a_method()
+    {
+        var m = Measure("class C { int P { get; set; } }");
+        Assert.Equal(0, m.Methods);
+    }
+
+    // ---- generated code -------------------------------------------------
+
+    [Fact]
+    public void The_generated_attribute_marks_a_file()
+    {
+        var m = Measure("""
+            [System.CodeDom.Compiler.GeneratedCodeAttribute("wsdl", "4.0")]
+            public class Proxy { }
+            """);
+        Assert.True(m.IsGenerated);
+    }
+
+    [Fact]
+    public void An_auto_generated_banner_marks_a_file()
+    {
+        var m = Measure("""
+            //------------------------------------------------------------------------------
+            // <auto-generated>
+            //     This code was generated by a tool.
+            // </auto-generated>
+            //------------------------------------------------------------------------------
+            public class Proxy { }
+            """);
+        Assert.True(m.IsGenerated);
+    }
+
+    [Fact]
+    public void A_web_references_folder_marks_a_file()
+    {
+        // Where Visual Studio drops SOAP proxies. In nopCommerce that folder
+        // held a single file with 1,944 methods, which topped every ranking
+        // until it was excluded.
+        var m = Measure("public class Reference { }",
+                        "/src/Nop.Services/Web References/VatService/Reference.cs");
+        Assert.True(m.IsGenerated);
+    }
+
+    [Fact]
+    public void Ordinary_code_is_not_marked_as_generated()
+    {
+        var m = Measure("// A normal comment about generated ids\nclass C { }");
+        Assert.False(m.IsGenerated);
+    }
+
+    // ---- test files -----------------------------------------------------
+
+    [Fact]
+    public void A_test_attribute_marks_a_test_file()
+    {
+        var m = Measure("public class Whatever { [Fact] public void It() { } }", "/src/Whatever.cs");
+        Assert.True(m.IsTest);
+    }
+
+    [Fact]
+    public void A_tests_folder_marks_a_test_file()
+    {
+        var m = Measure("public class Helper { }", "/tests/Support/Helper.cs");
+        Assert.True(m.IsTest);
+    }
+
+    [Fact]
+    public void Production_code_is_not_marked_as_a_test()
+    {
+        var m = Measure("class PriceEngine { }", "/src/Billing/PriceEngine.cs");
+        Assert.False(m.IsTest);
+    }
+
+    [Fact]
+    public void A_file_that_does_not_parse_still_yields_metrics()
+    {
+        // Roslyn recovers from syntax errors rather than throwing, and a file
+        // mid-edit or written for an older language version must not abort an
+        // analysis of two thousand others.
+        var m = Measure("class C { void M( { if (");
+        Assert.True(m.Lines > 0);
+    }
+}

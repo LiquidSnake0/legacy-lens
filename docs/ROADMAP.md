@@ -64,6 +64,18 @@ Still open:
 
 *Where the code will hurt, before anyone touches it.*
 
+**Done.** `POST /api/risk`. 1,731 files of nopCommerce ranked in 1.4 seconds.
+
+Three things the corpus taught by being real rather than imagined: generated
+code has to be excluded or it tops every chart, test files have to be excluded
+or they rank as complex and untested, and a control character placed literally
+in a source file degrades silently between editors, which broke the git parser
+in a way no build error revealed.
+
+Still open: coverage is inferred from file names. Knowing what a test actually
+exercises needs resolved symbols, and requiring compilation would give up the
+property that makes this usable on inherited code.
+
 Crossing three signals that are all already on disk:
 
 | Signal | Source |
