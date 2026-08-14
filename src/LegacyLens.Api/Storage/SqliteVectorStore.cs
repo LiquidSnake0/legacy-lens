@@ -13,7 +13,7 @@ public interface IVectorStore
 /// <summary>
 /// Vectors in a SQLite file, searched by brute-force cosine scan.
 ///
-/// The index is one file you can copy, inspect and delete — which matters more
+/// The index is one file you can copy, inspect and delete, which matters more
 /// than search latency at this scale. See the README for where that stops being
 /// true and what to swap in.
 /// </summary>

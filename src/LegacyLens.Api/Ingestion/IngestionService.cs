@@ -54,7 +54,7 @@ public class IngestionService
             chunks.AddRange(_chunker.Split(relative, content));
         }
 
-        _log.LogInformation("Embedding {Count} chunks — this is the slow part", chunks.Count);
+        _log.LogInformation("Embedding {Count} chunks, this is the slow part", chunks.Count);
 
         var vectors = await _embeddings.EmbedBatchAsync(
             chunks.Select(c => c.EmbeddingText).ToList(), ct);

@@ -1,0 +1,91 @@
+<main>
+  <header>
+    <h1>Legacy Lens</h1>
+    <p class="tagline">
+      Ask questions about a codebase nobody maintains any more.
+      Every answer cites the lines it came from.
+    </p>
+
+    @if (indexed() !== null) {
+      <p class="status">
+        <span class="dot" [class.empty]="indexed() === 0"></span>
+        @if (indexed() === 0) {
+          Index is empty. Ingest a repository before asking.
+        } @else {
+          {{ indexed() }} chunks indexed
+        }
+      </p>
+    } @else {
+      <p class="status">
+        <span class="dot offline"></span>
+        API unreachable on port 8080
+      </p>
+    }
+  </header>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <label for="question">Your question</label>
+
+    <textarea
+      id="question"
+      formControlName="question"
+      rows="3"
+      placeholder="Where is authentication handled?"
+      [class.invalid]="questionControl.touched && questionControl.invalid"
+    ></textarea>
+
+    @if (questionControl.touched && questionControl.hasError('required')) {
+      <p class="field-error">A question is required.</p>
+    } @else if (questionControl.touched && questionControl.hasError('minlength')) {
+      <p class="field-error">
+        Too short to retrieve anything useful. Write a full question.
+      </p>
+    }
+
+    <div class="actions">
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Searching…' : 'Ask' }}
+      </button>
+
+      @if (loading()) {
+        <span class="hint">
+          Generation runs locally on the CPU. Tens of seconds is normal.
+        </span>
+      }
+    </div>
+  </form>
+
+  @if (!answer() && !loading() && !error()) {
+    <section class="examples">
+      <h2>Try</h2>
+      @for (example of examples; track example) {
+        <button type="button" class="example" (click)="useExample(example)">
+          {{ example }}
+        </button>
+      }
+    </section>
+  }
+
+  @if (error()) {
+    <section class="error">
+      <strong>Could not answer.</strong>
+      <p>{{ error() }}</p>
+    </section>
+  }
+
+  @if (answer()) {
+    <section class="answer">
+      <h2>Answer</h2>
+      <p>{{ answer() }}</p>
+    </section>
+
+    <lens-citations [sources]="sources()" />
+  }
+
+  <footer>
+    <span>Runs entirely on this machine. No source code leaves it.</span>
+    <a href="https://github.com/LiquidSnake0/legacy-lens" target="_blank" rel="noreferrer">
+      Source
+    </a>
+  </footer>
+</main>

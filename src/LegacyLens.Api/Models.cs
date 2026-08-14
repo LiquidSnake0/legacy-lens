@@ -10,7 +10,7 @@ public record Chunk(
 {
     /// <summary>
     /// The text actually sent to the embedding model. A bare fragment of code
-    /// embeds poorly on its own — the path carries a lot of the meaning.
+    /// embeds poorly on its own, the path carries a lot of the meaning.
     /// </summary>
     public string EmbeddingText => $"File: {FilePath}\n\n{Content}";
 }

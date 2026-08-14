@@ -3,7 +3,7 @@ using LegacyLens.Api.Ingestion;
 namespace LegacyLens.Tests;
 
 /// <summary>
-/// SourceWalker is already implemented — these pass from the start and exist to
+/// SourceWalker is already implemented, these pass from the start and exist to
 /// catch a regression in the skip rules, which are the difference between an
 /// index of your project and an index of everyone else's.
 /// </summary>

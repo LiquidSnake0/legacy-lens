@@ -3,8 +3,15 @@
 Ask questions about a codebase nobody maintains any more.
 
 Point it at a repository. It reads the source, indexes it, and answers questions
-in plain language with a citation for every claim — file and line numbers you can
+in plain language with a citation for every claim: file and line numbers you can
 open and check.
+
+![Legacy Lens answering a question about its own source, with citations](docs/screenshot.png)
+
+*Answering a question about its own source. Every claim carries the file and lines
+it came from, with the retrieval score beside it.*
+
+Or from the command line:
 
 ```
 > Where is the pricing calculated?
@@ -20,7 +27,7 @@ in Startup.cs:47, which is why changing it requires a restart.
 ```
 
 **Everything runs on your own machine.** The model is local. No source code is
-sent to a third-party API. That is not a feature of the demo — it is the reason
+sent to a third-party API. That is not a feature of the demo. It is the reason
 this exists. No manufacturer is going to upload the control software for their
 machines to a cloud provider.
 
@@ -34,7 +41,7 @@ model only sees excerpts actually pulled from your repository, and every claim
 carries the file and lines it came from.
 
 If the answer looks wrong, you open the file and see it in ten seconds. That is
-the whole design goal — the tool is not asking for trust, it is showing its work.
+the whole design goal: the tool is not asking for trust, it is showing its work.
 
 ---
 
@@ -113,6 +120,21 @@ curl -X POST localhost:8080/api/ask \
 Mount the repository you want to index by editing the `repos` volume in
 `docker-compose.yml`.
 
+### The web interface
+
+```bash
+cd web
+npm install
+npm start
+```
+
+Then open `http://localhost:4200`. The API allows that origin by default; change
+`CORS_ORIGIN` if you serve the frontend from somewhere else.
+
+Angular 22, standalone components, signals for local state, reactive forms for
+the question. It talks to the same HTTP API as the curl commands above, so
+neither side knows about the other beyond the JSON contract.
+
 ### Choosing models
 
 | Model | Size | Notes |
@@ -124,7 +146,7 @@ Mount the repository you want to index by editing the `repos` volume in
 
 Embedding is cheap and stays local in every configuration. Generation is the
 expensive half, so `IChatClient` has an OpenAI-compatible implementation for
-machines that cannot host a model — at the cost of the privacy guarantee above.
+machines that cannot host a model, at the cost of the privacy guarantee above.
 Set `CHAT_PROVIDER=openai` only when that trade is acceptable.
 
 ---
@@ -132,32 +154,32 @@ Set `CHAT_PROVIDER=openai` only when that trade is acceptable.
 ## Development
 
 ```bash
-dotnet restore
-dotnet test
+dotnet test                                   # 45 tests, no network, ~100 ms
 dotnet run --project src/LegacyLens.Api
+
+cd web && npm test                            # 5 tests, no network, ~1 s
 ```
 
-Requires the .NET SDK and Node. If `dotnet restore` fails on a package version,
-run `dotnet add package <name>` to pin whatever your SDK resolves.
+Requires the .NET 10 SDK and Node 20+.
 
 ---
 
 ## Status
 
-Working. 45 unit tests covering every layer — no network, no model, 100 ms for
-the suite — and the pipeline has been run end to end against a real repository:
+Working. 45 unit tests covering every layer, no network, no model, 100 ms for
+the suite, and the pipeline has been run end to end against a real repository:
 this one.
 
 Indexing its own 21 source files produced 58 chunks in 48 seconds on a laptop
 CPU, and it answers questions about itself correctly, citing lines that hold
 what the answer claims.
 
-The retrieval floor was set by measurement rather than intuition — the method
+The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
 Known gaps, in order of impact: no lexical search alongside the vector search,
-no frontend, no streaming. See [docs/NEXT.md](docs/NEXT.md).
+no streaming, no persistence. See [docs/NEXT.md](docs/NEXT.md).
 
 ## Licence
 

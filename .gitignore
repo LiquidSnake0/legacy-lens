@@ -8,7 +8,7 @@ web/dist/
 web/.angular/
 
 # The index, and any repository mounted for indexing.
-# Neither belongs in this repository — one is generated, the other is
+# Neither belongs in this repository, one is generated, the other is
 # somebody else's source code.
 *.db
 *.db-shm

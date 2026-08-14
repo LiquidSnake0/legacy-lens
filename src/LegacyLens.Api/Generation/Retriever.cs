@@ -26,7 +26,7 @@ public class Retriever
     /// weak excerpt the user can see the score of.
     ///
     /// Seven questions against one small repository is thin evidence, and the
-    /// figure is specific to nomic-embed-text — recalibrate on a real codebase,
+    /// figure is specific to nomic-embed-text, recalibrate on a real codebase,
     /// and again if the embedding model changes.
     /// </summary>
     public const float MinimumScore = 0.52f;

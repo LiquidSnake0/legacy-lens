@@ -56,7 +56,7 @@ public class CodeChunker
             // invisible until someone asks about exactly that code.
             if (end == start) end = start + 1;
 
-            // 2. Back off to a structural boundary — unless the slice already
+            // 2. Back off to a structural boundary, unless the slice already
             //    reaches the end of the file, where there is nothing to
             //    preserve by cutting earlier.
             var atEof = end >= lines.Length;
@@ -75,7 +75,7 @@ public class CodeChunker
 
             // 4. Advance, repeating a few lines so a declaration landing on a
             //    boundary is not orphaned from its body. Always by at least one
-            //    line — otherwise a short chunk plus a long overlap loops here
+            //    line, otherwise a short chunk plus a long overlap loops here
             //    forever.
             start = Math.Max(start + 1, cut + 1 - OverlapLines);
         }
@@ -99,7 +99,7 @@ public class CodeChunker
         var bestQuality = 0;
 
         // Walking backwards with a strict comparison keeps the latest line of
-        // the best available quality — the fullest chunk that still cuts well.
+        // the best available quality, the fullest chunk that still cuts well.
         for (var i = end - 1; i >= limit; i--)
         {
             var quality = BoundaryQuality(lines, depths, i);

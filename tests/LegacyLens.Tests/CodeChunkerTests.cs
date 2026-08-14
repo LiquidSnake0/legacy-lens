@@ -4,7 +4,7 @@ namespace LegacyLens.Tests;
 
 /// <summary>
 /// These assert invariants, not a strategy. How the file gets cut is a design
-/// decision — but wherever the cuts land, the line numbers have to be true and
+/// decision, but wherever the cuts land, the line numbers have to be true and
 /// no code may be silently dropped, because a citation nobody can verify is
 /// worse than no citation.
 /// </summary>

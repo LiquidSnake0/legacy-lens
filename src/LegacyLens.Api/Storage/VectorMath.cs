@@ -13,7 +13,7 @@ public static class VectorMath
             throw new ArgumentException(
                 $"Vectors must have the same number of dimensions: got {a.Length} and {b.Length}. " +
                 "In practice this means the index was built with a different embedding model " +
-                "than the one answering queries — reindex rather than compare across spaces.",
+                "than the one answering queries, reindex rather than compare across spaces.",
                 nameof(b));
 
         // One pass, three accumulators. In double, because summing hundreds of

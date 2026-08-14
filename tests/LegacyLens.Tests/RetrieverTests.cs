@@ -66,7 +66,7 @@ public class RetrieverTests
         // Capping must not become "keep whichever three came out of the database
         // first".
         // Every score is above MinimumScore, so line 100 can only be dropped by
-        // the per-file cap — which is what this test is about.
+        // the per-file cap, which is what this test is about.
         var candidates = new[]
         {
             Hit("Huge.cs", 100, 0.56f),

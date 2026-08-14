@@ -24,7 +24,7 @@ public class AnswerService
             return new AskResponse(
                 "Nothing in the indexed code appears to relate to that question. " +
                 "Either it is not covered by this repository, or the wording is too " +
-                "far from how the code names things — try the terms the code itself uses.",
+                "far from how the code names things, try the terms the code itself uses.",
                 []);
         }
 

@@ -10,7 +10,7 @@ public class PromptBuilder
 {
     /// <summary>
     /// Character budget for the whole prompt. A rough stand-in for the model's
-    /// token limit — roughly four characters per token for source code.
+    /// token limit, roughly four characters per token for source code.
     /// </summary>
     public int MaxChars { get; }
 
@@ -18,7 +18,7 @@ public class PromptBuilder
 
     /// <summary>
     /// Builds the prompt. <paramref name="hits"/> arrives ordered by score,
-    /// best first — keep it that way when trimming to fit the budget, so what
+    /// best first, keep it that way when trimming to fit the budget, so what
     /// gets dropped is always the weakest evidence.
     /// </summary>
     private const string Header = """
@@ -77,7 +77,7 @@ public class PromptBuilder
             }
 
             // Hits arrive best-first, so stopping here drops the weakest
-            // evidence — never the strongest.
+            // evidence, never the strongest.
             //
             // Except when nothing has been added yet: the single best excerpt
             // is worth more truncated than absent.

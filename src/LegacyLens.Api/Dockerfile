@@ -20,7 +20,7 @@ COPY --from=build /app .
 #
 # This RUN must come BEFORE the VOLUME below. Docker discards any change made to
 # a volume-declared path in later layers, so a chown placed after VOLUME is
-# silently thrown away — the container then starts fine and fails on the first
+# silently thrown away, the container then starts fine and fails on the first
 # request with "unable to open database file".
 RUN mkdir -p /data && chown -R app:app /app /data
 

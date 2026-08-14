@@ -1,0 +1,36 @@
+/* Design tokens, defined once and used everywhere.
+   Deliberately restrained: the interface exists to make the answer and its
+   citations readable, not to be looked at. */
+:root {
+  --ink: #1a2530;
+  --muted: #6b7c8a;
+  --line: #dde4ea;
+  --line-faint: #eef2f5;
+  --paper: #ffffff;
+  --wash: #f6f8fa;
+  --accent: #14304a;
+  --danger: #b1402a;
+  --danger-wash: #fbeeea;
+  --ok: #2c7a58;
+
+  --mono: "DejaVu Sans Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--wash);
+  -webkit-font-smoothing: antialiased;
+}

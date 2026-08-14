@@ -9,7 +9,7 @@ In rough order of how much each would improve the answers.
 The largest gap, and the one specific to code.
 
 Vector search is weak on rare identifiers. Someone typing `PriceEngine` wants
-that exact token, and an embedding — which encodes meaning — has no particular
+that exact token, and an embedding, which encodes meaning, has no particular
 reason to favour an exact match on a proper noun it never saw during training.
 Lexical search is simply better at that job.
 
@@ -23,7 +23,7 @@ Expect this to matter more than any amount of tuning elsewhere.
 
 Done once, on this repository. Four answerable questions scored 0.59 to 0.68 at
 the top; three unanswerable ones scored 0.00, 0.46 and 0.47. The floor sits at
-0.52, inside the gap. The original 0.4 was intuition, and it filtered nothing —
+0.52, inside the gap. The original 0.4 was intuition, and it filtered nothing ,
 embedding spaces are anisotropic, so an unrelated question still scores near 0.5.
 
 Seven questions against a 21-file repository is thin, and the number is tied to
@@ -31,13 +31,16 @@ Seven questions against a 21-file repository is thin, and the number is tied to
 after any change of embedding model.
 
 If the two clusters ever overlap, an absolute floor cannot separate them and a
-relative one is needed as well — discard anything below some fraction of the best
+relative one is needed as well, discard anything below some fraction of the best
 score for that query, which adapts to how hard the question is.
 
-## 3. A frontend
+## 3. Opening a citation
 
-`ng new web --routing --style=scss`. Chat view, the answer, and the citations as
-links that open the file at the right lines.
+The frontend exists now (Angular 22, in `web/`), and it shows each citation with
+its path, line range and score. What it does not do is open them: clicking a
+citation should show the excerpt, or hand off to an editor via a `vscode://`
+link. Right now the reader has to find the file themselves, which is most of the
+friction left in the loop.
 
 ## 4. Streaming
 
@@ -49,7 +52,7 @@ for that long feels broken. Server-sent events from the API, token by token.
 
 A cross-encoder rescoring the top twenty candidates, comparing each against the
 question directly rather than through separately-computed vectors. Markedly more
-accurate and markedly slower — worth it only once there is hardware to spare.
+accurate and markedly slower, worth it only once there is hardware to spare.
 
 ## 6. Incremental indexing
 
@@ -72,7 +75,7 @@ will find them anyway.
   boundary quality heuristic falls back to blank lines alone. Tracking
   indentation depth would fix it.
 - **Brute-force similarity search.** Deliberate up to roughly a million vectors
-  — see the README. `IVectorStore` exists so that changing it is a new class.
+ , see the README. `IVectorStore` exists so that changing it is a new class.
 - **The over-fetch multiplier in `Retriever` is currently free.** The store
   scores every chunk regardless. It is there for a store that does not exist yet.
 

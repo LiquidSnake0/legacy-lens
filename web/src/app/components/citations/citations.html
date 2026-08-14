@@ -1,0 +1,29 @@
+@if (sources().length) {
+  <section class="citations">
+    <h2>Sources</h2>
+
+    <p class="note">
+      Reconstructed from the chunks actually retrieved, not parsed from the
+      model's answer. Open the file at these lines and you will find what the
+      answer claims.
+    </p>
+
+    <ul>
+      @for (source of sources(); track source.filePath + source.startLine) {
+        <li>
+          <div class="where">
+            <span class="path">{{ source.filePath }}</span>
+            <span class="lines">{{ lines(source) }}</span>
+          </div>
+
+          <div class="score" [title]="'Cosine similarity: ' + source.score.toFixed(3)">
+            <div class="bar">
+              <div class="fill" [style.width.%]="width(source.score)"></div>
+            </div>
+            <span class="value">{{ source.score.toFixed(2) }}</span>
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+}
