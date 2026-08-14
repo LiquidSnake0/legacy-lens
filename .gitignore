@@ -19,11 +19,14 @@ repos/*
 # Local configuration
 .env
 
-# Editors
+# Editors and local tooling
 .vs/
 .vscode/
 .idea/
 *.user
+# Holds working copies of this repository under .claude/worktrees. Tracking it
+# would commit the repository into itself.
+.claude/
 
 # OS
 .DS_Store
