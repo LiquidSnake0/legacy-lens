@@ -346,6 +346,44 @@ Automate that fraction, one reviewable change at a time, and be explicit that
 the rest needs a human. Every change lands as a diff a person approves, never
 as a commit the tool makes on its own.
 
+### How much of it is mechanical, measured
+
+Counted on Orchard by reading project files, no model involved. The tool does
+not compute this yet; this is the specification for what it should.
+
+| | |
+|---|---|
+| Projects in the pre-SDK format | **89 of 89** |
+| Using `packages.config` | **83** |
+| Using `PackageReference` | **0** |
+| Package references in total | **722** |
+
+The format conversion is therefore the whole estate, and it is unambiguous
+machine work. What it does **not** do is unblock the port:
+
+| | |
+|---|---|
+| References with a path to modern .NET | 356 (**49%**) |
+| References bound to `System.Web` | 366 (**51%**) |
+| Projects held back by a dead end | **73 of 89** |
+
+Four packages account for almost all of it, each present in 73 projects:
+`Microsoft.AspNet.Mvc`, `Microsoft.AspNet.Razor`, `Microsoft.AspNet.WebPages`
+and `Microsoft.Web.Infrastructure`. ASP.NET MVC 5 has no path to .NET 8, so
+Orchard cannot be ported without rewriting its web layer.
+
+**That is the finding, and it is the argument for this whole tool.** No amount
+of automation resolves it. A person reads that table in seconds and decides:
+convert the formats, isolate the sixteen projects that are clean, and have a
+different conversation about the rest. The decision is the deliverable. It is
+unreachable without the instruments.
+
+One result worth recording because it was not expected: **zero version
+divergence across 93 distinct packages, and a single hand-written
+`bindingRedirect`.** Orchard is a *tended* legacy, not a rotten one. Those are
+not the same job and must not carry the same estimate, so the scan has to tell
+them apart before anyone quotes a price.
+
 **The market says this is the opening.** Microsoft shipped GitHub Copilot app
 modernization for .NET in September 2025 and deprecated the free .NET Upgrade
 Assistant it replaced. The public complaints are specific: less deterministic
@@ -355,8 +393,17 @@ repair, and NuGet package references that do not exist.
 That last one is the failure mode this codebase is built against. The map, the
 risk ranking and the diagrams read the disk. They cannot invent a package.
 
-**Effort:** unknown, and deliberately last. Nothing here ships before the
-reviewing workflow does.
+**Why last, and it is not a judgement on the idea.** M0 through M7 read. A
+wrong reading is an embarrassing report, regenerated in seconds. This one
+writes into someone else's system, where a wrong write is their production.
+Same reason an autopilot is not installed on an aircraft whose instrument panel
+is dark: the instruments are not a prerequisite to the automation, they are
+what makes commanding it possible at all.
+
+**Effort:** the mechanical conversion is bounded and knowable, a weekend. The
+layer that decides *which* conversions to propose, and says plainly when the
+answer is "this does not port", is the part that takes real time. Nothing here
+ships before the surface a person commands it from.
 
 ---
 
@@ -367,9 +414,14 @@ this, with teams behind them. Competing there means losing quietly. M8 takes one
 narrow slice of it, the transformations that are mechanical and identical across
 every codebase, and nothing beyond that.
 
-**Merging anything.** The tool proposes; a person approves. This is not a
-limitation to be lifted later. A tool that upgrades a bank's framework
-unsupervised is a liability, and the reviewing human is the product.
+**Merging anything.** The tool proposes; a person commands. This is not a
+limitation to be lifted later.
+
+*Review* is the wrong word for it. A reviewer checks someone else's work after
+the fact. The person here sets the course, reads the instruments throughout,
+takes the controls at the moments that matter, and is inside the thing being
+flown. A tool that upgrades a bank's framework unsupervised is a liability. The
+person in command is the product.
 
 **Cloud hosting.** The entire premise is that the code does not leave the
 machine. A hosted version would contradict the one thing this tool offers, and
