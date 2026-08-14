@@ -28,3 +28,13 @@ public record IngestResponse(int FilesRead, int ChunksIndexed, long ElapsedMs);
 public record AskRequest(string Question, int TopK = 6);
 
 public record AskResponse(string Answer, IReadOnlyList<Citation> Sources);
+
+public record MapRequest(string Path, int MinimumLines = 500, bool IncludeTests = false);
+
+public record MapResponse(
+    int Projects,
+    int Files,
+    int Lines,
+    int Dependencies,
+    IReadOnlyList<object> Findings,
+    string Mermaid);

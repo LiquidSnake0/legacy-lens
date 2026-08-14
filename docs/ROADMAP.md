@@ -34,24 +34,29 @@ it is an overnight job.
 
 ---
 
-## M1. The map
+## M1. The map ✅
 
 *Point it at a solution, get the shape of the system back.*
 
-Project dependency graph, layers, entry points, what calls what. Extracted by
-parsing `.csproj` files and the code itself, not inferred by a model.
+**Done.** `POST /api/map`. 300,000 lines of nopCommerce in 219 ms, no compilation
+involved. Two things the real corpus taught that guessing would not have:
+project kind must come from the folder rather than the assembly references, and
+a folder can share its name with a project inside it, which silently corrupts a
+diagram if node and subgraph identifiers collide.
 
-- Parse project references into a directed graph
-- Detect layering and flag cycles, which are what actually hurt in old solutions
-- Identify entry points: `Main`, controllers, WPF windows, hosted services
-- Emit **Mermaid**, so the result renders in a README, a ticket or a wiki with
-  no viewer to install
+Shipped:
 
-**Why first.** It is the only output that is instant, deterministic and
-impossible to get wrong. Ten seconds after pointing at an unfamiliar solution,
-you have something true on screen.
+- Project dependency graph from `.csproj` references, resolved by name rather
+  than by path, because relative paths in old solutions are frequently wrong
+- Cycle detection
+- Kind per project, from folder markers
+- Findings: untested, oversized, orphaned, library coupled to web, unreadable
+- Mermaid output, grouped by folder, with omissions stated rather than silent
 
-**Effort:** a weekend for the graph, an evening for the Mermaid output.
+Still open:
+
+- Entry points: `Main`, controllers, WPF windows, hosted services
+- Layer inference beyond folder names
 
 ---
 

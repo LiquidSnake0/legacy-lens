@@ -17,4 +17,8 @@
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\LegacyLens.Analysis\LegacyLens.Analysis.csproj" />
+  </ItemGroup>
+
 </Project>

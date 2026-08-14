@@ -90,6 +90,95 @@ is a new class, not a rewrite. When the numbers justify it.
 
 ---
 
+## Mapping a solution
+
+Answering questions needs a model. Understanding the *shape* of a solution does
+not, and should not: the project files and the folder layout state it outright.
+
+```bash
+curl -X POST localhost:8080/api/map \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/my-solution","minimumLines":3000}'
+```
+
+No compilation, no NuGet restore, no MSBuild. That is the point. The moment you
+most need to understand an inherited solution is the moment it does not build,
+because a package is gone or the SDK is not installed. Tools built on the
+compiler are useless exactly when they would help.
+
+### What it produces
+
+Run against [nopCommerce 3.90](https://github.com/nopSolutions/nopCommerce), an
+ASP.NET MVC application on .NET Framework 4.5: **31 projects, 2005 files,
+300,073 lines, analysed in 219 ms.**
+
+```mermaid
+graph LR
+  subgraph gLibraries["Libraries"]
+    nNop_Services["Nop.Services<br/>77,151 lines"]
+    nNop_Core["Nop.Core<br/>20,678 lines"]
+  end
+  subgraph gNop_Web["Nop.Web"]
+    nNop_Admin["Nop.Admin<br/>47,147 lines"]
+  end
+  subgraph gPlugins["Plugins"]
+    nNop_Plugin_Shipping_Fedex["Nop.Plugin.Shipping.Fedex<br/>23,231 lines"]
+  end
+  subgraph gPresentation["Presentation"]
+    nNop_Web["Nop.Web<br/>79,458 lines"]
+    nNop_Web_Framework["Nop.Web.Framework<br/>8,447 lines"]
+  end
+
+  nNop_Web --> nNop_Core
+  nNop_Web --> nNop_Services
+  nNop_Web --> nNop_Web_Framework
+  nNop_Admin --> nNop_Core
+  nNop_Admin --> nNop_Services
+  nNop_Admin --> nNop_Web_Framework
+  nNop_Web_Framework --> nNop_Core
+  nNop_Web_Framework --> nNop_Services
+  nNop_Services --> nNop_Core
+  nNop_Plugin_Shipping_Fedex --> nNop_Core
+  nNop_Plugin_Shipping_Fedex --> nNop_Services
+  nNop_Plugin_Shipping_Fedex --> nNop_Web_Framework
+
+  classDef web fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+  classDef library fill:#f1f5f9,stroke:#64748b,color:#1e293b
+  class nNop_Web,nNop_Admin,nNop_Plugin_Shipping_Fedex web
+  class nNop_Web_Framework,nNop_Services,nNop_Core library
+
+  %% 25 project(s) omitted: under 8,000 lines, or test projects
+```
+
+Alongside the diagram, the findings:
+
+| Finding | Count | Example |
+|---|---|---|
+| Untested | 20 | No test project references `Nop.Plugin.Payments.PayPalStandard` |
+| Oversized | 5 | `Nop.Web` holds 79,458 lines in one project |
+| Library coupled to web | 4 | `Nop.Core` depends on `System.Web.Mvc` |
+| Orphan | 1 | Nothing references `Nop.Plugin.ExchangeRate.EcbExchange` |
+
+The third one is the interesting kind. A library named Core that depends on
+`System.Web.Mvc` cannot be unit tested without a web context and cannot be
+reused from a service or a desktop client. Nothing about the file layout says
+so; nothing about the build complains. It surfaces the day someone tries.
+
+### What it refuses to guess
+
+Project kind is decided by what sits in the folder, not by which assemblies are
+referenced. Assembly references lie: `Nop.Core` references `System.Web.Mvc` and
+is a class library all the same. A `web.config` next to a `Views` folder does
+not lie.
+
+That distinction is the rule the whole analysis follows:
+
+> **The tool never guesses what it can measure.**
+> The project files and git supply the facts. The model turns them into
+> sentences, and never the other way round.
+
+---
+
 ## Running it
 
 Requirements: Docker, and roughly 6 GB of free RAM for the generation model.
@@ -166,7 +255,12 @@ Requires the .NET 10 SDK and Node 20+.
 
 ## Status
 
-Working. 45 unit tests covering every layer, no network, no model, 100 ms for
+Working, in two halves.
+
+**Structural analysis** reads project files and folder layout, involves no model
+at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
+
+**Question answering** needs an index and a local model. 77 unit tests covering every layer, no network, no model, 100 ms for
 the suite, and the pipeline has been run end to end against a real repository:
 this one.
 
@@ -178,7 +272,7 @@ The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
-Known gaps, in order of impact: no lexical search alongside the vector search,
+Known gaps for the question-answering half, in order of impact: no lexical search alongside the vector search,
 no streaming, no persistence. See [docs/NEXT.md](docs/NEXT.md) for the detail,
 and [docs/ROADMAP.md](docs/ROADMAP.md) for where this is going.
 

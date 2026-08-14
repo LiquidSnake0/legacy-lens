@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/LegacyLens.Api/LegacyLens.Api.csproj" />
+    <ProjectReference Include="..\..\src\LegacyLens.Analysis\LegacyLens.Analysis.csproj" />
   </ItemGroup>
 
   <ItemGroup>

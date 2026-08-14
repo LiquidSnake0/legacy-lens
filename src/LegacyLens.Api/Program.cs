@@ -1,3 +1,4 @@
+using LegacyLens.Analysis;
 using LegacyLens.Api;
 using LegacyLens.Api.Embeddings;
 using LegacyLens.Api.Generation;
@@ -76,6 +77,39 @@ app.MapPost("/api/ask", async (
     catch (HttpRequestException ex)
     {
         return ModelUnreachable(ex);
+    }
+});
+
+// Structural analysis. Unlike /api/ask this touches no model at all: the
+// project files and the folder layout are read directly, which is why it
+// answers in milliseconds and cannot invent anything.
+app.MapPost("/api/map", (MapRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    try
+    {
+        var map = new ProjectGraph().Build(request.Path);
+        var mermaid = new MermaidWriter
+        {
+            MinimumLines = request.MinimumLines,
+            IncludeTests = request.IncludeTests,
+        }.Write(map);
+
+        return Results.Ok(new MapResponse(
+            map.Projects.Count,
+            map.TotalFiles,
+            map.TotalLines,
+            map.Edges.Count,
+            Findings.Detect(map)
+                .Select(f => (object)new { kind = f.Kind.ToString(), f.Project, f.Summary, f.Detail })
+                .ToList(),
+            mermaid));
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
     }
 });
 
