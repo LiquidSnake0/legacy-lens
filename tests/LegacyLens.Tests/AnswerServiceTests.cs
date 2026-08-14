@@ -158,6 +158,10 @@ public class AnswerServiceTests
         public Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<Chunk?> ExcerptAsync(
+            string filePath, int startLine, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task ClearAsync(CancellationToken ct = default) => throw new NotSupportedException();
 
         public Task<int> CountAsync(CancellationToken ct = default) => Task.FromResult(vector.Count);

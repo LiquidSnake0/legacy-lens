@@ -122,6 +122,26 @@ app.MapPost("/api/ask/stream", async (
     }
 });
 
+// The text behind a citation.
+//
+// A citation the reader cannot open is a claim they have to take on trust,
+// which is the opposite of what citing sources is for.
+app.MapGet("/api/excerpt", async (
+    string path, int line, IVectorStore store, CancellationToken ct) =>
+{
+    var chunk = await store.ExcerptAsync(path, line, ct);
+
+    return chunk is null
+        ? Results.NotFound(new { error = $"No indexed chunk at {path}:{line}." })
+        : Results.Ok(new
+        {
+            filePath = chunk.FilePath,
+            startLine = chunk.StartLine,
+            endLine = chunk.EndLine,
+            content = chunk.Content,
+        });
+});
+
 // Structural analysis. Unlike /api/ask this touches no model at all: the
 // project files and the folder layout are read directly, which is why it
 // answers in milliseconds and cannot invent anything.

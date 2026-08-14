@@ -40,3 +40,11 @@ export interface ApiError {
   hint?: string;
   detail?: string;
 }
+
+/** The text of one indexed chunk, as it was when it was indexed. */
+export interface Excerpt {
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  content: string;
+}

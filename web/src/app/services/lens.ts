@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
 
-import { AskResponse, Health, ApiError } from '../models/lens';
+import { AskResponse, Health, ApiError, Excerpt } from '../models/lens';
 
 /**
  * Everything that talks to the API lives here.
@@ -72,6 +72,20 @@ export class LensService {
         yield { name, data: JSON.parse(data) as unknown };
       }
     }
+  }
+
+  /**
+   * The indexed text behind a citation.
+   *
+   * The API serves it from the index rather than from disk, so what comes back
+   * is what the model was given, not what the file says today.
+   */
+  excerpt(filePath: string, startLine: number): Observable<Excerpt> {
+    const query = new HttpParams().set('path', filePath).set('line', startLine);
+
+    return this.http
+      .get<Excerpt>(`${this.baseUrl}/excerpt`, { params: query })
+      .pipe(catchError(this.explain));
   }
 
   health(): Observable<Health> {

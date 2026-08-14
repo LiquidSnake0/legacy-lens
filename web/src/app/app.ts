@@ -1,13 +1,14 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
+import { AnswerText } from './components/answer-text/answer-text';
 import { Citations } from './components/citations/citations';
 import { LensService } from './services/lens';
 import { Citation } from './models/lens';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, Citations],
+  imports: [ReactiveFormsModule, AnswerText, Citations],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

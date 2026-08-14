@@ -76,7 +76,7 @@
   @if (answer()) {
     <section class="answer">
       <h2>Answer</h2>
-      <p>{{ answer() }}</p>
+      <lens-answer-text [text]="answer()!" />
     </section>
 
     <lens-citations [sources]="sources()" />

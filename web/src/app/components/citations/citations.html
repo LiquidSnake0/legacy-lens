@@ -4,29 +4,51 @@
 
     <p class="note">
       Reconstructed from the chunks actually retrieved, not parsed from the
-      model's answer. Open the file at these lines and you will find what the
-      answer claims. Entries marked <em>exact</em> were matched by term rather
-      than by meaning, and carry no similarity score.
+      model's answer. Click one to read the text the answer was written from.
+      Entries marked <em>exact</em> were matched by term rather than by
+      meaning, and carry no similarity score.
     </p>
 
     <ul>
-      @for (source of sources(); track source.filePath + source.startLine) {
-        <li>
-          <div class="where">
-            <span class="path">{{ source.filePath }}</span>
-            <span class="lines">{{ lines(source) }}</span>
-          </div>
+      @for (source of sources(); track key(source)) {
+        <li [class.open]="isOpen(source)">
+          <button
+            type="button"
+            class="head"
+            [attr.aria-expanded]="isOpen(source)"
+            (click)="toggle(source)"
+          >
+            <div class="where">
+              <span class="path">{{ source.filePath }}</span>
+              <span class="lines">{{ lines(source) }}</span>
+            </div>
 
-          <div class="score" [title]="hint(source)">
-            <div class="bar">
-              @if (source.foundBy !== 'text') {
-                <div class="fill" [style.width.%]="width(source.score)"></div>
+            <div class="score" [title]="hint(source)">
+              <div class="bar">
+                @if (source.foundBy !== 'text') {
+                  <div class="fill" [style.width.%]="width(source.score)"></div>
+                }
+              </div>
+              <span class="value" [class.exact]="source.foundBy === 'text'">
+                {{ label(source) }}
+              </span>
+            </div>
+
+            <span class="chevron" aria-hidden="true">{{ isOpen(source) ? '−' : '+' }}</span>
+          </button>
+
+          @if (isOpen(source)) {
+            <div class="excerpt">
+              @if (loadingExcerpt()) {
+                <p class="pending">Reading the index…</p>
+              } @else if (excerptError()) {
+                <p class="failed">{{ excerptError() }}</p>
+              } @else if (excerpt(); as text) {
+                <pre><code>@for (line of text.content.split('\n'); track $index) {<span class="line"><span class="gutter">{{ text.startLine + $index }}</span>{{ line }}
+</span>}</code></pre>
               }
             </div>
-            <span class="value" [class.exact]="source.foundBy === 'text'">
-              {{ label(source) }}
-            </span>
-          </div>
+          }
         </li>
       }
     </ul>

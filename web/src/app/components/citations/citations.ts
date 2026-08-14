@@ -1,6 +1,7 @@
-import { Component, input } from '@angular/core';
+import { Component, inject, input, signal } from '@angular/core';
 
-import { Citation } from '../../models/lens';
+import { LensService } from '../../services/lens';
+import { Citation, Excerpt } from '../../models/lens';
 
 /**
  * The sources behind an answer.
@@ -15,8 +16,63 @@ import { Citation } from '../../models/lens';
   styleUrl: './citations.scss',
 })
 export class Citations {
+  private readonly lens = inject(LensService);
+
   /** Signal input: the parent passes the list, this component never fetches. */
   readonly sources = input.required<Citation[]>();
+
+  /**
+   * Which citation is open, keyed the same way the list is tracked.
+   *
+   * One at a time: several excerpts open at once push the answer off screen,
+   * which is the thing the reader is comparing them against.
+   */
+  readonly opened = signal<string | null>(null);
+  readonly excerpt = signal<Excerpt | null>(null);
+  readonly loadingExcerpt = signal(false);
+  readonly excerptError = signal<string | null>(null);
+
+  /**
+   * Opens a citation, or closes it if it was already open.
+   *
+   * A citation nobody can open is a claim the reader has to take on trust,
+   * which defeats the point of citing anything.
+   */
+  toggle(citation: Citation): void {
+    const key = this.key(citation);
+
+    if (this.opened() === key) {
+      this.opened.set(null);
+      this.excerpt.set(null);
+      return;
+    }
+
+    this.opened.set(key);
+    this.excerpt.set(null);
+    this.excerptError.set(null);
+    this.loadingExcerpt.set(true);
+
+    this.lens.excerpt(citation.filePath, citation.startLine).subscribe({
+      next: (excerpt) => {
+        // The reader may have clicked another citation while this was in
+        // flight; the late answer must not overwrite the newer one.
+        if (this.opened() === key) this.excerpt.set(excerpt);
+        this.loadingExcerpt.set(false);
+      },
+      error: (failure: Error) => {
+        if (this.opened() === key) this.excerptError.set(failure.message);
+        this.loadingExcerpt.set(false);
+      },
+    });
+  }
+
+  isOpen(citation: Citation): boolean {
+    return this.opened() === this.key(citation);
+  }
+
+  key(citation: Citation): string {
+    return `${citation.filePath}:${citation.startLine}`;
+  }
 
   /**
    * Retrieval scores sit in a narrow band, roughly 0.5 to 0.75 in practice,
@@ -48,5 +104,11 @@ export class Citations {
     return citation.startLine === citation.endLine
       ? `line ${citation.startLine}`
       : `lines ${citation.startLine}-${citation.endLine}`;
+  }
+
+  /** Line numbers down the gutter, starting where the chunk starts. */
+  numbers(excerpt: Excerpt): number[] {
+    const lines = excerpt.content.split('\n').length;
+    return Array.from({ length: lines }, (_, i) => excerpt.startLine + i);
   }
 }

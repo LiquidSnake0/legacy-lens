@@ -38,6 +38,34 @@ public class SqliteVectorStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task An_excerpt_returns_the_text_that_was_indexed()
+    {
+        // What the model was given, not what the file says now. A citation that
+        // showed the current file would drift away from the answer every time
+        // someone edited the code.
+        using var store = Store();
+        await store.UpsertAsync([Chunk("a", "public class PriceEngine { }", [1f, 0f, 0f])]);
+
+        var excerpt = await store.ExcerptAsync("A.cs", 1);
+
+        Assert.NotNull(excerpt);
+        Assert.Equal("public class PriceEngine { }", excerpt.Content);
+        Assert.Equal(20, excerpt.EndLine);
+    }
+
+    [Fact]
+    public async Task An_excerpt_for_a_line_that_was_never_indexed_is_absent()
+    {
+        // Distinguishes "nothing there" from an empty chunk, so the endpoint
+        // can answer 404 rather than showing a blank panel.
+        using var store = Store();
+        await store.UpsertAsync([Chunk("a", "class Thing { }", [1f, 0f, 0f])]);
+
+        Assert.Null(await store.ExcerptAsync("A.cs", 999));
+        Assert.Null(await store.ExcerptAsync("Missing.cs", 1));
+    }
+
+    [Fact]
     public async Task Finds_an_exact_identifier_by_text()
     {
         // The case the vector search misses: a rare proper noun the embedding

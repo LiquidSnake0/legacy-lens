@@ -1,0 +1,9 @@
+@for (segment of segments(); track $index) {
+  @if (segment.kind === 'code') {
+    <pre><code>{{ segment.text }}</code></pre>
+  } @else {
+    @for (paragraph of paragraphs(segment.text); track $index) {
+      <p>@for (run of runs(paragraph); track $index) {@if (run.kind === 'code') {<code class="inline">{{ run.text }}</code>} @else {{{ run.text }}}}</p>
+    }
+  }
+}

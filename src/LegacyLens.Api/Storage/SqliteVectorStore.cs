@@ -22,6 +22,17 @@ public interface IVectorStore
     /// exact match on a proper noun it never saw in training.
     /// </summary>
     Task<IReadOnlyList<SearchHit>> SearchTextAsync(string query, int topK, CancellationToken ct = default);
+
+    /// <summary>
+    /// The text of one indexed chunk, so a citation can be opened and read.
+    ///
+    /// Served from the index rather than from the file on disk: the stored
+    /// text is what the model was actually given, and the file may well have
+    /// changed since. Showing the current file would let a citation point at
+    /// something the answer never saw.
+    /// </summary>
+    Task<Chunk?> ExcerptAsync(string filePath, int startLine, CancellationToken ct = default);
+
     Task ClearAsync(CancellationToken ct = default);
     Task<int> CountAsync(CancellationToken ct = default);
 }
@@ -228,6 +239,26 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         }
 
         return hits;
+    }
+
+    public async Task<Chunk?> ExcerptAsync(
+        string filePath, int startLine, CancellationToken ct = default)
+    {
+        await using var command = _connection.CreateCommand();
+        command.CommandText = """
+            SELECT id, file_path, start_line, end_line, content
+            FROM chunks
+            WHERE file_path = $path AND start_line = $start
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$path", filePath);
+        command.Parameters.AddWithValue("$start", startLine);
+
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) return null;
+
+        return new Chunk(reader.GetString(0), reader.GetString(1),
+                         reader.GetInt32(2), reader.GetInt32(3), reader.GetString(4));
     }
 
     /// <summary>
