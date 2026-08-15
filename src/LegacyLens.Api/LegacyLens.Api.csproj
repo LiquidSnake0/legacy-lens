@@ -19,6 +19,13 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LegacyLens.Analysis\LegacyLens.Analysis.csproj" />
+    <!--
+      Reachable from the command line only. Characterization loads an assembly
+      and calls into it, and an HTTP route that did that would be remote code
+      execution with a JSON body. It is referenced here because the command
+      lives in this executable, and it is deliberately mapped to no endpoint.
+    -->
+    <ProjectReference Include="..\LegacyLens.Characterization\LegacyLens.Characterization.csproj" />
   </ItemGroup>
 
 

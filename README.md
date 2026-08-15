@@ -379,6 +379,64 @@ unclassified rather than quietly assumed to be fine.
 
 ---
 
+## Characterization tests
+
+The risk ranking names the files that will hurt and stops there. The answer to
+"this file is complicated, changes constantly and nothing tests it" is to put a
+test on it, and that is the one thing nobody does on inherited code: writing a
+test means knowing what the code is supposed to do, and on legacy that knowledge
+left with whoever had it.
+
+A characterization test does not need it. It records what the code *does*, not
+what it should do.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- characterize \
+    src/LegacyLens.Analysis/bin/Debug/net10.0/LegacyLens.Analysis.dll \
+    --type CodeMetrics --out ./characterization
+```
+
+What comes out has been called, watched twice, written down, compiled and run:
+
+```csharp
+[Fact]
+public void MeasureFile_1()
+{
+    var subject = new global::LegacyLens.Analysis.CodeMetrics();
+    Assert.Throws<global::System.ArgumentException>(() => subject.MeasureFile(""));
+}
+```
+
+**Nothing is offered that did not pass.** A characterization test is true if and
+only if it passes against the code as it stands, so the tool compiles the file
+and runs every assertion in it before showing anyone the result. Whatever fails
+is dropped with a reason. That is the whole argument for generating this kind of
+code and no other: the machine settles the question by itself, so no one is
+asked to review an assertion on trust.
+
+**Two identical calls have to agree.** A method reading the clock, a GUID or a
+random number produces a test that passes today and fails tomorrow morning.
+Every call is made twice and the result is discarded when the two disagree.
+
+**It will happily freeze a bug.** The generated file says so at the top. This
+net guarantees a migration changed nothing; it says nothing about whether what
+exists is right.
+
+**The refusals are the interesting output.** On this repository's own analysis
+assembly it examined 402 members, could call 11, and kept 44 tests. The other
+391 were property accessors and generated members, types it could not construct,
+parameters it has no values for, and methods returning void. On modern code that
+ratio is poor by construction, and whether it inverts on a real .NET Framework
+estate is untested.
+
+**It runs the code**, which is the opposite of everything above. A .NET
+Framework assembly does not load on Linux, so this is the one part of the tool
+that needs a Windows host. It is a command and never an HTTP route, because
+loading an assembly and calling into it from a web request is remote code
+execution with a JSON body.
+
+---
+
 ## Running it
 
 Requirements: Docker, and roughly 6 GB of free RAM for the generation model.
@@ -502,7 +560,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 208 tests, no network, ~400 ms
+dotnet test                                   # 218 tests, no network, ~3 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 5 tests, no network, ~1 s
@@ -519,7 +577,7 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 208 unit tests covering
+**Question answering** needs an index and a local model. 218 unit tests covering
 every layer, no network, no model, 400 ms for the suite, and the pipeline has
 been run end to end against a real repository: this one.
 

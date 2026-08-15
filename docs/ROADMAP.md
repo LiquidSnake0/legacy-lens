@@ -385,9 +385,14 @@ report in M6 wants the same split, so that piece gets built either way.
 
 ---
 
-## M8. Characterization tests
+## M8. Characterization tests ✅
 
 *A net under the code, before anyone moves it.*
+
+**Done, and the measurement is less flattering than the idea.**
+`characterize <assembly.dll> [--type <name>] [--out <directory>]` calls a
+compiled assembly, watches what it does, writes the observations out as xUnit
+tests, compiles them, runs them, and keeps only what passed.
 
 M2 names the files that will hurt and stops there. The honest answer to "this
 file is complicated, changes constantly and nothing tests it" is to put a test
@@ -429,10 +434,52 @@ that the transformation was faithful. With one, it is a claim anyone can check
 by running the suite. The order is Feathers' and it has not been improved on:
 put the code under test, then change it.
 
-**Effort:** unknown, and the first honest step is one file rather than a plan.
-The dependency-free cases are a weekend. The files that matter most are the ones
-tangled in statics and I/O, and how far this goes on those is exactly the
-question the spike has to answer.
+### Measured on this repository
+
+Pointed at `LegacyLens.Analysis`, 402 members examined:
+
+| | |
+|---|---|
+| Methods it could call | **11** |
+| Tests kept, all compiled and passing | **44**, in 6 files |
+| Property accessors, operators, generated members | 275 |
+| Needing an instance it could not build | 55 |
+| Taking a parameter it has no values for | 43 |
+| Returning void | 18 |
+| Time | 4.2 s |
+
+**Eleven methods out of four hundred is the finding, and it is a small
+number.** Modern code is the reason: records generate accessors and equality
+members by the dozen, dependencies arrive through constructors rather than being
+reachable, and parameters are domain types rather than integers. Everything this
+milestone can reach is a static or default-constructible method taking
+primitives, which is a description of exactly the code that is *already* easy to
+test.
+
+Whether the ratio inverts on real legacy is the open question and it is not
+answered here. The prior is that it improves: the code this tool exists for is
+full of large static helpers taking strings and integers, which is the shape it
+handles. But that is a guess, and this section will say so until someone runs it
+on a .NET Framework estate.
+
+### The wall, stated plainly
+
+Characterization needs to *run* the code. That is the opposite of every other
+milestone here, which works precisely because it never does. A .NET Framework
+assembly will not load into this runtime on Linux, so this half of the tool
+needs a Windows host with the framework installed, and the rest does not.
+
+That is not a defect to fix later, it is the price of the technique, and the
+command says so rather than failing obscurely. It also means the two halves of
+the product have different deployment stories, which is worth knowing before
+anyone promises one.
+
+**What was not verified:** the failure path on a genuine .NET Framework assembly
+was never exercised, because no compiled binaries were at hand. The message it
+prints is a prediction, not an observation.
+
+**Effort:** an evening, against a guess of a weekend. The generation was the
+easy half; deciding what to refuse was the work.
 
 ---
 

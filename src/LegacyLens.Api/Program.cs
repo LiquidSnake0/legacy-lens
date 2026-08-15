@@ -16,6 +16,16 @@ if (args is ["report", var target, ..])
     return;
 }
 
+// Characterization: record what a compiled assembly does, as tests known to
+// pass. A command and never a route, because it loads someone's assembly and
+// calls into it. Writing the files takes a second argument, so that pointing it
+// at something to see what it would produce cannot leave anything behind.
+if (args is ["characterize", var assemblyPath, ..])
+{
+    Characterize.Run(assemblyPath, args.Skip(2).ToArray());
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
