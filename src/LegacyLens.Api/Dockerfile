@@ -3,10 +3,15 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /source
 
 # Project files first: restore is cached until a dependency actually changes.
-# Every referenced project must be here too, or restore fails on a missing
-# ProjectReference before a single source file has been copied.
+#
+# Every referenced project must be listed here. Leaving one out does not fail
+# this step, which is what makes it a trap: restore prints "Skipping project ...
+# because it was not found" and exits zero. The build then dies further down at
+# publish --no-restore, which needs the project.assets.json that was never
+# written, and the error names an assets file rather than the missing COPY.
 COPY src/LegacyLens.Api/LegacyLens.Api.csproj src/LegacyLens.Api/
 COPY src/LegacyLens.Analysis/LegacyLens.Analysis.csproj src/LegacyLens.Analysis/
+COPY src/LegacyLens.Characterization/LegacyLens.Characterization.csproj src/LegacyLens.Characterization/
 RUN dotnet restore src/LegacyLens.Api/LegacyLens.Api.csproj
 
 COPY src/ src/
