@@ -105,6 +105,13 @@ public class Observer
 
         if (thrown is not null)
         {
+            // An assembly that is not on this machine is not behaviour. Writing
+            // it down would produce a test asserting that the code throws,
+            // when what actually happened is that a dependency was not
+            // deployed, and that test would fail on any machine where it is.
+            if (TargetFinder.IsMissingDependency(thrown))
+                return (null, SkipReason.DependencyMissing);
+
             return (new Observation(arguments, ResultShape.Threw,
                 thrown.GetType().FullName ?? "Exception",
                 thrown.GetType().FullName), null);

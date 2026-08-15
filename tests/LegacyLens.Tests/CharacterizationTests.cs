@@ -122,6 +122,20 @@ public class CharacterizationTests
     }
 
     [Fact]
+    public void A_missing_assembly_is_not_mistaken_for_behaviour()
+    {
+        // Measured on Orchard's own dependencies: MSBuild.Community.Tasks loads
+        // and then throws FileNotFoundException for Microsoft.Build.Framework
+        // the moment a return type is read. Recorded as behaviour, that becomes
+        // a test asserting the code throws, which then fails on every machine
+        // where the assembly is actually present.
+        Assert.True(TargetFinder.IsMissingDependency(new FileNotFoundException()));
+        Assert.True(TargetFinder.IsMissingDependency(new TypeLoadException()));
+        Assert.False(TargetFinder.IsMissingDependency(new ArgumentException()));
+        Assert.False(TargetFinder.IsMissingDependency(new InvalidOperationException()));
+    }
+
+    [Fact]
     public void Literals_survive_a_round_trip_through_the_compiler()
     {
         // A quote inside a string, escaped by hand, is the classic way a

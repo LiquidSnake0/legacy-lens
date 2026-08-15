@@ -139,6 +139,8 @@ internal static class Characterize
             "returned something no assertion can compare",
         SkipReason.FailedItsOwnCheck =>
             "the generated test did not compile or did not pass",
+        SkipReason.DependencyMissing =>
+            "needs an assembly that is not on this machine",
         _ => reason.ToString(),
     };
 }

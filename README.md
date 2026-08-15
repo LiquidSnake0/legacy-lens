@@ -429,11 +429,22 @@ parameters it has no values for, and methods returning void. On modern code that
 ratio is poor by construction, and whether it inverts on a real .NET Framework
 estate is untested.
 
-**It runs the code**, which is the opposite of everything above. A .NET
-Framework assembly does not load on Linux, so this is the one part of the tool
-that needs a Windows host. It is a command and never an HTTP route, because
-loading an assembly and calling into it from a web request is remote code
-execution with a JSON body.
+**It runs the code**, which is the opposite of everything above, and that turns
+out to cost less than expected. Pointed at the four managed .NET Framework
+assemblies Orchard ships in `lib/`, this runtime loads all four and produces 35
+tests, the best of them from `MSBuild.Community.Tasks` at 25. Modern .NET loads
+Framework assemblies as long as the members being touched do not reach an API
+that is gone.
+
+What fails is later and quieter: reflection resolves signatures on demand, so an
+assembly loads and then throws `FileNotFoundException` when a return type turns
+out to live somewhere absent. That is reported as its own reason, and
+deliberately never recorded as behaviour: a test asserting that the code throws,
+when the truth is that a dependency was not deployed, would fail on every
+machine that has it.
+
+It is a command and never an HTTP route, because loading an assembly and calling
+into it from a web request is remote code execution with a JSON body.
 
 ---
 
@@ -560,7 +571,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 218 tests, no network, ~3 s
+dotnet test                                   # 219 tests, no network, ~3 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 5 tests, no network, ~1 s
@@ -577,7 +588,7 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 218 unit tests covering
+**Question answering** needs an index and a local model. 219 unit tests covering
 every layer, no network, no model, 400 ms for the suite, and the pipeline has
 been run end to end against a real repository: this one.
 

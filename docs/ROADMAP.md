@@ -462,21 +462,48 @@ full of large static helpers taking strings and integers, which is the shape it
 handles. But that is a guess, and this section will say so until someone runs it
 on a .NET Framework estate.
 
-### The wall, stated plainly
+### The wall is real, and it is not where this section first put it
 
-Characterization needs to *run* the code. That is the opposite of every other
-milestone here, which works precisely because it never does. A .NET Framework
-assembly will not load into this runtime on Linux, so this half of the tool
-needs a Windows host with the framework installed, and the rest does not.
+Characterization needs to *run* the code, which is the opposite of every other
+milestone here. From that, this section originally predicted that a .NET
+Framework assembly would not load on Linux at all and that the whole capability
+needed a Windows host.
 
-That is not a defect to fix later, it is the price of the technique, and the
-command says so rather than failing obscurely. It also means the two halves of
-the product have different deployment stories, which is worth knowing before
-anyone promises one.
+**Measured, that prediction is wrong.** Orchard ships four managed .NET
+Framework assemblies in `lib/`, and this runtime loads them:
 
-**What was not verified:** the failure path on a genuine .NET Framework assembly
-was never exercised, because no compiled binaries were at hand. The message it
-prints is a prediction, not an observation.
+| Assembly | Callable | Tests kept |
+|---|---:|---:|
+| `MSBuild.Community.Tasks` | 7 | **25** |
+| `Microsoft.Web.XmlTransform` | 2 | **6** |
+| `System.Data.SqlServerCe` | 31 | **4** |
+| `SlowCheetah.Xdt` | 0 | 0 |
+
+Modern .NET loads a Framework assembly perfectly well as long as the members
+being touched do not reach an API that is gone. Nothing fails at load time.
+
+**What actually fails is lazier and nastier.** Reflection resolves signatures on
+demand, so an assembly loads, and then the first read of a return type throws
+`FileNotFoundException` for something it references.
+`MSBuild.Community.Tasks` did exactly that, on `Microsoft.Build.Framework`, and
+it took the whole run down with an unhandled exception before this was fixed.
+Handled, the same assembly is the best result of the four: 25 tests, and 5
+members reported as needing an assembly that is not on this machine.
+
+That failure also had to be separated from real behaviour. A missing assembly
+surfaces as an exception, which is indistinguishable from code that genuinely
+throws, and pinning one would produce a test asserting that the code fails,
+when what happened is that a dependency was not deployed. Those tests would then
+fail on any machine that has it.
+
+**So the honest statement is narrower than the prediction:** what cannot be
+characterized here is whatever reaches an API that modern .NET dropped, member
+by member, and the run says how many those were. A Windows host widens the
+surface; it is not the entry ticket this section claimed it was.
+
+**Still not verified:** no assembly of Orchard's own was tried, because the
+repository holds source and never built binaries. The four measured here are its
+third-party dependencies.
 
 **Effort:** an evening, against a guess of a weekend. The generation was the
 easy half; deciding what to refuse was the work.

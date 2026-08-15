@@ -45,6 +45,18 @@ public enum SkipReason
 
     /// <summary>The generated test did not compile, or failed when run.</summary>
     FailedItsOwnCheck,
+
+    /// <summary>
+    /// A type in its signature, or one it reaches when called, lives in an
+    /// assembly that is not present.
+    ///
+    /// This is the environment being incomplete rather than the code doing
+    /// anything, and the distinction matters: a missing assembly surfaces as a
+    /// FileNotFoundException, which is indistinguishable from real behaviour
+    /// unless it is separated out here. Pinning it would write a test asserting
+    /// that the code throws, when all it does is that it was not deployed.
+    /// </summary>
+    DependencyMissing,
 }
 
 /// <summary>
@@ -98,20 +110,59 @@ public class TargetFinder
 
         foreach (var type in Types(assembly).Where(t => include is null || include(t)))
         {
-            foreach (var method in type.GetMethods(
-                         BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance
-                       | BindingFlags.DeclaredOnly))
+            MethodInfo[] methods;
+
+            try
             {
-                Consider(method, targets, skipped);
+                methods = type.GetMethods(
+                    BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance
+                  | BindingFlags.DeclaredOnly);
             }
+            catch (Exception exception) when (IsMissingDependency(exception))
+            {
+                // Listing the members of a type whose base class or interface
+                // is missing fails as a whole, before any single method can be
+                // considered on its own.
+                skipped.Add(new Skipped(type.Name, SkipReason.DependencyMissing, exception.Message));
+                continue;
+            }
+
+            foreach (var method in methods) Consider(method, targets, skipped);
         }
 
         return (targets, skipped);
     }
 
+    /// <summary>
+    /// True for the exceptions that mean "this assembly is not fully here".
+    ///
+    /// Reflection resolves signatures lazily, so an assembly loads happily and
+    /// then throws the moment anyone asks for a return type it cannot find.
+    /// MSBuild.Community.Tasks does exactly that: it loads, and reading its
+    /// first method's return type raises FileNotFoundException for
+    /// Microsoft.Build.Framework.
+    /// </summary>
+    internal static bool IsMissingDependency(Exception exception) =>
+        exception is FileNotFoundException or TypeLoadException
+                  or FileLoadException or BadImageFormatException;
+
     private static void Consider(MethodInfo method, List<Target> targets, List<Skipped> skipped)
     {
         var name = $"{method.DeclaringType?.Name}.{method.Name}";
+
+        try
+        {
+            Inspect(method, name, targets, skipped);
+        }
+        catch (Exception exception) when (IsMissingDependency(exception))
+        {
+            skipped.Add(new Skipped(name, SkipReason.DependencyMissing, exception.Message));
+        }
+    }
+
+    private static void Inspect(
+        MethodInfo method, string name, List<Target> targets, List<Skipped> skipped)
+    {
 
         // Property accessors, operators and compiler-generated members. Their
         // behaviour belongs to the property or the type, not to a method
