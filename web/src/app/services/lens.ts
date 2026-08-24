@@ -18,8 +18,16 @@ import {
 export class LensService {
   private readonly http = inject(HttpClient);
 
-  /** Where the API listens. Matches the CORS origin the backend allows. */
-  private readonly baseUrl = 'http://localhost:8080/api';
+  /**
+   * Where the API is, relative to wherever this page came from.
+   *
+   * Same origin on purpose. Deployed, one nginx serves the page and passes
+   * /api through to the API, so there is one address, one certificate, one
+   * thing to put a password in front of, and no CORS at all. In development
+   * `ng serve` proxies /api to localhost:8080 (see proxy.conf.json), so the
+   * code is identical in both.
+   */
+  private readonly baseUrl = '/api';
 
   /** How many chunks the index holds, refreshed on demand. */
   readonly indexedChunks = signal<number | null>(null);

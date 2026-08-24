@@ -1,0 +1,91 @@
+# A deployed instance: the published images, one door, and a password on it.
+#
+# Different from docker-compose.yml in three ways that matter.
+#
+# It pulls rather than builds, so what runs on the server is the image the
+# pipeline tested and published, identified by a commit.
+#
+# The API publishes no port. It is reachable only from the web container over
+# the private network, which matters because the API has no authentication of
+# its own and nine of its endpoints take a filesystem path. Inside a container
+# that reaches its own filesystem, the mounted repositories and nothing else.
+#
+# And Caddy sits in front with a certificate and a password. The roadmap says
+# hosting a shared instance is a different product with different obligations;
+# this is the smallest honest way to put the thing on a server without becoming
+# that product.
+#
+# Copy .env.prod.example to .env and fill it in, then:
+#     docker compose -f docker-compose.prod.yml up -d
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-models:/root/.ollama
+    # No published port. Nothing outside this network has business reaching a
+    # model server that answers anyone who asks.
+
+  models:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: /bin/sh
+    command: >
+      -c "until ollama list >/dev/null 2>&1; do sleep 1; done;
+          ollama pull ${EMBED_MODEL:-nomic-embed-text} &&
+          ollama pull ${CHAT_MODEL:-qwen2.5-coder:3b}"
+    restart: "no"
+
+  api:
+    image: ghcr.io/liquidsnake0/legacy-lens-api:${LENS_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      models:
+        condition: service_completed_successfully
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
+      CHAT_MODEL: ${CHAT_MODEL:-qwen2.5-coder:3b}
+      INDEX_PATH: /data/index.db
+      CLONE_PATH: /repos
+    volumes:
+      - index-data:/data
+      # Where cloned repositories land, and where a folder from the host can be
+      # mounted to be indexed. Writable, because the clone has to go somewhere.
+      - repos-data:/repos
+
+  web:
+    image: ghcr.io/liquidsnake0/legacy-lens-web:${LENS_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      LENS_DOMAIN: ${LENS_DOMAIN:?set LENS_DOMAIN, or ":80" to serve plain HTTP}
+      LENS_USER: ${LENS_USER:?set LENS_USER}
+      LENS_PASSWORD_HASH: ${LENS_PASSWORD_HASH:?set LENS_PASSWORD_HASH}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificates, so a restart does not ask Let's Encrypt again and
+      # walk into its rate limit.
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  ollama-models:
+  index-data:
+  repos-data:
+  caddy-data:
+  caddy-config:

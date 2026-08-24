@@ -1,0 +1,38 @@
+# The front door of a deployed instance: a certificate and a password.
+#
+# Caddy does those two things and nothing else. The web container still serves
+# the files and still passes /api through to the API, so nothing about the
+# published images changes between a laptop and a server.
+#
+# LENS_DOMAIN is the name to answer on. Given a real one, Caddy obtains and
+# renews a Let's Encrypt certificate on its own. Given ":80" it serves plain
+# HTTP, which is for trying this locally and not for a public address.
+
+{$LENS_DOMAIN} {
+	# Everything is behind it, the page included. Protecting only /api leaves
+	# an interface anybody can load and nothing can answer, which reads as
+	# broken rather than as private.
+	#
+	# The password is stored as a bcrypt hash, produced by
+	# `docker run --rm caddy caddy hash-password --plaintext '...'`.
+	basic_auth {
+		{$LENS_USER} {$LENS_PASSWORD_HASH}
+	}
+
+	reverse_proxy web:80 {
+		# Answers arrive as server-sent events, a token at a time, and
+		# indexing runs for hours. Both outlive any default timeout.
+		flush_interval -1
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
+		}
+	}
+
+	encode gzip
+
+	log {
+		output stdout
+		format console
+	}
+}

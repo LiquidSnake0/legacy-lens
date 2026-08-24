@@ -287,6 +287,109 @@ jobs:
           publish api src/LegacyLens.Api/Dockerfile
           publish web web/Dockerfile
 
+  # Putting the published images on a server.
+  #
+  # Inert until somebody configures a server: with no DEPLOY_HOST secret this
+  # says so and exits zero. A deploy job that fails for want of a destination
+  # turns the whole pipeline red over a machine that does not exist.
+  #
+  # It sends the compose file and the Caddyfile, then pulls and restarts. The
+  # .env with the password and the domain lives on the server and is never in
+  # this repository.
+  deploy:
+    needs: publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DIRECTORY: ${{ vars.DEPLOY_DIRECTORY || '/srv/legacy-lens' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${HOST}" ]; then
+            echo "No DEPLOY_HOST secret is set, so there is nowhere to deploy to."
+            echo "That is a configuration this repository does not have yet, not a failure."
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "${KEY}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+          if [ -n "${KNOWN_HOSTS}" ]; then
+            printf '%s\n' "${KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          else
+            # Trusting whatever answers the first time. Set DEPLOY_KNOWN_HOSTS
+            # to the output of `ssh-keyscan your.host` and this branch goes
+            # away: without it, a machine in the middle can be the server.
+            echo "::warning::DEPLOY_KNOWN_HOSTS is not set, so the host key is being trusted on sight."
+            ssh-keyscan -H "${HOST}" >> ~/.ssh/known_hosts 2>/dev/null
+          fi
+
+          chmod 600 ~/.ssh/known_hosts
+
+          ssh_opts="-i ~/.ssh/id_deploy -o IdentitiesOnly=yes -o BatchMode=yes"
+          target="${USER}@${HOST}"
+          sha=$(echo "${GITHUB_SHA}" | cut -c1-7)
+
+          ssh ${ssh_opts} "${target}" "mkdir -p ${DIRECTORY}"
+
+          scp ${ssh_opts} docker-compose.prod.yml Caddyfile "${target}:${DIRECTORY}/"
+
+          # The exact images this commit published, not latest. Latest is a
+          # moving target and deploying one is how a server ends up running
+          # something nobody chose.
+          ssh ${ssh_opts} "${target}" "
+            set -e
+            cd ${DIRECTORY}
+            export LENS_VERSION=${sha}
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
+          "
+
+          echo "deployed ${sha} to ${HOST}:${DIRECTORY}"
+
+      - name: Check it answers
+        env:
+          URL: ${{ secrets.DEPLOY_URL }}
+          CREDENTIALS: ${{ secrets.DEPLOY_CREDENTIALS }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${URL}" ]; then
+            echo "No DEPLOY_URL secret, so nothing was checked from outside."
+            exit 0
+          fi
+
+          # A deploy that reports success without asking the server anything is
+          # a deploy that reports success when the container failed to start.
+          for attempt in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+                        ${CREDENTIALS:+-u "${CREDENTIALS}"} "${URL}/api/health" || true)
+
+            if [ "${code}" = "200" ]; then
+              echo "the deployed instance answered 200"
+              exit 0
+            fi
+
+            echo "attempt ${attempt}: ${code}"
+            sleep 10
+          done
+
+          echo "::error::the deployed instance never answered 200"
+          exit 1
+
   secrets:
     runs-on: ubuntu-latest
     steps:

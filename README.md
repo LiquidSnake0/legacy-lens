@@ -653,8 +653,10 @@ npm install
 npm start
 ```
 
-Same address either way, which is also the origin the API allows by default;
-change `CORS_ORIGIN` if you serve the frontend from somewhere else.
+Same address either way. The page asks `/api` on whatever origin served it:
+`ng serve` proxies that to port 8080 (`web/proxy.conf.json`), and the container
+passes it through to the API. One origin, so no CORS is involved at all, and
+`CORS_ORIGIN` only matters if something else calls the API directly.
 
 The answer streams in token by token, because generation on a CPU takes tens of
 seconds and a blank screen for that long reads as a crash. The citations appear
@@ -680,6 +682,78 @@ machines that cannot host a model, at the cost of the privacy guarantee above.
 Set `CHAT_PROVIDER=openai` only when that trade is acceptable.
 
 ---
+
+## Deploying it
+
+**Read this part before putting it on a public address.** The API has no
+authentication of its own, and nine of its endpoints take a filesystem path.
+Inside a container that reaches the container's own filesystem, the mounted
+repositories and nothing else, so the blast radius is bounded by Docker rather
+than by the code. It is still, on an open address, a reader for every
+repository you mounted, a way to make the host clone arbitrary ones, and a way
+to spend its CPU. The roadmap says hosting a shared instance is a different
+product with different obligations. This is the smallest honest way to put the
+thing on a server without becoming that product: one door, and a key.
+
+```
+                    :443  ┌────────┐
+   internet ────────────► │ caddy  │  certificate, one password
+                          └───┬────┘
+                              │ private network
+                          ┌───▼────┐
+                          │  web   │  the page, and /api passed through
+                          └───┬────┘
+                              │
+                          ┌───▼────┐        ┌────────┐
+                          │  api   │───────►│ ollama │
+                          └────────┘        └────────┘
+                       no published port
+```
+
+Caddy holds the certificate and the password. The web container serves the page
+and passes `/api` to the API, which publishes no port at all: nothing outside
+that private network can reach it. One origin means no CORS, one certificate,
+and one place to put a password rather than two.
+
+On the server:
+
+```bash
+mkdir -p /srv/legacy-lens && cd /srv/legacy-lens
+cp /path/to/.env.prod.example .env    # then fill it in
+docker compose -f docker-compose.prod.yml up -d
+```
+
+The password goes in as a bcrypt hash, never as itself:
+
+```bash
+docker run --rm caddy caddy hash-password --plaintext 'the password'
+```
+
+### Doing it from the pipeline
+
+Set these as repository secrets and every push to `main` deploys the images it
+just published, pinned to that commit rather than to `latest`:
+
+| | |
+|---|---|
+| `DEPLOY_HOST` | the server's address |
+| `DEPLOY_USER` | the account to connect as |
+| `DEPLOY_KEY` | an SSH private key that account accepts |
+| `DEPLOY_KNOWN_HOSTS` | output of `ssh-keyscan your.host` |
+| `DEPLOY_URL` | where to check it answers afterwards |
+| `DEPLOY_CREDENTIALS` | `user:password` for that check |
+
+Without `DEPLOY_HOST` the job says there is nowhere to deploy to and exits
+zero, because a pipeline that goes red over a machine nobody has created is a
+pipeline that gets ignored.
+
+`DEPLOY_KNOWN_HOSTS` is not optional in any meaningful sense. Without it the
+first connection trusts whatever answers, and whatever answers is not always
+the server.
+
+The last step asks the deployed instance for `/api/health` until it answers
+200, and fails if it never does. A deploy that reports success without asking
+the server anything reports success when the container failed to start.
 
 ## Indexing at scale
 
@@ -761,9 +835,8 @@ and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
 
 Every push to `main` publishes both container images, after everything above is
-green. The one thing missing from that pipeline is a deployment: it builds and
-publishes, and nothing runs it anywhere, because there is nowhere it is meant
-to run yet.
+green, and deploys them to a server if one is configured. Nothing is configured
+in this repository, so that last job says so and exits zero.
 
 Known gaps for the question-answering half, in order of impact: no reranking,
 and a first index that cannot be made fast on a CPU. See
