@@ -35,14 +35,24 @@
   --wash: #f2f2f2;
 
   /* The single accent. Everything that is not the accent is grey, so the
-     accent always means something: it marks what the tool found. */
-  --accent: #c0561f;
-  --accent-soft: #f7ece4;
-  --accent-ink: #8f3f16;
+     accent always means something: it marks what the tool found.
+     Carries text, not only decoration. */
+  --accent: #2d7548;
+  --accent-soft: #e7f0ea;
+  --accent-ink: #1d5030;
 
-  --danger: #a33a24;
-  --danger-wash: #f9ece8;
-  --ok: #4a7c59;
+  /* No red. Red and green are the pair eight per cent of men cannot tell
+     apart, and a second colour would break the one-accent rule outright. A
+     warning is signalled by contrast instead: full ink on the wash, behind a
+     rule thick enough to read as a warning. The names stay, so no component
+     has to know this changed. */
+  --danger: #1a1a1a;
+  --danger-wash: #f2f2f2;
+
+  /* Deliberately the accent itself rather than a second green. One accent
+     means one accent: two of them a shade apart is the reader wondering
+     whether the difference is meaningful. */
+  --ok: var(--accent);
 
   /* Le fond est un mur, la feuille se pose dessus. Ando plutôt que brutalisme
      rêche: le béton est lisse, ce qui se lit ce sont les trous de banche en
@@ -73,13 +83,13 @@
     --paper: #1a1918;
     --wash: #121110;
 
-    --accent: #e07a3e;
-    --accent-soft: #2a1d13;
-    --accent-ink: #f0955f;
+    --accent: #5fa87b;
+    --accent-soft: #14261d;
+    --accent-ink: #7cc79a;
 
-    --danger: #d9694c;
-    --danger-wash: #2b1712;
-    --ok: #7fae8b;
+    --danger: #ececea;
+    --danger-wash: #121110;
+    --ok: var(--accent);
   }
 }
 
@@ -96,13 +106,13 @@
   --paper: #1a1918;
   --wash: #121110;
 
-  --accent: #e07a3e;
-  --accent-soft: #2a1d13;
-  --accent-ink: #f0955f;
+  --accent: #5fa87b;
+  --accent-soft: #14261d;
+  --accent-ink: #7cc79a;
 
-  --danger: #d9694c;
-  --danger-wash: #2b1712;
-  --ok: #7fae8b;
+  --danger: #ececea;
+  --danger-wash: #121110;
+  --ok: var(--accent);
 }
 
 * {

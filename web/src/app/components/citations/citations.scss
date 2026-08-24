@@ -113,6 +113,12 @@ li {
 
   .failed {
     color: var(--danger);
+    /* No colour to lean on any more, so the warning is carried by a rule in
+       full ink. Removing the red without this leaves a message that reads as
+       ordinary text. */
+    border-left: 2px solid var(--danger);
+    padding-left: 0.5rem;
+
   }
 }
 

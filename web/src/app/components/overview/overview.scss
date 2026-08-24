@@ -40,6 +40,8 @@ h2 {
 
 .failed {
   color: var(--danger);
+  border-left: 2px solid var(--danger);
+  padding-left: 0.5rem;
 }
 
 ul {

@@ -86,6 +86,8 @@ textarea {
 }
 
 .field-error {
+  border-left: 2px solid var(--danger);
+  padding-left: 0.5rem;
   font-size: 0.8125rem;
   color: var(--danger);
   margin: 0.5rem 0 0;
