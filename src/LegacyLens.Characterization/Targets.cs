@@ -78,21 +78,18 @@ public class TargetFinder
     /// guessed at, because a value invented for a type nobody modelled is how a
     /// generated test starts asserting nonsense.
     /// </summary>
-    public static bool CanSupply(Type type)
-    {
-        var actual = Nullable.GetUnderlyingType(type) ?? type;
-
-        return actual.IsEnum
-            || actual == typeof(string)
-            || actual == typeof(bool)
-            || actual == typeof(char)
-            || actual == typeof(byte) || actual == typeof(sbyte)
-            || actual == typeof(short) || actual == typeof(ushort)
-            || actual == typeof(int) || actual == typeof(uint)
-            || actual == typeof(long) || actual == typeof(ulong)
-            || actual == typeof(float) || actual == typeof(double)
-            || actual == typeof(decimal);
-    }
+    /// <remarks>
+    /// Asked of <see cref="Values"/> rather than answered from a list kept
+    /// here. The list that used to live in this method was a second copy of
+    /// what <see cref="Values.For"/> already knew, and the two drifted the
+    /// moment composite values were added: methods taking a plain data type
+    /// were refused here before anything was ever built for them.
+    ///
+    /// It costs building the values twice for a parameter that turns out to be
+    /// supported. They are three objects with primitive properties, and the
+    /// alternative is two definitions of the same fact.
+    /// </remarks>
+    public static bool CanSupply(Type type) => Values.For(type).Count > 0;
 
     /// <summary>
     /// Looks through an assembly, optionally narrowed to certain types.

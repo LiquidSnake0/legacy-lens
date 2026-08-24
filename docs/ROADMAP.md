@@ -510,6 +510,33 @@ easy half; deciding what to refuse was the work.
 
 ---
 
+### Composite arguments
+
+A method taking anything but a primitive produced no test at all: there was no
+value to call it with, and it was counted as `ParameterTypeNotSupported`.
+
+Plain data types are now built from the same primitive values as everything
+else and written back out as an object initialiser, so what appears in the test
+file rebuilds the object the method was called with. Depth is capped at two,
+framework types are refused, and a type without a parameterless constructor or
+without settable properties is still counted rather than guessed at.
+
+Finding it required a second defect to surface: `CanSupply` kept its own list of
+supported types, a copy of what `Values.For` already knew, and the two drifted
+the moment composites existed. The list is gone and the question is asked of
+the one place that can answer it.
+
+**The gain is unmeasured on real legacy, and the one measurement available says
+zero.** Run over this repository's own `Analysis` assembly, the number of
+methods accepted is 71 before and 71 after. Its types are records with primary
+constructors and no settable properties, which is the opposite of what this
+targets and a reminder that a tool's own codebase is a poor sample of the
+estate it is pointed at. The shape it does handle, a mutable class with a
+parameterless constructor, is covered end to end by a generated suite that
+compiles and runs.
+
+---
+
 ## M9. Mechanical migrations 🟡
 
 *The transformations that are the same in every codebase.*

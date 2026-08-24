@@ -16,14 +16,16 @@ public static class Values
     /// Candidate values per type, ordered so that the ones most likely to
     /// expose a boundary come first: empty, zero, negative, then the extremes.
     /// </summary>
-    public static IReadOnlyList<object?> For(Type type)
+    public static IReadOnlyList<object?> For(Type type) => For(type, depth: 0);
+
+    private static IReadOnlyList<object?> For(Type type, int depth)
     {
         var actual = Nullable.GetUnderlyingType(type);
         if (actual is not null)
         {
             // A nullable parameter gets null first: it is the case the author
             // either handled or did not, and it is the cheapest one to check.
-            return new object?[] { null }.Concat(For(actual)).ToList();
+            return new object?[] { null }.Concat(For(actual, depth)).ToList();
         }
 
         if (type.IsEnum)
@@ -76,8 +78,97 @@ public static class Values
         if (type == typeof(decimal))
             return [0m, 1m, -1m, 0.5m];
 
-        return [];
+        return Composites(type, depth);
     }
+
+    /// <summary>How deep a value may be built. A record holding a record, no further.</summary>
+    private const int MaxDepth = 2;
+
+    /// <summary>How many variants of a composite are worth building.</summary>
+    private const int CompositeVariants = 3;
+
+    /// <summary>
+    /// Instances of a plain data type, populated from the same primitive
+    /// values as everything else, so the boundaries are still the ones that
+    /// get tried.
+    ///
+    /// Built rather than invented: the observation phase calls the method with
+    /// these objects, so a description of a value would be useless. What
+    /// <see cref="Literal"/> writes back out has to reconstruct the same
+    /// object, which is why both sides pick properties through
+    /// <see cref="Settable"/> and neither may disagree with the other.
+    ///
+    /// Framework types are refused. `System.IO.FileInfo` has a parameterless
+    /// constructor in the eyes of reflection and a meaning that has nothing to
+    /// do with the one this would give it.
+    /// </summary>
+    private static IReadOnlyList<object?> Composites(Type type, int depth)
+    {
+        if (depth >= MaxDepth) return [];
+        if (type.IsAbstract || type.IsInterface || type.IsGenericTypeDefinition) return [];
+        if (type.IsArray || typeof(System.Collections.IEnumerable).IsAssignableFrom(type)) return [];
+        if (type.Namespace is null || type.Namespace.StartsWith("System", StringComparison.Ordinal)) return [];
+        if (type.GetConstructor(Type.EmptyTypes) is null) return [];
+
+        var settable = Settable(type);
+        if (settable.Count == 0) return [];
+
+        var columns = settable
+            .Select(p => (Property: p, Values: For(p.PropertyType, depth + 1)))
+            .Where(c => c.Values.Count > 0)
+            .ToList();
+
+        if (columns.Count == 0) return [];
+
+        var built = new List<object?>();
+        for (var variant = 0; variant < CompositeVariants; variant++)
+        {
+            object instance;
+            try
+            {
+                instance = Activator.CreateInstance(type)!;
+            }
+            catch (Exception)
+            {
+                // A parameterless constructor that throws is a type this tool
+                // has no business building.
+                return [];
+            }
+
+            foreach (var (property, values) in columns)
+            {
+                try
+                {
+                    property.SetValue(instance, values[variant % values.Count]);
+                }
+                catch (Exception)
+                {
+                    // A setter that validates its argument is entitled to
+                    // refuse one. The property keeps its default, and Literal
+                    // will leave it out for the same reason.
+                    return [];
+                }
+            }
+
+            built.Add(instance);
+        }
+
+        return built;
+    }
+
+    /// <summary>
+    /// The properties both halves agree to touch: public, readable, writable,
+    /// and not an indexer.
+    ///
+    /// Ordered by name rather than by reflection order, which is not
+    /// guaranteed to be stable across runtimes and would make a generated
+    /// suite differ from one machine to the next.
+    /// </summary>
+    private static IReadOnlyList<System.Reflection.PropertyInfo> Settable(Type type) =>
+        type.GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Where(p => p.CanRead && p.CanWrite && p.GetIndexParameters().Length == 0)
+            .OrderBy(p => p.Name, StringComparer.Ordinal)
+            .ToList();
 
     /// <summary>
     /// One set of arguments per case, built by walking each parameter's values
@@ -91,7 +182,10 @@ public static class Values
     {
         if (parameters.Count == 0) return [[]];
 
-        var columns = parameters.Select(For).ToList();
+        // Written as a lambda rather than a method group: For now has an
+        // overload taking a depth, and a method group would bind to Select's
+        // indexed overload instead.
+        var columns = parameters.Select(p => For(p)).ToList();
         if (columns.Any(c => c.Count == 0)) return [];
 
         var count = Math.Min(columns.Max(c => c.Count), limit);
@@ -130,8 +224,51 @@ public static class Values
         sbyte number => $"(sbyte){number}",
         int number => number.ToString(CultureInfo.InvariantCulture),
         Enum member => $"{Name(member.GetType())}.{member}",
-        _ => throw new NotSupportedException($"No literal for {value.GetType().Name}."),
+        _ => Initialiser(value),
     };
+
+    /// <summary>
+    /// A composite written as the expression that rebuilds it.
+    ///
+    /// Reads the object back through the same properties that were used to
+    /// populate it, so the literal in the test file and the object the method
+    /// was called with are the same thing. A property whose value has no
+    /// literal is left out rather than guessed at, which is safe only because
+    /// the builder refused to set it either.
+    /// </summary>
+    private static string Initialiser(object value)
+    {
+        var type = value.GetType();
+        var assignments = new List<string>();
+
+        foreach (var property in Settable(type))
+        {
+            object? current;
+            try
+            {
+                current = property.GetValue(value);
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            try
+            {
+                assignments.Add($"{property.Name} = {Literal(current)}");
+            }
+            catch (NotSupportedException)
+            {
+                // No literal for it, so it was never set. Leaving it out keeps
+                // the written object identical to the invoked one.
+            }
+        }
+
+        if (assignments.Count == 0)
+            throw new NotSupportedException($"No literal for {type.Name}.");
+
+        return $"new {Name(type)} {{ {string.Join(", ", assignments)} }}";
+    }
 
     /// <summary>
     /// A type as it has to be written in a generated file.
