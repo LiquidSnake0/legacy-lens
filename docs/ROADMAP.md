@@ -1147,15 +1147,52 @@ of work.
 nothing replaces it because nothing needs to, and deleting the reference is the
 migration.
 
-**A compiled projection.** These rewrites are repetitive: one ASP.NET MVC
+**A compiled projection ✅.** These rewrites are repetitive: one ASP.NET MVC
 controller resembles every other one, so a reader who sees one before and after
 knows what the remaining forty-six cost. The model writes that projection, and
-then it is compiled against the real target framework in a throwaway project. If
-it compiles, the packages exist, the members exist and the signatures are right,
-which removes the entire family of errors that ruins the tools this replaces. It
-ships labelled for what it is: **compiles against .NET 10, behaviour not
-verified.** That is a smaller claim than "here is your migrated code" and a far
-more useful one than a chat transcript somebody has to go and test.
+the compiler decides whether it is worth showing.
+
+No SDK, no restore, no network. The assemblies are the ones this process already
+trusts, which on an ASP.NET Core host is the whole of `Microsoft.AspNetCore.App`:
+**the target framework is present because the tool is running on it.**
+
+**What the first real file destroyed.** A projection compiled on its own has none
+of its project around it. Orchard's smallest controller names thirteen types
+from Orchard, so "does it compile" rejects every projection worth making. The
+question had to become *did it invent anything*, which needs three outcomes:
+
+| | |
+|---|---|
+| declared by the solution | absent because the project is not here. Expected |
+| exists in the framework | a missing using. Worth another attempt, not a discard |
+| **exists nowhere** | **invented, and the only real defect** |
+
+Getting to three took three corrections, each found by running it and none by
+the tests. `IActionResult` was reported as invented when the model had merely
+forgotten the namespace. `[OrchardFeature]` was reported as invented because an
+attribute is written without the suffix it is declared with. And `ContentManagement`,
+`Localization` and `UI` were reported as invented types when they are segments
+of Orchard's own namespaces: the compiler names the segment, not the path.
+
+**Measured, on Orchard's `AdminLocalizedTaxonomyController`, with a 1.5B model
+running locally:**
+
+| | |
+|---|---|
+| Invented names | **0** |
+| Attempts needed | **1** |
+| Types from the project, correctly recognised | 13 |
+| Correspondences handed over from the catalogue | ActionResult becomes IActionResult |
+
+It moved `System.Web.Mvc` to `Microsoft.AspNetCore.Mvc` and `System.Web.Routing`
+to `Microsoft.AspNetCore.Routing`, and left every Orchard type alone. The model
+is never asked what replaces what: the catalogue supplies those as facts, and it
+applies them to code, which is the one part no catalogue can do because every
+file uses them differently.
+
+It ships labelled for what it is: **nothing invented, behaviour not verified.**
+Smaller than "here is your migrated code" and far more useful than a chat
+transcript somebody has to go and test.
 
 Built in that order. Reversed, it produces handsome projections of code nobody
 counted, which is the competitor this project exists to be different from.

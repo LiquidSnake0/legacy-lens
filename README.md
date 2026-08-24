@@ -715,6 +715,39 @@ every migration anybody performs and does not need a rebuild to do so, and
 rather than by type, because a type used five hundred times and one used once
 are not the same amount of work.
 
+### A projection, compiled
+
+One file, rewritten and put through a compiler before anyone is shown it.
+
+```bash
+curl -X POST localhost:8080/api/project \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/app/HomeController.cs",
+          "package":"Microsoft.AspNet.Mvc",
+          "root":"/repos/app"}'
+```
+
+The catalogue supplies the correspondences as facts; the model applies them to
+the file; the compiler decides. It is never asked what replaces what, because
+that question has a written answer and asking a model for it is how references
+to packages that do not exist get into a migration.
+
+A file compiled outside its project cannot resolve its project, so "does it
+compile" is the wrong question and would reject every projection worth making.
+The right one is *did it invent anything*, and that needs three answers:
+
+| | |
+|---|---|
+| declared by your solution | absent because the project is not here. Expected |
+| exists in the framework | a missing using. Worth another attempt |
+| **exists nowhere** | **invented, and the only real defect** |
+
+On Orchard's smallest controller, with a 1.5B model running locally: **nothing
+invented, first attempt**, thirteen Orchard types correctly recognised as the
+project's own. What comes back is labelled for exactly what was checked:
+*nothing invented, behaviour not verified.* Proving behaviour needs the
+characterization tests above, which is a larger promise.
+
 ## Deploying it
 
 **Read this part before putting it on a public address.** The API has no

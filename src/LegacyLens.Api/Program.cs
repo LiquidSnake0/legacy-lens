@@ -142,6 +142,7 @@ builder.Services.AddScoped<Retriever>();
 builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<AnswerService>();
 builder.Services.AddSingleton<IngestionJobs>();
+builder.Services.AddScoped<Projections>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration["CORS_ORIGIN"] ?? "http://localhost:4200")
@@ -484,6 +485,59 @@ app.MapPost("/api/convert", (ConvertRequest request) =>
         return Results.BadRequest(new { error = ex.Message, kinds = Conversions.Kinds });
     }
     catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// One file, rewritten and compiled before anyone is shown it.
+//
+// The catalogue supplies the correspondences, the model applies them, and the
+// compiler decides whether the result is worth showing. What comes back claims
+// exactly one thing: it compiles. Not that it behaves the same.
+app.MapPost("/api/project", async (
+    ProjectRequest request, Projections projections, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!File.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such file: {request.Path}." });
+
+    if (string.IsNullOrWhiteSpace(request.Package))
+        return Results.BadRequest(new { error = "A package is required, so the catalogue can be read." });
+
+    try
+    {
+        var result = await projections.ProjectAsync(
+            request.Path, request.Package, request.Root, request.Model, ct);
+
+        return Results.Ok(new
+        {
+            result.Path,
+            result.Package,
+            result.Before,
+            result.After,
+            compiles = result.Verdict.Compiles,
+            // The question worth asking of a file compiled outside its project.
+            sound = result.Verdict.Sound,
+            // The sentence this is allowed to make, and no larger one.
+            claim = result.Verdict.Claim,
+            target = result.Verdict.Target,
+            invented = result.Verdict.Invented,
+            fromProject = result.Verdict.FromProject,
+            unimported = result.Verdict.Unimported,
+            errors = result.Verdict.Errors,
+            result.Attempts,
+            result.Given,
+            result.Notes,
+        });
+    }
+    catch (HttpRequestException ex)
+    {
+        return ModelUnreachable(ex);
+    }
+    catch (ArgumentException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
     }

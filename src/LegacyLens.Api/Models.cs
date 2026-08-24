@@ -79,6 +79,24 @@ public record ModerniseRequest(string Path, int TopUnknown = 15);
 /// </summary>
 public record ConvertRequest(string Path, string Kind);
 
+/// <summary>
+/// One file to rewrite, and the package to move it off.
+///
+/// One file rather than a folder, on purpose. These rewrites are repetitive:
+/// a reader who sees one before and after knows what the other forty-six cost,
+/// and forty-seven of them is a wait nobody sits through.
+/// </summary>
+public record ProjectRequest(
+    string Path,
+    string Package,
+    /// <summary>
+    /// The solution this file belongs to, so a type from the project can be
+    /// told from a type that was invented. Without it every unresolved name
+    /// looks made up.
+    /// </summary>
+    string? Root = null,
+    LegacyLens.Api.Generation.ModelChoice? Model = null);
+
 /// <summary>Where the code can be cut, and what closes the cut.</summary>
 public record SeamsRequest(string Path, int Top = 20);
 
