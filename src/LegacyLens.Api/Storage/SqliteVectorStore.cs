@@ -11,6 +11,17 @@ public interface IVectorStore
     /// </summary>
     SqliteConnection Connection { get; }
 
+    /// <summary>
+    /// Held for the duration of every statement run on <see cref="Connection"/>.
+    ///
+    /// A SqliteConnection is not thread-safe, and Kestrel answers requests
+    /// concurrently, so two questions arriving together used to run statements
+    /// on the same object at the same time. The store takes this itself; code
+    /// reaching for <see cref="Connection"/> directly has to take it too, and
+    /// must not already hold it when calling back into the store.
+    /// </summary>
+    SemaphoreSlim Gate { get; }
+
     Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, string workspace = Workspaces.Default,
         CancellationToken ct = default);
 
@@ -52,14 +63,30 @@ public interface IVectorStore
 public class SqliteVectorStore : IVectorStore, IDisposable
 {
     private readonly SqliteConnection _connection;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public SqliteConnection Connection => _connection;
+
+    public SemaphoreSlim Gate => _gate;
 
     public SqliteVectorStore(IConfiguration config)
     {
         var path = config["INDEX_PATH"] ?? "index.db";
         _connection = new SqliteConnection($"Data Source={path}");
         _connection.Open();
+
+        using var pragmas = _connection.CreateCommand();
+        // Write-ahead logging, so indexing in the background does not block the
+        // questions being asked while it runs. Without it a reader waits behind
+        // the writer, which is the whole experience this makes possible.
+        //
+        // The timeout covers the one thing WAL does not: two writers, where the
+        // second gets SQLITE_BUSY immediately rather than waiting its turn.
+        pragmas.CommandText = """
+            PRAGMA journal_mode = WAL;
+            PRAGMA busy_timeout = 10000;
+            """;
+        pragmas.ExecuteNonQuery();
 
         using var create = _connection.CreateCommand();
         create.CommandText = """
@@ -148,8 +175,51 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         return false;
     }
 
-    public async Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks,
-        string workspace = Workspaces.Default, CancellationToken ct = default)
+    /// <summary>
+    /// Runs one piece of work with the connection to itself.
+    ///
+    /// Every public operation goes through here, so a background indexing run
+    /// and a question arriving mid-run take turns rather than issuing
+    /// statements on the same connection object at once.
+    /// </summary>
+    private async Task<T> Serialised<T>(Func<Task<T>> work, CancellationToken ct)
+    {
+        await _gate.WaitAsync(ct);
+        try { return await work(); }
+        finally { _gate.Release(); }
+    }
+
+    private async Task Serialised(Func<Task> work, CancellationToken ct)
+    {
+        await _gate.WaitAsync(ct);
+        try { await work(); }
+        finally { _gate.Release(); }
+    }
+
+    public Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks,
+        string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => UpsertCoreAsync(chunks, workspace, ct), ct);
+
+    public Task<IReadOnlyList<SearchHit>> SearchAsync(float[] query, int topK,
+        string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => SearchCoreAsync(query, topK, workspace, ct), ct);
+
+    public Task<IReadOnlyList<SearchHit>> SearchTextAsync(string query, int topK,
+        string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => SearchTextCoreAsync(query, topK, workspace, ct), ct);
+
+    public Task<Chunk?> ExcerptAsync(string filePath, int startLine,
+        string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => ExcerptCoreAsync(filePath, startLine, workspace, ct), ct);
+
+    public Task ClearAsync(string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => ClearCoreAsync(workspace, ct), ct);
+
+    public Task<int> CountAsync(string workspace = Workspaces.Default, CancellationToken ct = default) =>
+        Serialised(() => CountCoreAsync(workspace, ct), ct);
+
+    private async Task UpsertCoreAsync(IReadOnlyList<EmbeddedChunk> chunks,
+        string workspace, CancellationToken ct)
     {
         // One transaction for the batch: SQLite commits per statement otherwise,
         // which turns a 20k-row insert into 20k fsyncs.
@@ -212,9 +282,8 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         await transaction.CommitAsync(ct);
     }
 
-    public async Task<IReadOnlyList<SearchHit>> SearchAsync(
-        float[] query, int topK, string workspace = Workspaces.Default,
-        CancellationToken ct = default)
+    private async Task<IReadOnlyList<SearchHit>> SearchCoreAsync(
+        float[] query, int topK, string workspace, CancellationToken ct)
     {
         var hits = new List<SearchHit>();
 
@@ -243,9 +312,8 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         return hits.OrderByDescending(h => h.Score).Take(topK).ToList();
     }
 
-    public async Task<IReadOnlyList<SearchHit>> SearchTextAsync(
-        string query, int topK, string workspace = Workspaces.Default,
-        CancellationToken ct = default)
+    private async Task<IReadOnlyList<SearchHit>> SearchTextCoreAsync(
+        string query, int topK, string workspace, CancellationToken ct)
     {
         var terms = Tokenise(query);
         if (terms.Length == 0) return [];
@@ -289,9 +357,8 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         return hits;
     }
 
-    public async Task<Chunk?> ExcerptAsync(
-        string filePath, int startLine, string workspace = Workspaces.Default,
-        CancellationToken ct = default)
+    private async Task<Chunk?> ExcerptCoreAsync(
+        string filePath, int startLine, string workspace, CancellationToken ct)
     {
         await using var command = _connection.CreateCommand();
         command.CommandText = """
@@ -327,7 +394,7 @@ public class SqliteVectorStore : IVectorStore, IDisposable
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-    public async Task ClearAsync(string workspace = Workspaces.Default, CancellationToken ct = default)
+    private async Task ClearCoreAsync(string workspace, CancellationToken ct)
     {
         await using var command = _connection.CreateCommand();
         // Scoped, not wholesale: another workspace has its own rows in the
@@ -340,7 +407,7 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         await command.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task<int> CountAsync(string workspace = Workspaces.Default, CancellationToken ct = default)
+    private async Task<int> CountCoreAsync(string workspace, CancellationToken ct)
     {
         await using var command = _connection.CreateCommand();
         command.CommandText = "SELECT COUNT(*) FROM chunks WHERE workspace_id = $workspace";

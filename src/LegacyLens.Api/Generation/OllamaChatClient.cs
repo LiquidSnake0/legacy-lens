@@ -24,6 +24,9 @@ public class OllamaChatClient : IChatClient
     private readonly HttpClient _http;
     private readonly string _model;
 
+    /// <summary>Which model this is, so the interface can name it.</summary>
+    public string Model => _model;
+
     public OllamaChatClient(HttpClient http, IConfiguration config)
     {
         _http = http;

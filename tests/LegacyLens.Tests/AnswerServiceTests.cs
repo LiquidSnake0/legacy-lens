@@ -118,7 +118,7 @@ public class AnswerServiceTests
         Exception? streamFailsAfter = null) =>
         new(new Retriever(new FakeEmbeddings(embeddingFails), new FakeStore(found, text ?? found)),
             new PromptBuilder(),
-            new FakeChat(tokens, streamFailsAfter));
+            new OneChatClient(new FakeChat(tokens, streamFailsAfter)));
 
     private static async Task<List<AnswerEvent>> Collect(AnswerService service)
     {
@@ -128,6 +128,18 @@ public class AnswerServiceTests
             events.Add(item);
         }
         return events;
+    }
+
+    /// <summary>
+    /// Hands back the same client whatever is asked for. The choice between a
+    /// local and a hosted model has its own tests; these are about what the
+    /// service does with the tokens it gets.
+    /// </summary>
+    private class OneChatClient(IChatClient chat) : IChatClients
+    {
+        public IChatClient For(ModelChoice? choice) => chat;
+
+        public ModelOptions Options => new("fake", false, "", "");
     }
 
     private class FakeEmbeddings(Exception? fails) : IEmbeddingClient
@@ -148,6 +160,8 @@ public class AnswerServiceTests
         : IVectorStore
     {
         public SqliteConnection Connection => throw new NotSupportedException();
+
+        public SemaphoreSlim Gate { get; } = new(1, 1);
 
         public Task<IReadOnlyList<SearchHit>> SearchAsync(
             float[] query, int topK, string workspace = Workspaces.Default,

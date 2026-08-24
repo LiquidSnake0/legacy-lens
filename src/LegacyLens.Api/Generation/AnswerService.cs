@@ -28,13 +28,13 @@ public class AnswerService
 {
     private readonly Retriever _retriever;
     private readonly PromptBuilder _prompts;
-    private readonly IChatClient _chat;
+    private readonly IChatClients _chats;
 
-    public AnswerService(Retriever retriever, PromptBuilder prompts, IChatClient chat)
+    public AnswerService(Retriever retriever, PromptBuilder prompts, IChatClients chats)
     {
         _retriever = retriever;
         _prompts = prompts;
-        _chat = chat;
+        _chats = chats;
     }
 
     public async Task<AskResponse> AnswerAsync(AskRequest request,
@@ -49,7 +49,8 @@ public class AnswerService
             return new AskResponse(NothingFound, []);
         }
 
-        var answer = await _chat.CompleteAsync(_prompts.Build(request.Question, hits), ct);
+        var answer = await _chats.For(request.Model)
+            .CompleteAsync(_prompts.Build(request.Question, hits), ct);
 
         return new AskResponse(answer, Cite(hits));
     }
@@ -65,13 +66,18 @@ public class AnswerService
         // C# forbids yield return inside a catch, so failures are captured
         // here and reported after the block.
         IReadOnlyList<SearchHit> hits = [];
+        IChatClient? chat = null;
         string? failure = null;
 
         try
         {
+            // Chosen before retrieving: a hosted model asked for without a key
+            // should say so at once rather than after the search has run.
+            chat = _chats.For(request.Model);
             hits = await _retriever.RetrieveAsync(request.Question, request.TopK, workspace, ct);
         }
-        catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
+        catch (Exception exception)
+            when (exception is HttpRequestException or InvalidOperationException or ArgumentException)
         {
             failure = exception.Message;
         }
@@ -95,7 +101,7 @@ public class AnswerService
         // The enumerator is driven by hand rather than with await foreach: a
         // failure mid-stream has to become an event the caller can render, and
         // yield return is not allowed inside a catch.
-        var tokens = _chat.StreamAsync(_prompts.Build(request.Question, hits), ct)
+        var tokens = chat!.StreamAsync(_prompts.Build(request.Question, hits), ct)
                           .GetAsyncEnumerator(ct);
         try
         {

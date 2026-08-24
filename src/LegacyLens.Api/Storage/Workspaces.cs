@@ -230,6 +230,17 @@ public class Workspaces
         return new Workspace(id, name, rootPath, now, 0);
     }
 
+    /// <summary>
+    /// Records where the code ended up, once a clone has finished.
+    ///
+    /// A workspace created from a repository URL has nowhere to point until
+    /// the clone lands, and re-indexing it later has to find the same folder
+    /// rather than fetch the repository a second time.
+    /// </summary>
+    public void SetRootPath(string id, string rootPath) =>
+        Execute("UPDATE workspaces SET root_path = $root WHERE id = $id;",
+            ("$id", id), ("$root", rootPath));
+
     public IReadOnlyList<Workspace> All()
     {
         var found = new List<Workspace>();

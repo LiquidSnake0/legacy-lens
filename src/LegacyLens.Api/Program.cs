@@ -46,6 +46,13 @@ builder.Services.AddHttpClient<IChatClient, OllamaChatClient>(client =>
     client.Timeout = TimeSpan.FromMinutes(10);
 });
 
+// Named rather than typed: the hosted client is built per request around a
+// key that arrived with it, so it cannot be a registered service.
+builder.Services.AddHttpClient("hosted", client =>
+    client.Timeout = TimeSpan.FromMinutes(5));
+
+builder.Services.AddSingleton<IChatClients, ChatClients>();
+
 builder.Services.AddSingleton<SourceWalker>();
 builder.Services.AddSingleton<CodeChunker>();
 builder.Services.AddSingleton<PromptBuilder>();
@@ -53,6 +60,7 @@ builder.Services.AddSingleton<IVectorStore, SqliteVectorStore>();
 builder.Services.AddScoped<Retriever>();
 builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<AnswerService>();
+builder.Services.AddSingleton<IngestionJobs>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration["CORS_ORIGIN"] ?? "http://localhost:4200")
@@ -69,11 +77,22 @@ _ = new Workspaces(app.Services.GetRequiredService<IVectorStore>().Connection);
 
 app.UseCors();
 
-app.MapGet("/api/health", (IVectorStore store) =>
+// Workspaces and the ledger run their statements on the store's connection
+// directly, so they take the same gate the store takes for its own. Never call
+// back into the store from inside one of these: the gate is not reentrant, and
+// doing so deadlocks the request rather than failing it.
+async Task<T> WithConnection<T>(IVectorStore store, Func<T> work)
+{
+    await store.Gate.WaitAsync();
+    try { return work(); }
+    finally { store.Gate.Release(); }
+}
+
+app.MapGet("/api/health", async (IVectorStore store) =>
 {
     // Counted per workspace rather than in total. One number over a file
     // holding three projects answers a question nobody asked.
-    var workspaces = new Workspaces(store.Connection).All();
+    var workspaces = await WithConnection(store, () => new Workspaces(store.Connection).All());
 
     return Results.Ok(new
     {
@@ -91,7 +110,7 @@ app.MapPost("/api/ingest", async (
 
     try
     {
-        return Results.Ok(await service.IngestAsync(request.Path, request.Workspace, ct));
+        return Results.Ok(await service.IngestAsync(request.Path, request.Workspace, ct: ct));
     }
     catch (DirectoryNotFoundException ex)
     {
@@ -102,6 +121,76 @@ app.MapPost("/api/ingest", async (
         return ModelUnreachable(ex);
     }
 });
+
+// Indexing, started and left to run.
+//
+// The synchronous /api/ingest above stays: a script that wants to block until
+// the index is built should be able to, and the CI does exactly that. This is
+// the same work for a reader who would rather ask questions while it happens.
+// What the interface should offer for generation, and the sentence it owes the
+// reader before they pick the hosted option.
+app.MapGet("/api/models", (IChatClients chats) =>
+{
+    var options = chats.Options;
+
+    return Results.Ok(new
+    {
+        local = new
+        {
+            model = options.LocalModel,
+            description = "Runs here. Nothing leaves this machine.",
+        },
+        hosted = new
+        {
+            available = options.HostedAvailable,
+            url = options.HostedUrl,
+            model = options.DefaultHostedModel,
+            description = "Your own API key, used for the request and never stored.",
+            warning = "The question and the excerpts retrieved for it are sent to "
+                    + options.HostedUrl + ". Your code is not uploaded, but the "
+                    + "parts quoted in an answer do leave this machine.",
+        },
+        // Stated plainly because it is the part people assume is negotiable.
+        embeddings = "Always local. Embedding reads every file, so sending it "
+                   + "out would upload the whole codebase.",
+    });
+});
+
+app.MapPost("/api/ingest/start", (IngestRequest request, IngestionJobs jobs) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!Directory.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such directory: {request.Path}." });
+
+    var started = jobs.Start(request.Workspace, request.Path);
+
+    // One run at a time: a single embedding already saturates every core, so a
+    // second concurrent run does not halve the wait, it doubles both.
+    return started is null
+        ? Results.Conflict(new
+        {
+            error = "Something is already being indexed.",
+            hint = "Wait for it to finish, or cancel it first.",
+            running = jobs.Busy(),
+        })
+        : Results.Accepted($"/api/ingest/status?workspace={request.Workspace}", started);
+});
+
+app.MapGet("/api/ingest/status", (IngestionJobs jobs, string? workspace = null) =>
+{
+    var job = jobs.Status(workspace ?? Workspaces.Default);
+
+    // Not an error: a workspace that has never been indexed has no run to
+    // report, and the caller polling for one should be told that plainly.
+    return job is null ? Results.NoContent() : Results.Ok(job);
+});
+
+app.MapPost("/api/ingest/cancel", (IngestionJobs jobs, string? workspace = null) =>
+    jobs.Cancel(workspace ?? Workspaces.Default)
+        ? Results.NoContent()
+        : Results.NotFound(new { error = "Nothing is being indexed for that workspace." }));
 
 app.MapPost("/api/ask", async (
     AskRequest request, AnswerService service, CancellationToken ct) =>
@@ -217,24 +306,70 @@ app.MapPost("/api/report", (ReportRequest request) =>
 // solution that does not build.
 // One index per project. Without them a second project means deleting the
 // first, or asking questions of a mixture of the two.
-app.MapGet("/api/workspaces", (IVectorStore store) =>
-    Results.Ok(new Workspaces(store.Connection).All()));
+app.MapGet("/api/workspaces", async (IVectorStore store) =>
+    Results.Ok(await WithConnection(store, () => new Workspaces(store.Connection).All())));
 
-app.MapPost("/api/workspaces", (CreateWorkspaceRequest request, IVectorStore store) =>
+app.MapPost("/api/workspaces", async (
+    CreateWorkspaceRequest request, IVectorStore store, IngestionJobs jobs) =>
 {
     if (string.IsNullOrWhiteSpace(request.Name))
         return Results.BadRequest(new { error = "A name is required." });
 
-    var created = new Workspaces(store.Connection).Create(request.Name, request.RootPath ?? string.Empty);
+    if (!string.IsNullOrWhiteSpace(request.RepositoryUrl)
+        && !Cloning.IsAcceptable(request.RepositoryUrl))
+    {
+        return Results.BadRequest(new
+        {
+            error = "Only http and https repository URLs are accepted.",
+            hint = "git understands transports that run commands or read local "
+                 + "disk, and a URL typed into a form should reach neither.",
+        });
+    }
+
+    var created = await WithConnection(store, () =>
+        new Workspaces(store.Connection).Create(request.Name, request.RootPath ?? string.Empty));
+
+    // A repository has to be fetched before there is anything to index, and
+    // that is minutes on a large one. It runs as a job for the same reason
+    // indexing does, rather than holding this request open.
+    if (!string.IsNullOrWhiteSpace(request.RepositoryUrl))
+    {
+        var cloneRoot = builder.Configuration["CLONE_PATH"] ?? "repos";
+
+        var started = jobs.StartFromRepository(
+            created.Id,
+            new IngestionJobs.CloneSpec(request.RepositoryUrl, request.Token, cloneRoot));
+
+        if (started is null)
+        {
+            // The workspace exists but nothing will fill it, which is worse
+            // than not creating it: it would sit empty and look indexed.
+            await WithConnection(store, () => new Workspaces(store.Connection).Delete(created.Id));
+
+            return Results.Conflict(new
+            {
+                error = "Something is already being indexed.",
+                hint = "Wait for it to finish, or cancel it, then add this one.",
+                running = jobs.Busy(),
+            });
+        }
+    }
+
     return Results.Created($"/api/workspaces/{created.Id}", created);
 });
 
 // Deletes the chunks with it. A workspace row removed on its own would leave
 // chunks nothing can name, which is worse than either outcome.
-app.MapDelete("/api/workspaces/{id}", (string id, IVectorStore store) =>
-    new Workspaces(store.Connection).Delete(id)
+app.MapDelete("/api/workspaces/{id}", async (string id, IVectorStore store, IngestionJobs jobs) =>
+{
+    // The run goes first. Left going, it would keep writing chunks into a
+    // workspace that no longer exists, and they would never be found again.
+    jobs.Forget(id);
+
+    return await WithConnection(store, () => new Workspaces(store.Connection).Delete(id))
         ? Results.NoContent()
-        : Results.NotFound(new { error = $"No workspace {id}." }));
+        : Results.NotFound(new { error = $"No workspace {id}." });
+});
 
 app.MapPost("/api/seams", (SeamsRequest request) =>
 {
@@ -426,8 +561,13 @@ app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct, str
 {
     await store.ClearAsync(workspace ?? Workspaces.Default, ct);
     // The ledger has to go too. Left behind, it would report every file as
-    // already indexed and the next ingest would do nothing at all.
-    new IngestionLedger(store.Connection, workspace ?? Workspaces.Default).Clear();
+    // already indexed and the next ingest would do nothing at all. Outside the
+    // ClearAsync above rather than beside it: that call takes the gate itself.
+    await WithConnection(store, () =>
+    {
+        new IngestionLedger(store.Connection, workspace ?? Workspaces.Default).Clear();
+        return true;
+    });
     return Results.NoContent();
 });
 

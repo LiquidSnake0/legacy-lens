@@ -37,7 +37,21 @@ public record IngestRequest(string Path, string Workspace = "default");
 
 public record IngestResponse(int FilesRead, int ChunksIndexed, long ElapsedMs);
 
-public record AskRequest(string Question, int TopK = 6, string Workspace = "default");
+/// <summary>
+/// How far an indexing run has got, counted against the files that need work
+/// rather than the files found.
+/// </summary>
+public record IngestionProgress(int FilesTotal, int FilesDone, int ChunksIndexed, string? CurrentFile);
+
+public record AskRequest(
+    string Question,
+    int TopK = 6,
+    string Workspace = "default",
+    /// <summary>
+    /// Which model answers. Absent means the local one, which is the default
+    /// and the only setting under which no part of the code leaves the machine.
+    /// </summary>
+    LegacyLens.Api.Generation.ModelChoice? Model = null);
 
 public record AskResponse(string Answer, IReadOnlyList<Citation> Sources);
 
@@ -69,5 +83,16 @@ public record SeamsRequest(string Path, int Top = 20);
 /// </summary>
 public record ReportRequest(string Path, int Top = 15, int HistoryMonths = 24);
 
-/// <summary>A project to index on its own.</summary>
-public record CreateWorkspaceRequest(string Name, string? RootPath = null);
+/// <summary>
+/// A project to index on its own.
+///
+/// Either a folder the API can already see, or a repository to fetch. The
+/// token, when there is one, is used for that fetch and for nothing else: it
+/// is not written to the index, to the workspace row, to the clone's git
+/// config or to the log.
+/// </summary>
+public record CreateWorkspaceRequest(
+    string Name,
+    string? RootPath = null,
+    string? RepositoryUrl = null,
+    string? Token = null);

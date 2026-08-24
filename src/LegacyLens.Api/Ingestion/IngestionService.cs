@@ -27,8 +27,18 @@ public class IngestionService
         _log = log;
     }
 
+    /// <summary>
+    /// Indexes a directory.
+    ///
+    /// <paramref name="progress"/> is reported against the files that actually
+    /// need work, not against every file found: on a re-index most are
+    /// unchanged and counting them would show a bar that jumps to 90% and then
+    /// sits still for an hour.
+    /// </summary>
     public async Task<IngestResponse> IngestAsync(string rootPath,
-        string workspace = Workspaces.Default, CancellationToken ct = default)
+        string workspace = Workspaces.Default,
+        IProgress<IngestionProgress>? progress = null,
+        CancellationToken ct = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var ledger = new IngestionLedger(_store.Connection, workspace);
@@ -102,8 +112,11 @@ public class IngestionService
         if (pending.Count == 0)
         {
             stopwatch.Stop();
+            progress?.Report(new IngestionProgress(0, 0, 0, null));
             return new IngestResponse(files.Count, 0, stopwatch.ElapsedMilliseconds);
         }
+
+        progress?.Report(new IngestionProgress(pending.Count, 0, 0, null));
 
         _log.LogInformation(
             "Embedding {Count} file(s), this is the slow part", pending.Count);
@@ -159,6 +172,7 @@ public class IngestionService
 
             indexed += split.Count;
             done++;
+            progress?.Report(new IngestionProgress(pending.Count, done, indexed, relative));
 
             // A run this long that reports nothing is indistinguishable from a
             // hung one. The remaining time is extrapolated from the files done
