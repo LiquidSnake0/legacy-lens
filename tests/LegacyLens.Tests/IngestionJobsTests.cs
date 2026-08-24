@@ -125,18 +125,22 @@ public class IngestionJobsTests : IDisposable
     {
         WriteSource("A.cs");
 
-        var jobs = Jobs(new SlowEmbeddings(TimeSpan.FromMilliseconds(400)));
+        var embeddings = new GatedEmbeddings();
+        var jobs = Jobs(embeddings);
 
         Assert.NotNull(jobs.Start("alpha", _repo));
+        await embeddings.Started();
 
         // A single embedding already saturates every core, so a concurrent run
         // does not halve the wait, it doubles both.
         Assert.Null(jobs.Start("beta", _repo));
 
+        embeddings.Allow(20);
         await Settled(jobs, "alpha");
 
         // Once it is over, the next one is allowed.
         Assert.NotNull(jobs.Start("beta", _repo));
+        embeddings.Allow(20);
         await Settled(jobs, "beta");
     }
 
@@ -171,11 +175,21 @@ public class IngestionJobsTests : IDisposable
     {
         for (var i = 0; i < 6; i++) WriteSource($"File{i}.cs");
 
-        var jobs = Jobs(new SlowEmbeddings(TimeSpan.FromMilliseconds(120)));
+        var embeddings = new GatedEmbeddings();
+        var jobs = Jobs(embeddings);
         jobs.Start("alpha", _repo);
 
-        // Long enough for at least one file to be stored and recorded.
-        await Task.Delay(300);
+        // Stopped at a known point rather than after a sleep long enough to
+        // hope one file got through. The wall-clock version of this failed
+        // about one run in five on two cores, which is a test that reports the
+        // speed of the machine it runs on.
+        await embeddings.Started();
+        embeddings.Allow();
+
+        // The second file starting means the first one is embedded, stored and
+        // recorded: the ledger is written before the next file is read.
+        await embeddings.Started();
+
         Assert.True(jobs.Cancel("alpha"));
 
         var job = await Settled(jobs, "alpha");
@@ -183,6 +197,7 @@ public class IngestionJobsTests : IDisposable
 
         // Resuming does the rest rather than starting over.
         jobs.Start("alpha", _repo);
+        embeddings.Allow(20);
         var resumed = await Settled(jobs, "alpha");
 
         Assert.Equal("done", resumed.State);
@@ -228,16 +243,37 @@ public class IngestionJobsTests : IDisposable
             Task.FromResult<IReadOnlyList<float[]>>(texts.Select(_ => new[] { 1f, 0f }).ToList());
     }
 
-    /// <summary>Slow enough that a second start lands while the first is going.</summary>
-    private class SlowEmbeddings(TimeSpan delay) : IEmbeddingClient
+    /// <summary>
+    /// Embeds one file, then waits to be let through.
+    ///
+    /// A run can be stopped at a known point this way, instead of after a sleep
+    /// chosen to be long enough on the machine the test was written on. A test
+    /// built on a delay reports how fast its runner is, and fails on the slow
+    /// ones for reasons that have nothing to do with the code.
+    /// </summary>
+    private class GatedEmbeddings : IEmbeddingClient
     {
+        private readonly SemaphoreSlim _started = new(0);
+        private readonly SemaphoreSlim _allowed = new(0);
+
+        /// <summary>Waits until a file has begun embedding.</summary>
+        public Task Started() => _started.WaitAsync(TimeSpan.FromSeconds(10));
+
+        /// <summary>Lets that many files through.</summary>
+        public void Allow(int files = 1) => _allowed.Release(files);
+
         public Task<float[]> EmbedAsync(string text, CancellationToken ct = default) =>
             Task.FromResult(new[] { 1f, 0f });
 
         public async Task<IReadOnlyList<float[]>> EmbedBatchAsync(
             IReadOnlyList<string> texts, CancellationToken ct = default)
         {
-            await Task.Delay(delay, ct);
+            _started.Release();
+
+            // Cancelling the run releases this, which is what makes stopping
+            // mid-file something the test can arrange rather than race for.
+            await _allowed.WaitAsync(ct);
+
             return texts.Select(_ => new[] { 1f, 0f }).ToList();
         }
     }
