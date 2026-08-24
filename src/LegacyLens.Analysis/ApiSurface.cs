@@ -7,6 +7,25 @@ namespace LegacyLens.Analysis;
 /// <summary>One type from a package, and how much of the codebase touches it.</summary>
 public record ApiUse(string Name, int Uses, int Files);
 
+/// <summary>
+/// One file, and how much of the package it leans on.
+///
+/// Named rather than counted, because the next question after "how much work
+/// is this" is always "show me one", and a projection needs a path.
+/// </summary>
+public record FileUse(string Path, int Uses, int Lines)
+{
+    /// <summary>
+    /// Calls per hundred lines.
+    ///
+    /// What makes a file worth showing, rather than its total. Orchard's
+    /// heaviest user of ASP.NET MVC is 821 lines, which a local model spends
+    /// minutes on and nobody reads in a browser. A short file with the same
+    /// correspondences teaches the same lesson in a screen.
+    /// </summary>
+    public int Density => Lines == 0 ? 0 : Uses * 100 / Lines;
+}
+
 /// <summary>What a codebase actually uses of one package.</summary>
 public record UsageSurface(
     string Package,
@@ -15,7 +34,20 @@ public record UsageSurface(
     IReadOnlyList<ApiUse> Types,
     /// <summary>Files that import one of its namespaces.</summary>
     int Files,
-    IReadOnlyList<string> Notes)
+    IReadOnlyList<string> Notes,
+    /// <summary>
+    /// The files worth looking at first, densest first.
+    ///
+    /// Ranked by calls per line rather than by calls, and that is a correction
+    /// rather than a preference. These rewrites are repetitive, so what a
+    /// reader needs is the file that shows the most correspondences in the
+    /// fewest lines, not the one with the largest total. The largest here is
+    /// 821 lines, which a local model spends minutes on and nobody reads.
+    ///
+    /// Files too long to project at all are left out entirely, with a note,
+    /// rather than offered and then refused.
+    /// </summary>
+    IReadOnlyList<FileUse> Heaviest)
 {
     public int Uses => Types.Sum(t => t.Uses);
     public bool Used => Files > 0;
@@ -143,7 +175,7 @@ public class ApiSurface
         if (!Namespaces.TryGetValue(package, out var namespaces))
         {
             return new UsageSurface(package, [], [], 0,
-                [$"\"{package}\" is not in the catalogue, so nothing was measured for it."]);
+                [$"\"{package}\" is not in the catalogue, so nothing was measured for it."], []);
         }
 
         var wanted = namespaces.ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -154,6 +186,7 @@ public class ApiSurface
 
         var uses = new Dictionary<string, (int Uses, HashSet<string> Files)>(StringComparer.Ordinal);
         var perFile = new List<int>();
+        var heaviest = new List<FileUse>();
         var files = 0;
         var ambiguous = 0;
 
@@ -186,6 +219,7 @@ public class ApiSurface
             }
 
             perFile.Add(here);
+            if (here > 0) heaviest.Add(new FileUse(file.Path, here, file.Lines));
         }
 
         var types = uses
@@ -213,7 +247,32 @@ public class ApiSurface
                 + "Their types are counted here and there.");
         }
 
-        return new UsageSurface(package, namespaces, types, files, notes)
+        // Long enough that a local model spends minutes on it and a reader
+        // scrolls past it. Measured rather than chosen: Orchard's heaviest user
+        // of ASP.NET MVC is 821 lines and took longer than the patience for it.
+        const int TooLongToProject = 400;
+
+        var showable = heaviest.Where(f => f.Lines <= TooLongToProject).ToList();
+
+        if (showable.Count < heaviest.Count)
+        {
+            notes.Add(
+                $"{heaviest.Count - showable.Count} file(s) using this package are longer "
+                + $"than {TooLongToProject} lines and are left out of the list to project. "
+                + "They are the same rewrite, at a length no local model finishes and nobody "
+                + "reads in a browser.");
+        }
+
+        return new UsageSurface(
+            package, namespaces, types, files, notes,
+            // No falling back to the long ones. Offering a file the projection
+            // will then refuse is worse than offering none and saying why.
+            showable
+                .OrderByDescending(f => f.Density)
+                .ThenByDescending(f => f.Uses)
+                .ThenBy(f => f.Path, StringComparer.Ordinal)
+                .Take(20)
+                .ToList())
         {
             FilesForMostOfIt = UsageSurface.ConcentrationOf(perFile),
         };
@@ -223,7 +282,8 @@ public class ApiSurface
         string Path,
         IReadOnlySet<string> Imports,
         IReadOnlyList<string> TypeNames,
-        IReadOnlyList<string> Declared);
+        IReadOnlyList<string> Declared,
+        int Lines);
 
     private static IReadOnlyList<ParsedFile> Read(string rootPath)
     {
@@ -261,7 +321,8 @@ public class ApiSurface
                     .OfType<string>()
                     .ToHashSet(StringComparer.OrdinalIgnoreCase),
                 NamesIn(root),
-                Declarations(root)));
+                Declarations(root),
+                source.AsSpan().Count('\n') + 1));
         }
 
         return parsed;

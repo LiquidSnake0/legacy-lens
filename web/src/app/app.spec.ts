@@ -53,6 +53,7 @@ describe('App', () => {
       models: () => of(models),
       indexingStatus: () => of(null),
       risk: () => of({ history: { status: 'Read', note: null }, generatedFilesExcluded: 0, ranked: 0, entries: [] }),
+      surface: () => of({ catalogue: 'none', packages: [] }),
       startIndexing: (workspace: string, path: string) => {
         started.push({ workspace, path });
         return of({});

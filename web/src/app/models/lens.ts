@@ -135,6 +135,78 @@ export interface ConversionOutcome {
   empty: boolean;
 }
 
+/* ---- what holds a codebase back, and what could replace it ---- */
+
+export interface ApiUse {
+  name: string;
+  uses: number;
+  files: number;
+}
+
+export interface FileUse {
+  path: string;
+  uses: number;
+}
+
+/**
+ * One candidate replacement, scored against what the codebase uses.
+ *
+ * `unknown` is not `unavailable`. One means the catalogue says nothing, the
+ * other means it says there is nothing. Folding them together is how silence
+ * becomes success.
+ */
+export interface Candidate {
+  candidate: string;
+  note: string;
+  percent: number;
+  blocked: boolean;
+  covered: number;
+  unavailable: ApiUse[];
+  unknown: ApiUse[];
+  unknownCount: number;
+  usesCovered: number;
+  usesUnavailable: number;
+  usesUnknown: number;
+}
+
+export interface PackageSurface {
+  package: string;
+  uses: number;
+  files: number;
+  /** How many types carry four fifths of the calls. The number that sizes the work. */
+  typesForMostOfIt: number;
+  filesForMostOfIt: number;
+  types: ApiUse[];
+  /** The files leaning on it hardest. The first is the projection worth making. */
+  heaviest: FileUse[];
+  notes: string[];
+  candidates: Candidate[];
+}
+
+export interface SurfaceReport {
+  catalogue: string;
+  packages: PackageSurface[];
+}
+
+/** One file rewritten, and what the compiler said about it. */
+export interface Projection {
+  path: string;
+  package: string;
+  before: string;
+  after: string;
+  compiles: boolean;
+  /** Whether anything was invented. The question that survives a real file. */
+  sound: boolean;
+  claim: string;
+  target: string;
+  invented: string[];
+  fromProject: string[];
+  unimported: string[];
+  attempts: number;
+  given: string[];
+  notes: string[];
+}
+
 /** What the API answers with when the model cannot be reached. */
 export interface ApiError {
   error: string;

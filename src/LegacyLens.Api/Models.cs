@@ -80,6 +80,15 @@ public record ModerniseRequest(string Path, int TopUnknown = 15);
 public record ConvertRequest(string Path, string Kind);
 
 /// <summary>
+/// What a codebase uses of its dependencies, and what could replace them.
+///
+/// One call rather than three. The surface, the candidates and their coverage
+/// are one question with one answer, and splitting them across endpoints makes
+/// the interface responsible for reassembling a thought.
+/// </summary>
+public record SurfaceRequest(string Path, string? Package = null);
+
+/// <summary>
 /// One file to rewrite, and the package to move it off.
 ///
 /// One file rather than a folder, on purpose. These rewrites are repetitive:

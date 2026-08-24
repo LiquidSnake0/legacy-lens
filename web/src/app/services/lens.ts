@@ -5,6 +5,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 import {
   AskResponse, Health, ApiError, Excerpt, Workspace, IngestionJob,
   ModelChoice, ModelOptions, RiskReport, ConversionKind, ConversionOutcome,
+  SurfaceReport, Projection,
 } from '../models/lens';
 
 /**
@@ -128,6 +129,31 @@ export class LensService {
   convert(path: string, kind: ConversionKind): Observable<ConversionOutcome> {
     return this.http
       .post<ConversionOutcome>(`${this.baseUrl}/convert`, { path, kind })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * What the codebase uses of its dependencies, and what could replace them.
+   *
+   * One call rather than three: the surface, the candidates and their coverage
+   * are one question, and splitting them would make this page responsible for
+   * reassembling a thought. No model is involved.
+   */
+  surface(path: string, pkg?: string): Observable<SurfaceReport> {
+    return this.http
+      .post<SurfaceReport>(`${this.baseUrl}/surface`, { path, package: pkg ?? null })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * One file, rewritten and compiled before it is shown.
+   *
+   * Slow: it asks a model and then compiles, twice if the first answer invented
+   * something.
+   */
+  project(path: string, pkg: string, root: string, model: ModelChoice | null = null) {
+    return this.http
+      .post<Projection>(`${this.baseUrl}/project`, { path, package: pkg, root, model })
       .pipe(catchError(this.explain));
   }
 

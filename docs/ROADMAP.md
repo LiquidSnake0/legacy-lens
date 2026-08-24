@@ -1018,7 +1018,11 @@ the number is the finding.
 
 ### Mutate
 
-The other seventy-nine, and the part that does not exist yet.
+The other seventy-nine.
+
+**The three pieces are built and visible.** The surface, the candidates with
+their coverage, and a projection of one file, all in the browser rather than
+only behind a command. What is not built is the questioner below.
 
 Here the tool stops answering questions and starts asking them. That inversion
 is the whole idea, and it is not a interface flourish: on a non-trivial case the
@@ -1220,6 +1224,15 @@ evenly, which is the difference between three weeks and six months. The price is
 set by a person, because it depends on who does the work. A tool that announces
 "47 days" will be wrong, and that is the error people remember, because it is
 the one that got them to sign.
+
+**A correction the browser forced.** The file offered for projection was the
+one using the package most, which on Orchard is 821 lines: a local model spends
+minutes on it, twice over because a failure is retried, and nobody reads the
+result. Ranked by **calls per line** instead, the first offer became a
+180-line file with 60 calls per hundred lines, which teaches the same lesson in
+a screen. Files past 400 lines are left out of the list entirely and the count
+of them is stated, because offering a file the projection will then refuse is
+worse than offering none.
 
 **Effort:** Measure is assembly, a week. Migrate is a button and a pull request
 on top of M9, days. Mutate is the milestone: the usage surface first, then the

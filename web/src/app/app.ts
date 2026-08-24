@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AnswerText } from './components/answer-text/answer-text';
 import { Citations } from './components/citations/citations';
 import { Conversions } from './components/conversions/conversions';
+import { Dependencies } from './components/dependencies/dependencies';
 import { Indexing } from './components/indexing/indexing';
 import { ModelChoiceComponent } from './components/model-choice/model-choice';
 import { Overview } from './components/overview/overview';
@@ -15,8 +16,8 @@ import { Citation, IngestionJob, ModelChoice, Workspace } from './models/lens';
 @Component({
   selector: 'app-root',
   imports: [
-    ReactiveFormsModule, AnswerText, Citations, Conversions, Indexing,
-    ModelChoiceComponent, Overview, Projects,
+    ReactiveFormsModule, AnswerText, Citations, Conversions, Dependencies,
+    Indexing, ModelChoiceComponent, Overview, Projects,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

@@ -33,7 +33,7 @@ public class SuccessorsTests : IDisposable
 
     private static UsageSurface Surface(params (string Name, int Uses)[] types) =>
         new("Old.Package", ["Old.Namespace"],
-            types.Select(t => new ApiUse(t.Name, t.Uses, 1)).ToList(), 1, []);
+            types.Select(t => new ApiUse(t.Name, t.Uses, 1)).ToList(), 1, [], []);
 
     /* ---- reading it ---- */
 

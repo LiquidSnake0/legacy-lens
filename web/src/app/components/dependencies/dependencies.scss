@@ -1,0 +1,311 @@
+/* Same grammar as the rest: greys, one accent, and a rule where a warning
+   would have been a second colour. */
+
+.dependencies {
+  margin: 2.5rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-faint);
+}
+
+h2 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+h3 {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 1.25rem 0 0.5rem;
+}
+
+h4 {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 0.25rem;
+}
+
+.note,
+.why {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0 0 1rem;
+}
+
+.why {
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.pending {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin: 0.5rem 0;
+}
+
+.failed {
+  font-size: 0.8125rem;
+  color: var(--danger);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+  padding: 0.625rem 0.75rem;
+  margin: 0.75rem 0;
+}
+
+/* ---- the packages ---- */
+
+.packages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  > li {
+    border-top: 1px solid var(--line-faint);
+
+    &:last-child { border-bottom: 1px solid var(--line-faint); }
+  }
+}
+
+.head {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.6875rem 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  &:hover .name { color: var(--accent-ink); }
+}
+
+.which { min-width: 0; }
+
+.name {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.shape {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--faint);
+}
+
+.weight {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.count {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+  text-align: right;
+}
+
+.bar {
+  width: 72px;
+  height: 3px;
+  background: var(--line-faint);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.chevron {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  color: var(--faint);
+}
+
+/* ---- what is inside one ---- */
+
+.detail { padding: 0 0 1.25rem; }
+
+.candidate {
+  border-left: 2px solid var(--accent);
+  padding: 0 0 0.25rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.who {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--ink);
+  margin: 0;
+}
+
+.reading {
+  font-size: 0.8125rem;
+  color: var(--ink);
+  margin: 0.25rem 0 0;
+  max-width: 62ch;
+}
+
+.trade,
+.given,
+.admission,
+.caveat {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.375rem 0 0;
+  max-width: 66ch;
+}
+
+.admission {
+  padding-top: 0.75rem;
+  margin-top: 1rem;
+  border-top: 1px dotted var(--line-faint);
+}
+
+/* Nothing replaces these, and the catalogue knows it. Weight rather than
+   colour, because a second colour is not available and was never needed. */
+.blocked {
+  font-size: 0.75rem;
+  color: var(--ink);
+  font-weight: 600;
+  margin: 0.625rem 0 0.25rem;
+}
+
+.types,
+.files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.1875rem 0;
+    border-bottom: 1px dotted var(--line-faint);
+  }
+}
+
+.type,
+.path {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.uses {
+  font-size: 0.6875rem;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.quiet {
+  font-family: var(--sans);
+  font-size: 0.6875rem;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.1875rem 0.5rem;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+  &:disabled { color: var(--faint); cursor: default; }
+}
+
+/* ---- the projection ---- */
+
+.projection {
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--wash);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+
+  /* It invented something. The rule thickens rather than turning red. */
+  &.unsound {
+    border-left-width: 4px;
+    border-left-color: var(--danger);
+  }
+}
+
+.claim {
+  font-size: 0.8125rem;
+  color: var(--ink);
+  margin: 0;
+  max-width: 66ch;
+}
+
+.invented {
+  font-size: 0.75rem;
+  color: var(--ink);
+  font-weight: 600;
+  margin: 0.5rem 0 0;
+  max-width: 66ch;
+}
+
+.sides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.875rem;
+}
+
+.side pre {
+  margin: 0;
+  padding: 0.5rem 0;
+  background: var(--paper);
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+  overflow-x: auto;
+
+  code {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    line-height: 1.5;
+  }
+}
+
+.line {
+  display: block;
+  padding: 0 0.625rem;
+  white-space: pre;
+  color: var(--muted);
+}
+
+.caveat {
+  padding-top: 0.625rem;
+  margin-top: 0.75rem;
+  border-top: 1px dotted var(--line-faint);
+}
+
+.source {
+  font-size: 0.6875rem;
+  color: var(--faint);
+  font-family: var(--mono);
+  margin: 1rem 0 0;
+  overflow-wrap: anywhere;
+}

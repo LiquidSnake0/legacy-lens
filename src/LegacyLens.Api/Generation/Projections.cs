@@ -45,6 +45,15 @@ public class Projections
     /// </summary>
     private const int Attempts = 2;
 
+    /// <summary>
+    /// Above this, a projection is refused rather than attempted.
+    ///
+    /// Measured: Orchard's heaviest ASP.NET MVC file is 821 lines and outran
+    /// the patience for it on a local model, twice over because a failure is
+    /// retried.
+    /// </summary>
+    private const int TooLong = 400;
+
     private static readonly Regex Fence = new(
         @"^\s*```(?:csharp|cs|c#)?\s*\n(.*?)\n\s*```\s*$",
         RegexOptions.Singleline | RegexOptions.Compiled);
@@ -66,6 +75,24 @@ public class Projections
         CancellationToken ct = default)
     {
         var before = await File.ReadAllTextAsync(path, ct);
+
+        // Refused rather than attempted. A file this long takes a local model
+        // minutes per attempt and produces something nobody reads in a browser,
+        // and the rewrite it demonstrates is the same one a short file shows.
+        var lines = before.AsSpan().Count('\n') + 1;
+        if (lines > TooLong)
+        {
+            return new ProjectionResult(
+                path, package, before, string.Empty,
+                new ProjectionVerdict(false, Projection.Target, [], [], [], []),
+                0, [],
+                [
+                    $"{lines} lines, and the limit is {TooLong}. Projecting it would take a "
+                    + "local model minutes per attempt to produce something nobody reads in a "
+                    + "browser. Pick a shorter file using the same package: the rewrite it "
+                    + "demonstrates is the same one.",
+                ]);
+        }
 
         // What the solution declares, so a name from the project can be told
         // from a name that was made up. Without it every unresolved type looks

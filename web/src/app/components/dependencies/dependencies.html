@@ -1,0 +1,178 @@
+<section class="dependencies">
+  <h2>What holds it back</h2>
+
+  <p class="note">
+    Not what these packages offer, but what this codebase uses of them, counted
+    from the code. That is the number that decides whether a replacement is an
+    afternoon or a rewrite, and no model is involved in reading it.
+  </p>
+
+  @if (loading()) {
+    <p class="pending">Counting what the code uses. Seconds, not hours.</p>
+  } @else if (failure()) {
+    <p class="failed">{{ failure() }}</p>
+  } @else if (report(); as found) {
+    @if (packages().length === 0) {
+      <p class="pending">
+        Nothing here uses a catalogued package. Either the codebase is already
+        modern, or its dependencies are ones nobody has catalogued yet.
+      </p>
+    } @else {
+      <ul class="packages">
+        @for (surface of packages(); track surface.package) {
+          <li [class.open]="isOpen(surface)">
+            <button
+              type="button"
+              class="head"
+              [attr.aria-expanded]="isOpen(surface)"
+              (click)="toggle(surface)"
+            >
+              <div class="which">
+                <span class="name">{{ surface.package }}</span>
+                <span class="shape">
+                  {{ surface.typesForMostOfIt }} type(s) carry four fifths of it,
+                  across {{ surface.filesForMostOfIt }} file(s)
+                </span>
+              </div>
+
+              <div class="weight">
+                <span class="count">{{ surface.uses }}</span>
+                <div class="bar"><div class="fill" [style.width.%]="width(surface)"></div></div>
+              </div>
+
+              <span class="chevron" aria-hidden="true">{{ isOpen(surface) ? '-' : '+' }}</span>
+            </button>
+
+            @if (isOpen(surface)) {
+              <div class="detail">
+                <h3>What could replace it</h3>
+
+                @if (surface.candidates.length === 0) {
+                  <p class="pending">
+                    Nothing catalogued for this one. Which is an admission, not a
+                    verdict: it means nobody has written the answer down yet.
+                  </p>
+                } @else {
+                  @for (candidate of surface.candidates; track candidate.candidate) {
+                    <div class="candidate">
+                      <p class="who">
+                        {{ candidate.candidate || 'Nothing, and nothing is needed' }}
+                      </p>
+                      <p class="reading">{{ reading(candidate) }}</p>
+                      <p class="trade">{{ candidate.note }}</p>
+
+                      @if (candidate.unavailable.length) {
+                        <p class="blocked">
+                          Nothing replaces these, and the catalogue says so rather
+                          than staying quiet:
+                        </p>
+                        <ul class="types">
+                          @for (type of candidate.unavailable; track type.name) {
+                            <li><span class="type">{{ type.name }}</span>
+                              <span class="uses">{{ type.uses }} call(s)</span></li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  }
+                }
+
+                <h3>Where the work is</h3>
+                <ul class="types">
+                  @for (type of surface.types.slice(0, 8); track type.name) {
+                    <li><span class="type">{{ type.name }}</span>
+                      <span class="uses">{{ type.uses }} call(s), {{ type.files }} file(s)</span></li>
+                  }
+                </ul>
+
+                @if (surface.heaviest.length) {
+                  <h3>The file worth looking at first</h3>
+                  <p class="why">
+                    These rewrites are repetitive. Whoever reads one before and
+                    after knows what the rest cost, so one is projected rather
+                    than forty-seven.
+                  </p>
+
+                  <ul class="files">
+                    @for (file of surface.heaviest.slice(0, 5); track file.path) {
+                      <li>
+                        <span class="path">{{ short(file.path) }}</span>
+                        <span class="uses">{{ file.uses }}</span>
+                        <button
+                          type="button"
+                          class="quiet"
+                          [disabled]="projecting() !== null"
+                          (click)="project(surface, file.path)"
+                        >
+                          {{ projecting() === file.path ? 'Rewriting...' : 'Project it' }}
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+
+                @if (projecting()) {
+                  <p class="pending">
+                    Asking the model, then compiling what it wrote. Tens of
+                    seconds on a local model, and twice that if the first answer
+                    invents something.
+                  </p>
+                }
+
+                @if (projectionFailure()) {
+                  <p class="failed">{{ projectionFailure() }}</p>
+                }
+
+                @if (projection(); as done) {
+                  <div class="projection" [class.unsound]="!done.sound">
+                    <p class="claim">{{ done.claim }}</p>
+
+                    @if (!done.sound) {
+                      <p class="invented">
+                        It named {{ done.invented.length }} thing(s) that exist
+                        nowhere, so it is shown as a failure rather than as a
+                        migration: {{ done.invented.join(', ') }}
+                      </p>
+                    }
+
+                    @if (done.given.length) {
+                      <p class="given">
+                        Handed to the model as established facts, not left to its
+                        recollection: {{ done.given.join('; ') }}
+                      </p>
+                    }
+
+                    <div class="sides">
+                      <div class="side">
+                        <h4>Before</h4>
+                        <pre><code>@for (line of lines(done.before).slice(0, 60); track $index) {<span class="line">{{ line }}
+</span>}</code></pre>
+                      </div>
+                      <div class="side">
+                        <h4>After</h4>
+                        <pre><code>@for (line of lines(done.after).slice(0, 60); track $index) {<span class="line">{{ line }}
+</span>}</code></pre>
+                      </div>
+                    </div>
+
+                    <p class="caveat">
+                      Nothing was written to your tree. This compiled against
+                      {{ done.target }}; it was not run, so nothing here says it
+                      behaves the same.
+                    </p>
+                  </div>
+                }
+
+                @for (note of surface.notes; track $index) {
+                  <p class="admission">{{ note }}</p>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
+
+      <p class="source">Catalogue read from {{ found.catalogue }}</p>
+    }
+  }
+</section>

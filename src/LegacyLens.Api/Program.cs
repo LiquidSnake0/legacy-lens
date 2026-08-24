@@ -490,6 +490,69 @@ app.MapPost("/api/convert", (ConvertRequest request) =>
     }
 });
 
+// What a codebase uses of its dependencies, and what could take their place.
+//
+// No model involved. This is the half that answers in seconds and decides
+// whether the slow half is worth starting.
+app.MapPost("/api/surface", (SurfaceRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!Directory.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such directory: {request.Path}." });
+
+    try
+    {
+        var reader = new ApiSurface();
+        var catalogue = Successors.Load();
+        var successors = new Successors();
+
+        var surfaces = string.IsNullOrWhiteSpace(request.Package)
+            ? reader.All(request.Path)
+            : [reader.Of(request.Path, request.Package)];
+
+        return Results.Ok(new
+        {
+            catalogue = catalogue.Source,
+            packages = surfaces.Select(surface => new
+            {
+                surface.Package,
+                surface.Uses,
+                surface.Files,
+                // The two numbers that decide the shape of the work. A total
+                // cannot tell an afternoon of find-and-replace from a rewrite.
+                typesForMostOfIt = surface.TypesForMostOfIt,
+                filesForMostOfIt = surface.FilesForMostOfIt,
+                types = surface.Types.Take(25),
+                heaviest = surface.Heaviest.Take(10),
+                surface.Notes,
+                candidates = successors.Rank(surface, catalogue).Select(coverage => new
+                {
+                    coverage.Candidate,
+                    coverage.Note,
+                    coverage.Percent,
+                    coverage.Blocked,
+                    covered = coverage.Covered.Count,
+                    // Named separately, because "the catalogue says nothing
+                    // about this" is not the same answer as "nothing replaces
+                    // it", and folding them is how silence becomes success.
+                    unavailable = coverage.Unavailable.Take(10),
+                    unknown = coverage.Unknown.Take(10),
+                    unknownCount = coverage.Unknown.Count,
+                    coverage.UsesCovered,
+                    coverage.UsesUnavailable,
+                    coverage.UsesUnknown,
+                }),
+            }),
+        });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 // One file, rewritten and compiled before anyone is shown it.
 //
 // The catalogue supplies the correspondences, the model applies them, and the

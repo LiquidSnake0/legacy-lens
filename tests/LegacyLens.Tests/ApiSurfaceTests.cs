@@ -285,6 +285,63 @@ public class ApiSurfaceTests : IDisposable
         Assert.Equal(1, surface.FilesForMostOfIt);
     }
 
+    [Fact]
+    public void The_file_worth_showing_is_the_densest_rather_than_the_largest()
+    {
+        // The correction the first real run forced. Orchard's heaviest user of
+        // ASP.NET MVC is 821 lines: a local model spends minutes on it and
+        // nobody reads it. A short file with the same correspondences teaches
+        // the same lesson in a screen.
+        Write("Small.cs", """
+            using System.Web.Mvc;
+
+            public class SmallController : Controller
+            {
+                public ActionResult A() => View();
+                public ActionResult B() => View();
+            }
+            """);
+
+        var padding = string.Join("\n", Enumerable.Range(0, 200).Select(i => $"// line {i}"));
+        Write("Big.cs", $$"""
+            using System.Web.Mvc;
+
+            {{padding}}
+
+            public class BigController : Controller
+            {
+                public ActionResult A() => View();
+                public ActionResult B() => View();
+                public ActionResult C() => View();
+            }
+            """);
+
+        Assert.EndsWith("Small.cs", Mvc().Heaviest[0].Path);
+    }
+
+    [Fact]
+    public void A_file_too_long_to_project_is_left_out_and_said_so()
+    {
+        // Offered and then refused is worse than not offered.
+        var padding = string.Join("\n", Enumerable.Range(0, 500).Select(i => $"// line {i}"));
+
+        Write("Huge.cs", $$"""
+            using System.Web.Mvc;
+
+            {{padding}}
+
+            public class HugeController : Controller
+            {
+                public ActionResult A() => View();
+            }
+            """);
+
+        var surface = Mvc();
+
+        Assert.Empty(surface.Heaviest);
+        Assert.Contains(surface.Notes, n => n.Contains("longer than 400 lines"));
+    }
+
     /* ---- what it admits ---- */
 
     [Fact]
