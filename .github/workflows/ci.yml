@@ -104,7 +104,8 @@ jobs:
             "$(call -X POST http://127.0.0.1:5199/api/workspaces \
                     -H 'content-type: application/json' \
                     -d '{"name":"Smoke","rootPath":"/tmp"}')"
-          id=$(BODY="$body" python3 -c 'import json,os;print(json.load(open(os.environ["BODY"]))["id"])')
+          export BODY="$body"
+          id=$(python3 -c 'import json,os;print(json.load(open(os.environ["BODY"]))["id"])')
 
           expect "a name is required" 400 \
             "$(call -X POST http://127.0.0.1:5199/api/workspaces \
@@ -119,6 +120,38 @@ jobs:
             "$(call -X POST http://127.0.0.1:5199/api/seams \
                     -H 'content-type: application/json' \
                     -d "{\"path\":\"$GITHUB_WORKSPACE/src\"}")"
+
+          expect "the risk ranking, which needs no model" 200 \
+            "$(call -X POST http://127.0.0.1:5199/api/risk \
+                    -H 'content-type: application/json' \
+                    -d "{\"path\":\"$GITHUB_WORKSPACE/src\",\"top\":3}")"
+
+          expect "which models are offered" 200 "$(call http://127.0.0.1:5199/api/models)"
+
+          # A repository URL git should never be handed. ext:: runs a command
+          # as the transport, so this one has to be refused before git sees it.
+          expect "a transport that runs commands is refused" 400 \
+            "$(call -X POST http://127.0.0.1:5199/api/workspaces \
+                    -H 'content-type: application/json' \
+                    -d '{"name":"Bad","repositoryUrl":"ext::sh -c touch /tmp/pwned"}')"
+          test ! -e /tmp/pwned
+
+          # Indexing as a job. No model here, so it fails, and failing as a
+          # reported state rather than as an exception on a thread nobody
+          # watches is exactly what is being checked.
+          expect "start an indexing run" 202 \
+            "$(call -X POST http://127.0.0.1:5199/api/ingest/start \
+                    -H 'content-type: application/json' \
+                    -d "{\"path\":\"$GITHUB_WORKSPACE/src\",\"workspace\":\"default\"}")"
+
+          for _ in $(seq 1 30); do
+            state=$(call "http://127.0.0.1:5199/api/ingest/status?workspace=default" > /dev/null
+                    python3 -c 'import json,os;print(json.load(open(os.environ["BODY"]))["state"])')
+            [ "$state" = "running" ] || break
+            sleep 1
+          done
+          echo "ok  the run reported a final state -> $state"
+          test "$state" != "running"
 
           if [ -s "$RUNNER_TEMP/api.log" ] && grep -q 'Unhandled exception' "$RUNNER_TEMP/api.log"; then
             echo "The server logged an unhandled exception:"

@@ -1,0 +1,86 @@
+@if (loading()) {
+  <section class="overview">
+    <h2>Where the trouble is</h2>
+    <p class="pending">Reading the code. No model involved, so this is seconds.</p>
+  </section>
+} @else if (failure()) {
+  <section class="overview">
+    <h2>Where the trouble is</h2>
+    <p class="failed">{{ failure() }}</p>
+  </section>
+} @else if (report(); as risk) {
+  <section class="overview">
+    <h2>Where the trouble is</h2>
+
+    <p class="note">
+      Files that are complicated, change often and have no test, ranked
+      {{ risk.ranked }} deep. Read from the code and from git history: no model
+      and no index, which is why it is here before indexing has finished.
+      @if (risk.generatedFilesExcluded) {
+        {{ risk.generatedFilesExcluded }}
+        {{ risk.generatedFilesExcluded === 1 ? 'generated file was' : 'generated files were' }}
+        left out.
+      }
+    </p>
+
+    @if (risk.history.note) {
+      <p class="caveat">{{ risk.history.note }}</p>
+    }
+
+    @if (risk.entries.length === 0) {
+      <p class="pending">Nothing ranked. Every file here is short enough not to be a worry.</p>
+    } @else {
+      <ul>
+        @for (entry of risk.entries; track entry.path) {
+          <li [class.open]="isOpen(entry)">
+            <button type="button" class="head" [attr.aria-expanded]="isOpen(entry)" (click)="toggle(entry)">
+              <div class="where">
+                <span class="path">{{ name(entry) }}</span>
+                @if (folder(entry)) {
+                  <span class="folder">{{ folder(entry) }}</span>
+                }
+              </div>
+
+              <div class="facts">
+                @if (!entry.tested) {
+                  <span class="tag untested">no test</span>
+                }
+                <span class="metric" title="Cyclomatic complexity of the whole file">
+                  {{ entry.complexity }}
+                </span>
+                <div class="bar">
+                  <div class="fill" [style.width.%]="width(entry)"></div>
+                </div>
+              </div>
+
+              <span class="chevron" aria-hidden="true">{{ isOpen(entry) ? '-' : '+' }}</span>
+            </button>
+
+            @if (isOpen(entry)) {
+              <div class="why">
+                <ul class="reasons">
+                  @for (reason of entry.reasons; track reason) {
+                    <li>{{ reason }}</li>
+                  }
+                </ul>
+
+                <dl>
+                  <div><dt>Lines of code</dt><dd>{{ entry.codeLines }}</dd></div>
+                  <div><dt>Deepest nesting</dt><dd>{{ entry.maxNesting }}</dd></div>
+                  <div><dt>Commits</dt><dd>{{ entry.commits }}</dd></div>
+                  <div><dt>Authors</dt><dd>{{ entry.authors }}</dd></div>
+                  @if (entry.worstMethod) {
+                    <div class="wide">
+                      <dt>Worst method</dt>
+                      <dd><code>{{ entry.worstMethod }}</code> ({{ entry.worstMethodComplexity }})</dd>
+                    </div>
+                  }
+                </dl>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
+}

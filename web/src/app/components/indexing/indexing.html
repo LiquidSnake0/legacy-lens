@@ -1,0 +1,64 @@
+@if (job(); as run) {
+  <section class="indexing" [class.failed]="run.state === 'failed'">
+    @if (run.state === 'cloning') {
+      <p class="line">
+        <span class="dot working" aria-hidden="true"></span>
+        Fetching the repository. Full history, so this takes as long as a clone does.
+      </p>
+    } @else if (run.state === 'running') {
+      <p class="line">
+        <span class="dot working" aria-hidden="true"></span>
+        Indexing
+        @if (run.filesTotal) {
+          <strong>{{ run.filesDone }}</strong> of <strong>{{ run.filesTotal }}</strong> files,
+          {{ run.chunksIndexed }} chunks so far
+        } @else {
+          reading the files that changed
+        }
+      </p>
+
+      @if (run.filesTotal) {
+        <div class="bar" role="progressbar" [attr.aria-valuenow]="percent()">
+          <div class="fill" [style.width.%]="percent()"></div>
+        </div>
+      }
+
+      <p class="detail">
+        @if (run.currentFile) {
+          <span class="path">{{ run.currentFile }}</span>
+        }
+        @if (run.estimatedSecondsLeft !== null) {
+          <span class="eta">~{{ left(run.estimatedSecondsLeft) }} left at this rate</span>
+        }
+      </p>
+
+      <p class="aside">
+        You can ask questions now. Answers cover what has been indexed so far,
+        and the structural half below needs no index at all.
+      </p>
+
+      <button type="button" class="quiet" (click)="cancel()">Stop</button>
+    } @else if (run.state === 'failed') {
+      <p class="line">
+        <span class="dot broken" aria-hidden="true"></span>
+        Indexing failed.
+      </p>
+      <p class="detail">{{ run.error }}</p>
+    } @else if (run.state === 'cancelled') {
+      <p class="line">
+        <span class="dot idle" aria-hidden="true"></span>
+        Stopped after {{ run.filesDone }} of {{ run.filesTotal }} files.
+        What was indexed is kept, and starting again picks up from there.
+      </p>
+    } @else if (run.chunksIndexed > 0) {
+      <p class="line">
+        <span class="dot done" aria-hidden="true"></span>
+        Indexed {{ run.chunksIndexed }} chunks from {{ run.filesDone }} files.
+      </p>
+    }
+
+    @if (failure()) {
+      <p class="detail">{{ failure() }}</p>
+    }
+  </section>
+}

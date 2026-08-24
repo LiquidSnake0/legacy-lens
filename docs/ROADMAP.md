@@ -354,7 +354,7 @@ underneath were already right. Most of it went on what to leave out.
 
 ---
 
-## M7. First run 🟡
+## M7. First run ✅
 
 *The gap between "a thing I built" and "a thing someone else can start".*
 
@@ -363,14 +363,14 @@ the curl commands. Everything below follows from one measured fact: the fast
 half answers in two seconds and the slow half takes hours, so they cannot sit
 behind the same button.
 
-- **A form on first launch.** Where is the code: a local folder, or a public
+- **A form on first launch ✅.** Where is the code: a local folder, or a public
   repository URL. Private repositories take a read-scoped token used for the
   clone and never stored. A tool whose argument is "your code stays yours" has
   no business holding your keys.
-- **Answer immediately with the free half.** Map, risk ranking, findings, in
+- **Answer immediately with the free half ✅.** Map, risk ranking, findings, in
   seconds, before any model is involved. Semantic indexing becomes a background
   job the reader comes back to, not a spinner they watch.
-- **Which model.** Local Ollama by default, or the user's own API key. Both
+- **Which model ✅.** Local Ollama by default, or the user's own API key. Both
   keep the operator out of the loop. Hosting a shared instance is a different
   product with different obligations, and it is deliberately not this one.
 - **Workspaces ✅.** One index per project, selectable. This is the real work: a
@@ -410,7 +410,7 @@ genuine product on its own and it is currently invisible. Answering immediately
 with it is the one item here that does not wait for a self-serve audience: the
 report in M6 wants the same split, so that piece gets built either way.
 
-**Effort:** the weekend for workspaces is spent. An afternoon for the form.
+**Effort:** spent.
 
 ---
 

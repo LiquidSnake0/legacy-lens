@@ -6,84 +6,109 @@
       Every answer cites the lines it came from.
     </p>
 
-    @if (indexed() !== null) {
-      <p class="status">
-        <span class="dot" [class.empty]="indexed() === 0"></span>
-        @if (indexed() === 0) {
-          Index is empty. Ingest a repository before asking.
-        } @else {
-          {{ indexed() }} chunks indexed
-        }
-      </p>
-    } @else {
+    @if (store.error(); as failure) {
       <p class="status">
         <span class="dot offline"></span>
-        API unreachable on port 8080
+        {{ failure }}
+      </p>
+    } @else if (store.current(); as current) {
+      <p class="status">
+        <span class="dot" [class.empty]="current.chunks === 0"></span>
+        @if (current.chunks === 0) {
+          Nothing indexed yet for {{ current.name }}. The structural half below works anyway.
+        } @else {
+          {{ current.chunks }} chunks indexed for {{ current.name }}
+        }
       </p>
     }
   </header>
 
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <label for="question">Your question</label>
+  <lens-projects (added)="onAdded($event)" />
 
-    <textarea
-      id="question"
-      formControlName="question"
-      rows="3"
-      placeholder="Where is authentication handled?"
-      [class.invalid]="questionControl.touched && questionControl.invalid"
-    ></textarea>
+  @if (store.current(); as current) {
+    <lens-indexing [workspace]="current.id" (finished)="onIndexed($event)" />
 
-    @if (questionControl.touched && questionControl.hasError('required')) {
-      <p class="field-error">A question is required.</p>
-    } @else if (questionControl.touched && questionControl.hasError('minlength')) {
-      <p class="field-error">
-        Too short to retrieve anything useful. Write a full question.
-      </p>
+    <lens-model-choice (chosen)="onModel($event)" />
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label for="question">Your question</label>
+
+      <textarea
+        id="question"
+        formControlName="question"
+        rows="3"
+        placeholder="Where is authentication handled?"
+        [class.invalid]="questionControl.touched && questionControl.invalid"
+      ></textarea>
+
+      @if (questionControl.touched && questionControl.hasError('required')) {
+        <p class="field-error">A question is required.</p>
+      } @else if (questionControl.touched && questionControl.hasError('minlength')) {
+        <p class="field-error">
+          Too short to retrieve anything useful. Write a full question.
+        </p>
+      }
+
+      <div class="actions">
+        <button type="submit" [disabled]="loading()">
+          {{ loading() ? 'Searching...' : 'Ask' }}
+        </button>
+
+        @if (current.rootPath) {
+          <button type="button" class="secondary" (click)="reindex()" [disabled]="loading()">
+            Re-index
+          </button>
+        }
+
+        @if (loading()) {
+          <span class="hint">
+            Generation runs locally on the CPU. Tens of seconds is normal.
+          </span>
+        }
+      </div>
+    </form>
+
+    @if (!answer() && !loading() && !error()) {
+      <section class="examples">
+        <h2>Try</h2>
+        @for (example of examples; track example) {
+          <button type="button" class="example" (click)="useExample(example)">
+            {{ example }}
+          </button>
+        }
+      </section>
     }
 
-    <div class="actions">
-      <button type="submit" [disabled]="loading()">
-        {{ loading() ? 'Searching…' : 'Ask' }}
-      </button>
+    @if (error()) {
+      <section class="error">
+        <strong>Could not answer.</strong>
+        <p>{{ error() }}</p>
+      </section>
+    }
 
-      @if (loading()) {
-        <span class="hint">
-          Generation runs locally on the CPU. Tens of seconds is normal.
-        </span>
-      }
-    </div>
-  </form>
+    @if (answer()) {
+      <section class="answer">
+        <h2>Answer</h2>
+        <lens-answer-text [text]="answer()!" />
+      </section>
 
-  @if (!answer() && !loading() && !error()) {
-    <section class="examples">
-      <h2>Try</h2>
-      @for (example of examples; track example) {
-        <button type="button" class="example" (click)="useExample(example)">
-          {{ example }}
-        </button>
-      }
-    </section>
-  }
+      <lens-citations [sources]="sources()" [workspace]="current.id" />
+    }
 
-  @if (error()) {
-    <section class="error">
-      <strong>Could not answer.</strong>
-      <p>{{ error() }}</p>
-    </section>
-  }
-
-  @if (answer()) {
-    <section class="answer">
-      <h2>Answer</h2>
-      <lens-answer-text [text]="answer()!" />
-    </section>
-
-    <lens-citations [sources]="sources()" />
+    @if (current.rootPath) {
+      <lens-overview [rootPath]="current.rootPath" />
+    }
   }
 
   <footer>
-    <span>Runs entirely on this machine. No source code leaves it.</span>
+    @if (model().provider === 'hosted') {
+      <span>
+        Indexing runs here. The excerpts quoted in an answer are sent to the
+        hosted model you chose.
+      </span>
+    } @else {
+      <span>Runs entirely on this machine. No source code leaves it.</span>
+    }
     <a href="https://github.com/LiquidSnake0/legacy-lens" target="_blank" rel="noreferrer">
       Source
     </a>

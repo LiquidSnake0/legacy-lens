@@ -1,0 +1,215 @@
+/* Same list grammar as the citations: a row you can open, a bar that means
+   "more of this than that", and the accent used once. */
+
+.overview {
+  margin: 2.5rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-faint);
+}
+
+h2 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  max-width: 60ch;
+  margin: 0 0 1rem;
+}
+
+/* Where git could not answer, said out loud rather than papered over. */
+.caveat {
+  font-size: 0.75rem;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.pending,
+.failed {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.failed {
+  color: var(--danger);
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  border-top: 1px solid var(--line-faint);
+
+  &:last-child {
+    border-bottom: 1px solid var(--line-faint);
+  }
+}
+
+.head {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.6875rem 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+
+  &:hover .path {
+    color: var(--accent-ink);
+  }
+}
+
+.where {
+  min-width: 0;
+}
+
+.path {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.folder {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  color: var(--faint);
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.tag {
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius);
+
+  /* An untested file is the one fact on this row that changes what you do
+     next, so it is the one that gets colour. */
+  &.untested {
+    color: var(--danger);
+    background: var(--danger-wash);
+  }
+}
+
+.metric {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 2.5ch;
+  text-align: right;
+}
+
+.bar {
+  width: 72px;
+  height: 3px;
+  background: var(--line-faint);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.chevron {
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  color: var(--faint);
+}
+
+.why {
+  padding: 0 0 1rem;
+}
+
+.reasons {
+  margin: 0 0 0.875rem;
+  padding: 0;
+
+  li {
+    border: none;
+    font-size: 0.8125rem;
+    color: var(--ink);
+    padding: 0.125rem 0 0.125rem 0.875rem;
+    position: relative;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.6875em;
+      width: 4px;
+      height: 1px;
+      background: var(--accent);
+    }
+  }
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-bottom: 1px dotted var(--line-faint);
+    padding-bottom: 0.25rem;
+  }
+
+  /* A method name is not a number and does not fit a number's column. */
+  div.wide {
+    grid-column: 1 / -1;
+  }
+}
+
+dt {
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+
+  code {
+    font-family: var(--mono);
+  }
+}

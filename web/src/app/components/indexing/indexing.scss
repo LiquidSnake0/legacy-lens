@@ -1,0 +1,114 @@
+/* A band across the page rather than a modal. The run is background work; it
+   should be readable without taking the screen hostage. */
+
+.indexing {
+  margin: 0 0 2rem;
+  padding: 0.875rem 1rem;
+  background: var(--wash);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+
+  &.failed {
+    background: var(--danger-wash);
+    border-left-color: var(--danger);
+  }
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--ink);
+  margin: 0;
+
+  strong {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.working {
+    background: var(--accent);
+    /* Slow: this runs for hours, and a fast pulse over that long is a
+       distraction rather than a signal. */
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  &.done { background: var(--ok); }
+  &.broken { background: var(--danger); }
+  &.idle { background: var(--faint); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot.working { animation: none; }
+}
+
+.bar {
+  height: 3px;
+  background: var(--line-faint);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.375rem 0 0;
+
+  .path {
+    font-family: var(--mono);
+    overflow-wrap: anywhere;
+  }
+
+  .eta {
+    color: var(--faint);
+    white-space: nowrap;
+  }
+}
+
+/* The sentence that makes the wait bearable: there is something to do now. */
+.aside {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.75rem 0 0;
+  max-width: 56ch;
+}
+
+.quiet {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.3125rem 0.6875rem;
+  margin-top: 0.75rem;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+}

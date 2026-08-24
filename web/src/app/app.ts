@@ -3,18 +3,28 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { AnswerText } from './components/answer-text/answer-text';
 import { Citations } from './components/citations/citations';
+import { Indexing } from './components/indexing/indexing';
+import { ModelChoiceComponent } from './components/model-choice/model-choice';
+import { Overview } from './components/overview/overview';
+import { Projects } from './components/projects/projects';
 import { LensService } from './services/lens';
-import { Citation } from './models/lens';
+import { WorkspaceStore } from './services/workspace-store';
+import { Citation, IngestionJob, ModelChoice, Workspace } from './models/lens';
 
 @Component({
   selector: 'app-root',
-  imports: [ReactiveFormsModule, AnswerText, Citations],
+  imports: [
+    ReactiveFormsModule, AnswerText, Citations, Indexing, ModelChoiceComponent,
+    Overview, Projects,
+  ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
   private readonly lens = inject(LensService);
   private readonly builder = inject(FormBuilder);
+
+  readonly store = inject(WorkspaceStore);
 
   /**
    * Reactive form rather than template-driven: validation lives in the class
@@ -31,7 +41,15 @@ export class App implements OnInit {
   readonly sources = signal<Citation[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly indexed = signal<number | null>(null);
+
+  /**
+   * Local until somebody decides otherwise, with the warning in front of them.
+   *
+   * The footer reads this too. A page whose last line promises that no source
+   * code leaves the machine has to stop promising it the moment that stops
+   * being true.
+   */
+  readonly model = signal<ModelChoice>({ provider: 'local' });
 
   readonly examples = [
     'How does the chunker decide where to cut a file?',
@@ -40,16 +58,49 @@ export class App implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.lens.health().subscribe({
-      next: (health) => this.indexed.set(health.indexedChunks),
-      // A failing health check is not worth an error banner: the user has not
-      // asked for anything yet. The empty chunk count says enough.
-      error: () => this.indexed.set(null),
+    this.store.refresh();
+  }
+
+  /**
+   * A project that was just added.
+   *
+   * A repository is already being fetched by the API, since only it can clone.
+   * A folder is here on disk and needs the run started.
+   */
+  onAdded(workspace: Workspace): void {
+    if (!workspace.rootPath) return;
+
+    this.lens.startIndexing(workspace.id, workspace.rootPath).subscribe({
+      next: () => {},
+      // Not fatal. The structural half works without an index, and the reason
+      // is worth showing rather than swallowing.
+      error: (failure: Error) => this.error.set(failure.message),
+    });
+  }
+
+  /** A run has ended, so the chunk counts on the picker are out of date. */
+  onIndexed(_: IngestionJob): void {
+    this.store.refresh();
+  }
+
+  onModel(choice: ModelChoice): void {
+    this.model.set(choice);
+  }
+
+  reindex(): void {
+    const current = this.store.current();
+    if (!current?.rootPath) return;
+
+    this.lens.startIndexing(current.id, current.rootPath).subscribe({
+      next: () => {},
+      error: (failure: Error) => this.error.set(failure.message),
     });
   }
 
   async submit(): Promise<void> {
-    if (this.form.invalid || this.loading()) {
+    const workspace = this.store.currentId();
+
+    if (this.form.invalid || this.loading() || !workspace) {
       this.form.markAllAsTouched();
       return;
     }
@@ -62,7 +113,7 @@ export class App implements OnInit {
     this.sources.set([]);
 
     try {
-      for await (const event of this.lens.stream(question)) {
+      for await (const event of this.lens.stream(question, workspace, this.model())) {
         switch (event.name) {
           case 'sources':
             this.sources.set(event.data as Citation[]);

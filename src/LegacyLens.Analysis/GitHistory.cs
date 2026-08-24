@@ -68,15 +68,28 @@ public class GitHistory
               + "to rank by change frequency.");
         }
 
+        // Where the analysed directory sits inside the repository, empty at the
+        // root. git names files from the repository root whatever directory it
+        // is run in, so without this every path from the log misses every path
+        // from the metrics, and the ranking silently falls back to structure
+        // alone while still reporting that history was available.
+        var prefix = (Run(repositoryPath, "rev-parse", "--show-prefix") ?? string.Empty).Trim();
+
         // One commit per record, each followed by the files it touched. The
         // separator is a character that cannot appear in a name or a date.
+        //
+        // The trailing pathspec limits the log to this directory: on a large
+        // estate analysed one project at a time, reading the whole repository's
+        // history for each is work thrown away.
         var log = Run(repositoryPath, "log",
             $"--since={Months} months ago",
             "--pretty=format:%x1f%an%x1f%aI",
             "--name-only",
-            "--no-merges");
+            "--no-merges",
+            "--",
+            ".");
 
-        return new HistoryReport(HistoryStatus.Available, Parse(log ?? string.Empty));
+        return new HistoryReport(HistoryStatus.Available, Parse(log ?? string.Empty, prefix));
     }
 
     /// <summary>
@@ -87,7 +100,15 @@ public class GitHistory
     /// </summary>
     internal const char UnitSeparator = '\u001F';
 
-    internal static Dictionary<string, FileChurn> Parse(string log)
+    /// <summary>
+    /// Turns git's output into churn per file.
+    ///
+    /// <paramref name="prefix"/> is where the analysed directory sits inside
+    /// the repository, so the paths come back named the way the rest of the
+    /// analysis names them. Anything outside it is dropped rather than kept
+    /// under a name nothing will ever match.
+    /// </summary>
+    internal static Dictionary<string, FileChurn> Parse(string log, string prefix = "")
     {
         var commits = new Dictionary<string, int>(StringComparer.Ordinal);
         var authors = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
@@ -110,6 +131,12 @@ public class GitHistory
 
             var path = line.Trim();
             if (path.Length == 0 || author is null) continue;
+
+            if (prefix.Length > 0)
+            {
+                if (!path.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                path = path[prefix.Length..];
+            }
 
             commits[path] = commits.GetValueOrDefault(path) + 1;
 

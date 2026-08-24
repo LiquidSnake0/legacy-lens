@@ -485,6 +485,10 @@ curl -X POST localhost:8080/api/ask \
 By default it indexes whatever is in `./repos`. Set `REPOS_PATH` in `.env` to
 mount a directory from elsewhere instead.
 
+None of that is needed to start. Opening `localhost:4200` with nothing indexed
+asks one question, which is where the code is, and everything below is what
+that form does.
+
 ### More than one project
 
 Both calls above take an optional `workspace`. Left out, they use `default`,
@@ -501,6 +505,53 @@ That returns an id to pass as `"workspace"` when indexing and when asking.
 `DELETE /api/workspaces/{id}` removes one along with everything indexed under
 it. Two projects in one index file cannot see each other's code, including when
 they contain files at the same relative path.
+
+Pass `repositoryUrl` instead of `rootPath` and the API clones it, with its full
+history, because the risk ranking reads change frequency from git. Private
+repositories take a `token`, which is used for that fetch and then removed from
+the clone's git config. Only http and https are accepted.
+
+### Indexing without waiting for it
+
+`POST /api/ingest` blocks until the index is built, which is what a script
+wants. A person usually does not: embedding runs at roughly two chunks a second
+on a CPU, so a real estate is hours.
+
+```bash
+curl -X POST localhost:8080/api/ingest/start \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/billing","workspace":"<id>"}'
+
+curl "localhost:8080/api/ingest/status?workspace=<id>"
+```
+
+The status reports files done, chunks indexed and an estimate, and
+`POST /api/ingest/cancel` stops it. What was embedded is kept, so starting
+again picks up where it stopped. One run at a time: a single embedding already
+saturates every core.
+
+Questions can be asked while it runs, over what has been indexed so far. The
+structural half needs no index at all and answers in milliseconds, which is
+what the interface shows underneath while the slow half catches up.
+
+### Which model answers
+
+Local by default. `GET /api/models` says what is on offer, and `/api/ask` takes
+an optional `model`:
+
+```json
+{ "provider": "hosted", "model": "gpt-4o-mini", "apiKey": "sk-..." }
+```
+
+The key is used for that request and stored nowhere. `HOSTED_URL` decides which
+host it goes to, so the choice of where excerpts are posted belongs to whoever
+runs the API rather than to the page.
+
+Only generation is switchable. Embeddings stay local whatever is chosen:
+embedding reads every file, so sending it out would upload the whole codebase,
+where generation sends only the excerpts retrieved for one question. That is
+the difference the choice turns on, and the interface repeats it wherever the
+choice is shown.
 
 ### The web interface
 

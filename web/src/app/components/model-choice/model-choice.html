@@ -1,0 +1,65 @@
+<section class="model">
+  <button type="button" class="toggle" [attr.aria-expanded]="open()" (click)="toggle()">
+    <span class="label">Model</span>
+    <span class="current" [class.remote]="provider() === 'hosted'">{{ summary() }}</span>
+    <span class="chevron" aria-hidden="true">{{ open() ? '-' : '+' }}</span>
+  </button>
+
+  @if (open()) {
+    @if (options(); as choices) {
+      <div class="panel">
+        <div class="choice" role="group" aria-label="Which model answers">
+          <button type="button" [class.picked]="provider() === 'local'" (click)="choose('local')">
+            Local
+          </button>
+          <button type="button" [class.picked]="provider() === 'hosted'" (click)="choose('hosted')">
+            Hosted
+          </button>
+        </div>
+
+        @if (provider() === 'local') {
+          <p class="says">
+            <strong>{{ choices.local.model }}</strong> {{ choices.local.description }}
+          </p>
+        } @else {
+          <p class="warning">{{ choices.hosted.warning }}</p>
+
+          <label for="hosted-model">Model</label>
+          <input
+            id="hosted-model"
+            type="text"
+            [value]="model()"
+            (input)="setModel($any($event.target).value)"
+          />
+
+          <label for="hosted-key">API key</label>
+          <input
+            id="hosted-key"
+            type="password"
+            autocomplete="off"
+            placeholder="sk-..."
+            [value]="apiKey()"
+            (input)="setKey($any($event.target).value)"
+          />
+
+          <p class="says">
+            Sent with the question and used for it. Not stored here, not stored
+            by the API, and gone when this tab closes.
+          </p>
+
+          @if (missingKey) {
+            <p class="needed">Without a key the local model answers instead.</p>
+          }
+        }
+
+        <p class="always">{{ choices.embeddings }}</p>
+      </div>
+    } @else {
+      <div class="panel">
+        <p class="says">
+          The API did not say which models it offers, so the local one is used.
+        </p>
+      </div>
+    }
+  }
+</section>

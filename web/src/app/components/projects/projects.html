@@ -1,0 +1,146 @@
+@if (store.loading()) {
+  <p class="projects-pending">Looking for indexed projects…</p>
+} @else if (store.error()) {
+  <!-- The header already says the API is unreachable. Offering a form that
+       cannot submit on top of it would only add a second thing to fix. -->
+} @else if (adding() || alone) {
+  <section class="onboarding" [class.alone]="alone">
+    @if (alone) {
+      <h2>Point it at some code</h2>
+      <p class="lead">
+        A folder the API can read, or a repository to fetch. The structural
+        half answers in seconds; the semantic half indexes in the background
+        and you can ask questions before it finishes.
+      </p>
+    } @else {
+      <h2>Add a project</h2>
+    }
+
+    <div class="choice" role="group" aria-label="Where the code is">
+      <button
+        type="button"
+        [class.picked]="source() === 'folder'"
+        (click)="choose('folder')"
+      >
+        A folder
+      </button>
+      <button
+        type="button"
+        [class.picked]="source() === 'repository'"
+        (click)="choose('repository')"
+      >
+        A repository
+      </button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <label for="project-name">Name</label>
+      <input
+        id="project-name"
+        type="text"
+        formControlName="name"
+        placeholder="Billing"
+        [class.invalid]="nameControl.touched && nameControl.invalid"
+      />
+      @if (nameControl.touched && nameControl.invalid) {
+        <p class="field-error">A name is required, so you can tell projects apart.</p>
+      }
+
+      @if (source() === 'folder') {
+        <label for="project-path">Folder</label>
+        <input
+          id="project-path"
+          type="text"
+          formControlName="rootPath"
+          placeholder="/repos/billing"
+        />
+        <p class="field-note">
+          A path the API can see. Running in Docker, that is a path inside the
+          container: whatever you mounted at <code>/repos</code>.
+        </p>
+      } @else {
+        <label for="project-url">Repository URL</label>
+        <input
+          id="project-url"
+          type="url"
+          formControlName="repositoryUrl"
+          placeholder="https://github.com/org/project.git"
+        />
+        <p class="field-note">
+          http or https only. Cloned with its full history, because the risk
+          ranking reads change frequency from git.
+        </p>
+
+        <label for="project-token">Access token <span class="optional">private repositories only</span></label>
+        <input
+          id="project-token"
+          type="password"
+          formControlName="token"
+          autocomplete="off"
+          placeholder="Leave empty for a public repository"
+        />
+        <p class="field-note">
+          Used for the clone and then removed from the clone's git config. It
+          is not stored here, not stored by the API, and not sent again.
+        </p>
+      }
+
+      @if (failure()) {
+        <p class="failed">{{ failure() }}</p>
+      }
+
+      <div class="actions">
+        <button type="submit" [disabled]="busy()">
+          {{ busy() ? 'Working…' : source() === 'repository' ? 'Fetch and index' : 'Add' }}
+        </button>
+
+        @if (!alone) {
+          <button type="button" class="quiet" (click)="cancel()" [disabled]="busy()">
+            Cancel
+          </button>
+        }
+      </div>
+    </form>
+  </section>
+} @else {
+  <section class="picker">
+    <label for="project">Project</label>
+
+    <div class="row">
+      <select
+        id="project"
+        [value]="store.currentId() ?? ''"
+        (change)="select($any($event.target).value)"
+      >
+        @for (workspace of store.all(); track workspace.id) {
+          <option [value]="workspace.id">
+            {{ workspace.name }} ({{ workspace.chunks }} chunks)
+          </option>
+        }
+      </select>
+
+      <button type="button" class="quiet" (click)="open()">Add</button>
+
+      @if (store.current(); as current) {
+        <button
+          type="button"
+          class="quiet danger"
+          [disabled]="busy()"
+          (click)="remove(current)"
+        >
+          Delete
+        </button>
+      }
+    </div>
+
+    @if (store.current(); as current) {
+      @if (current.rootPath) {
+        <p class="where">{{ current.rootPath }}</p>
+      }
+    }
+
+    @if (failure()) {
+      <p class="failed">{{ failure() }}</p>
+    }
+  </section>
+}

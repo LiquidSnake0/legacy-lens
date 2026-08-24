@@ -38,6 +38,9 @@ describe('Citations', () => {
   function build(sources: Citation[] = [engine, rules]) {
     const fixture = TestBed.createComponent(Citations);
     fixture.componentRef.setInput('sources', sources);
+    // Excerpts are fetched per project: two of them can hold a file at the
+    // same path with different code in it.
+    fixture.componentRef.setInput('workspace', 'alpha');
     fixture.detectChanges();
     return fixture;
   }

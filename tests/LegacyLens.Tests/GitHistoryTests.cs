@@ -86,4 +86,51 @@ public class GitHistoryTests
         Assert.NotNull(report.Explanation);
         Assert.Empty(report.Churn);
     }
+
+    [Fact]
+    public void A_subdirectory_gets_paths_named_the_way_the_rest_of_the_analysis_names_them()
+    {
+        // git names files from the repository root whatever directory it runs
+        // in. Analysing src/ then compared "src/A.cs" from the log against
+        // "A.cs" from the metrics, matched nothing, and ranked on structure
+        // alone while still reporting that history was available. Silent, and
+        // wrong in the direction that looks like a working answer.
+        var log = string.Join('\n', [
+            $"{GitHistory.UnitSeparator}Ada{GitHistory.UnitSeparator}2026-01-05T10:00:00+00:00",
+            "src/A.cs",
+            "src/nested/B.cs",
+        ]);
+
+        var churn = GitHistory.Parse(log, prefix: "src/");
+
+        Assert.True(churn.ContainsKey("A.cs"));
+        Assert.True(churn.ContainsKey("nested/B.cs"));
+        Assert.False(churn.ContainsKey("src/A.cs"));
+    }
+
+    [Fact]
+    public void A_file_outside_the_analysed_directory_is_dropped_rather_than_misnamed()
+    {
+        var log = string.Join('\n', [
+            $"{GitHistory.UnitSeparator}Ada{GitHistory.UnitSeparator}2026-01-05T10:00:00+00:00",
+            "src/A.cs",
+            "docs/README.md",
+        ]);
+
+        var churn = GitHistory.Parse(log, prefix: "src/");
+
+        Assert.Single(churn);
+        Assert.True(churn.ContainsKey("A.cs"));
+    }
+
+    [Fact]
+    public void At_the_repository_root_the_paths_are_left_alone()
+    {
+        var log = string.Join('\n', [
+            $"{GitHistory.UnitSeparator}Ada{GitHistory.UnitSeparator}2026-01-05T10:00:00+00:00",
+            "src/A.cs",
+        ]);
+
+        Assert.True(GitHistory.Parse(log).ContainsKey("src/A.cs"));
+    }
 }

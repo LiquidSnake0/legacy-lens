@@ -1,0 +1,231 @@
+/* Same wall, same joint. The picker sits above the question the way a label
+   sits above a form field: quiet until you need it. */
+
+.projects-pending {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  margin: 0 0 2rem;
+}
+
+/* ---- the picker, once there is something to pick ---- */
+
+.picker {
+  margin: 0 0 2rem;
+  padding: 0 0 1.25rem;
+  border-bottom: 1px solid var(--line-faint);
+
+  label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  select {
+    flex: 1;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.625rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  }
+
+  .where {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--faint);
+    margin: 0.5rem 0 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ---- the form ---- */
+
+.onboarding {
+  margin: 0 0 2rem;
+
+  /* On a first run there is nothing else on the page, so it gets the room. */
+  &.alone {
+    margin-top: 1rem;
+    padding: 1.75rem;
+    background: var(--wash);
+    border: 1px solid var(--line-faint);
+    border-radius: var(--radius);
+  }
+
+  h2 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+  }
+
+  .lead {
+    color: var(--muted);
+    font-size: 0.875rem;
+    max-width: 52ch;
+    margin: 0 0 1.5rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 1.125rem 0 0.5rem;
+  }
+
+  .optional {
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--faint);
+  }
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.625rem;
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    &.invalid {
+      border-color: var(--danger);
+    }
+  }
+
+  .field-note {
+    font-size: 0.75rem;
+    color: var(--faint);
+    margin: 0.5rem 0 0;
+    max-width: 56ch;
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+    }
+  }
+
+  .field-error {
+    font-size: 0.75rem;
+    color: var(--danger);
+    margin: 0.375rem 0 0;
+  }
+}
+
+/* Two buttons that behave like one control, because they are one decision. */
+.choice {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+
+  button {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    color: var(--muted);
+    background: var(--paper);
+    border: none;
+    padding: 0.4375rem 0.875rem;
+    cursor: pointer;
+
+    & + button {
+      border-left: 1px solid var(--line);
+    }
+
+    &.picked {
+      color: var(--accent-ink);
+      background: var(--accent-soft);
+      font-weight: 600;
+    }
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  margin-top: 1.5rem;
+
+  button[type='submit'] {
+    font-family: var(--sans);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--paper);
+    background: var(--ink);
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.5rem 1.125rem;
+    cursor: pointer;
+
+    &:disabled {
+      background: var(--faint);
+      cursor: default;
+    }
+  }
+}
+
+.quiet {
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  &:disabled {
+    color: var(--faint);
+    cursor: default;
+  }
+
+  /* Deleting takes the index with it, so the control says so before it is
+     pressed rather than in a dialog after. */
+  &.danger:hover:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+}
+
+.failed {
+  font-size: 0.8125rem;
+  color: var(--danger);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+  padding: 0.625rem 0.75rem;
+  margin: 1rem 0 0;
+}

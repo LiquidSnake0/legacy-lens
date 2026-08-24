@@ -22,6 +22,14 @@ export class Citations {
   readonly sources = input.required<Citation[]>();
 
   /**
+   * Which project the excerpts come from.
+   *
+   * Two projects can hold a file at the same path with different code in it,
+   * so an excerpt fetched without this could show the other one's.
+   */
+  readonly workspace = input.required<string>();
+
+  /**
    * Which citation is open, keyed the same way the list is tracked.
    *
    * One at a time: several excerpts open at once push the answer off screen,
@@ -52,7 +60,7 @@ export class Citations {
     this.excerptError.set(null);
     this.loadingExcerpt.set(true);
 
-    this.lens.excerpt(citation.filePath, citation.startLine).subscribe({
+    this.lens.excerpt(citation.filePath, citation.startLine, this.workspace()).subscribe({
       next: (excerpt) => {
         // The reader may have clicked another citation while this was in
         // flight; the late answer must not overwrite the newer one.
