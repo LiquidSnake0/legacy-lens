@@ -56,6 +56,76 @@ jobs:
           name: assessment
           path: assessment.md
 
+  # The suite runs against the classes; this runs against the server. The two
+  # are not the same check, and the difference is not theoretical: deleting a
+  # workspace nothing had been indexed into returned 500 while every unit test
+  # was green, because they all index something first and so create the ledger
+  # table on the way past. Nothing but a started instance says whether the
+  # endpoints work.
+  #
+  # Only the endpoints that need no model, which is why ask and ingest are
+  # absent: pulling model weights here would turn a two-minute job into a long
+  # one to test code this job is not about.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Exercise the API against a running instance
+        run: |
+          set -euo pipefail
+
+          body=$(mktemp)
+          call() { curl -s -o "$body" -w '%{http_code}' "$@"; }
+          expect() {
+            if [ "$2" != "$3" ]; then
+              echo "$1: wanted $2, got $3"; cat "$body"; exit 1
+            fi
+            echo "ok  $1 -> $3"
+          }
+
+          INDEX_PATH="$RUNNER_TEMP/smoke.db" ASPNETCORE_URLS=http://127.0.0.1:5199 \
+            dotnet run --project src/LegacyLens.Api --configuration Release \
+                       --no-launch-profile > "$RUNNER_TEMP/api.log" 2>&1 &
+          trap 'kill %1 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 90); do
+            curl -sf -m 2 http://127.0.0.1:5199/api/health > /dev/null 2>&1 && break
+            sleep 1
+          done
+
+          expect "health" 200 "$(call http://127.0.0.1:5199/api/health)"
+
+          expect "create a workspace" 201 \
+            "$(call -X POST http://127.0.0.1:5199/api/workspaces \
+                    -H 'content-type: application/json' \
+                    -d '{"name":"Smoke","rootPath":"/tmp"}')"
+          id=$(BODY="$body" python3 -c 'import json,os;print(json.load(open(os.environ["BODY"]))["id"])')
+
+          expect "a name is required" 400 \
+            "$(call -X POST http://127.0.0.1:5199/api/workspaces \
+                    -H 'content-type: application/json' -d '{"name":"  "}')"
+
+          expect "delete a workspace never indexed into" 204 \
+            "$(call -X DELETE http://127.0.0.1:5199/api/workspaces/$id)"
+          expect "delete it again" 404 \
+            "$(call -X DELETE http://127.0.0.1:5199/api/workspaces/$id)"
+
+          expect "seams over this repository" 200 \
+            "$(call -X POST http://127.0.0.1:5199/api/seams \
+                    -H 'content-type: application/json' \
+                    -d "{\"path\":\"$GITHUB_WORKSPACE/src\"}")"
+
+          if [ -s "$RUNNER_TEMP/api.log" ] && grep -q 'Unhandled exception' "$RUNNER_TEMP/api.log"; then
+            echo "The server logged an unhandled exception:"
+            cat "$RUNNER_TEMP/api.log"
+            exit 1
+          fi
+
   web:
     runs-on: ubuntu-latest
     defaults:
