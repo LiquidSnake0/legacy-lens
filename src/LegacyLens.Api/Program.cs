@@ -143,6 +143,7 @@ builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<AnswerService>();
 builder.Services.AddSingleton<IngestionJobs>();
 builder.Services.AddScoped<Projections>();
+builder.Services.AddSingleton<Applier>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration["CORS_ORIGIN"] ?? "http://localhost:4200")
@@ -488,6 +489,51 @@ app.MapPost("/api/convert", (ConvertRequest request) =>
     {
         return Results.BadRequest(new { error = ex.Message });
     }
+});
+
+// A conversion, put on a branch of its own.
+//
+// The tool proposes and a person approves, and a button does not break that:
+// clicking after reading is a person approving. What would break it is writing
+// into the working tree, where a change has no history and no way back. So this
+// commits to a new branch and checks the original one out again.
+//
+// It does not push and it does not open a pull request. That needs a remote and
+// a credential, and sending someone's code anywhere is their decision.
+app.MapPost("/api/apply", (ApplyRequest request, Applier applier) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!Directory.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such directory: {request.Path}." });
+
+    ConversionOutcome outcome;
+    try
+    {
+        // Regenerated rather than accepted from the caller. A patch that went
+        // to a browser and came back is one nobody can prove is the one read.
+        outcome = Conversions.For(request.Kind, request.Path);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message, kinds = Conversions.Kinds });
+    }
+
+    if (outcome.Empty)
+    {
+        return Results.BadRequest(new
+        {
+            error = "That conversion produces no patch, so there is nothing to apply.",
+            notes = outcome.Notes,
+        });
+    }
+
+    var landed = applier.Apply(request.Path, request.Kind, outcome.Patch);
+
+    return landed.Applied
+        ? Results.Ok(new { landed.Branch, landed.Commit, landed.Files, landed.Notes })
+        : Results.Conflict(new { error = "Not applied.", reasons = landed.Refusals });
 });
 
 // What a codebase uses of its dependencies, and what could take their place.

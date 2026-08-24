@@ -1001,15 +1001,35 @@ this.
 
 ---
 
-### Migrate
+### Migrate ✅
 
 The mechanical conversions from M9, applied rather than downloaded.
 
 A button, and the button is not the risk. The rule has always been that a person
 approves the diff, and clicking after reading is a person approving the diff.
-What changes is where the result lands: a branch and a pull request, never a
-write into the working tree. The history, the second reader and the revert all
-come free with that, and none of them survive a tool that edits files in place.
+What changes is where the result lands: **a branch of its own, and the original
+branch checked out again**. Nothing moves under an open editor, and the history,
+the second reader and the revert all come free.
+
+**It does not push and it does not open a pull request.** That needs a remote and
+a credential, and sending someone's code anywhere is their decision, not a
+button's. What comes back is the branch name and the three commands that read
+it, keep it or drop it.
+
+Two refusals earn their place, and both were checked against a real repository:
+
+**An uncommitted working tree.** Applying then would put somebody's work in
+progress in the same commit as the patch, and the branch would stop being one
+reviewable change.
+
+**A patch git will not take.** Checked before the branch is created, so a
+failure leaves nothing behind to clean up. Half an application is worse than a
+refusal: it looks like success until somebody builds.
+
+Measured on Orchard: ten project files, 104 insertions against 973 deletions,
+committed to `legacy-lens/sdk-<timestamp>`, with `dev` still checked out and a
+clean working tree afterwards. The commit message says where the change came
+from and carries no fingerprint of a machine having written it.
 
 On Orchard this covers ten projects. Ten of eighty-nine, said plainly, because
 the number is the finding.

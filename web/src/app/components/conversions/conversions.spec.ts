@@ -138,6 +138,89 @@ describe('Conversions', () => {
     expect(element.querySelector('.patch')).toBeNull();
   });
 
+  /* ---- putting it on a branch ---- */
+
+  it('says the button never writes into your tree, before it is pressed', () => {
+    const fixture = build();
+    fixture.componentInstance.choose('sdk');
+    answer();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Nothing has been applied yet');
+    expect(text).toContain('never writes into your working tree and never pushes');
+  });
+
+  it('asks the API to apply the kind that is open, without sending the patch', () => {
+    // A patch that travelled to a browser and back is one nobody can prove is
+    // the one that was read, so the API regenerates it.
+    const fixture = build();
+    fixture.componentInstance.choose('sdk');
+    answer();
+
+    fixture.componentInstance.apply();
+
+    const request = http.expectOne((r) => r.url.endsWith('/apply'));
+    expect(request.request.body).toEqual({ path: '/repos/billing', kind: 'sdk' });
+    expect(JSON.stringify(request.request.body)).not.toContain('diff --git');
+
+    request.flush(landing());
+  });
+
+  it('shows where it landed and how to undo it', () => {
+    const fixture = build();
+    fixture.componentInstance.choose('sdk');
+    answer();
+    fixture.componentInstance.apply();
+    http.expectOne((r) => r.url.endsWith('/apply')).flush(landing());
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('legacy-lens/sdk-20260824-120000');
+    expect(text).toContain('git branch -D');
+    expect(text).toContain('your working tree is untouched');
+  });
+
+  it('shows why it refused rather than pretending it worked', () => {
+    const fixture = build();
+    fixture.componentInstance.choose('sdk');
+    answer();
+    fixture.componentInstance.apply();
+
+    http.expectOne((r) => r.url.endsWith('/apply')).flush(
+      { error: 'Not applied.', reasons: ['3 file(s) have uncommitted changes.'] },
+      { status: 409, statusText: 'Conflict' },
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.applyFailure()).toContain('Not applied');
+  });
+
+  it('forgets where it landed when another conversion is picked', () => {
+    const fixture = build();
+    fixture.componentInstance.choose('sdk');
+    answer();
+    fixture.componentInstance.apply();
+    http.expectOne((r) => r.url.endsWith('/apply')).flush(landing());
+
+    fixture.componentInstance.choose('packages');
+    answer({ ...sdk, kind: 'packages' });
+
+    expect(fixture.componentInstance.landed()).toBeNull();
+  });
+
+  function landing() {
+    return {
+      branch: 'legacy-lens/sdk-20260824-120000',
+      commit: 'abc1234',
+      files: 10,
+      notes: [
+        'Committed to legacy-lens/sdk-20260824-120000, and you are back on main.',
+        'Drop it with: git branch -D legacy-lens/sdk-20260824-120000',
+      ],
+    };
+  }
+
   it('closes a conversion that is picked twice', () => {
     const fixture = build();
     const app = fixture.componentInstance;

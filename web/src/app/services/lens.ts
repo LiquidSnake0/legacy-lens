@@ -5,7 +5,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 import {
   AskResponse, Health, ApiError, Excerpt, Workspace, IngestionJob,
   ModelChoice, ModelOptions, RiskReport, ConversionKind, ConversionOutcome,
-  SurfaceReport, Projection,
+  SurfaceReport, Projection, Landed,
 } from '../models/lens';
 
 /**
@@ -154,6 +154,18 @@ export class LensService {
   project(path: string, pkg: string, root: string, model: ModelChoice | null = null) {
     return this.http
       .post<Projection>(`${this.baseUrl}/project`, { path, package: pkg, root, model })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * Puts a conversion on a branch of its own.
+   *
+   * The patch is not sent: the API regenerates it, because one that travelled
+   * to a browser and back is one nobody can prove is the one that was read.
+   */
+  apply(path: string, kind: ConversionKind): Observable<Landed> {
+    return this.http
+      .post<Landed>(`${this.baseUrl}/apply`, { path, kind })
       .pipe(catchError(this.explain));
   }
 

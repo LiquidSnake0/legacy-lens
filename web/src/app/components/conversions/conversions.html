@@ -66,8 +66,36 @@
       } @else {
         <div class="patch-head">
           <span class="count">{{ lines().length }} lines shown</span>
-          <button type="button" class="quiet" (click)="download()">Save the patch</button>
+          <span class="acts">
+            <button type="button" class="quiet" (click)="download()">Save the patch</button>
+            <button
+              type="button"
+              class="quiet"
+              [disabled]="applying()"
+              (click)="apply()"
+            >
+              {{ applying() ? 'Committing...' : 'Put it on a branch' }}
+            </button>
+          </span>
         </div>
+
+        @if (applyFailure()) {
+          <p class="failed">{{ applyFailure() }}</p>
+        }
+
+        @if (landed(); as done) {
+          <div class="landed">
+            <p class="where">
+              {{ done.files }} file(s) committed to
+              <code>{{ done.branch }}</code> as <code>{{ done.commit }}</code>.
+            </p>
+            <ul>
+              @for (note of done.notes; track $index) {
+                <li>{{ note }}</li>
+              }
+            </ul>
+          </div>
+        }
 
         <pre class="patch"><code>@for (line of lines(); track $index) {<span class="line" [class]="side(line)">{{ line }}
 </span>}</code></pre>
@@ -82,9 +110,15 @@
         }
 
         <p class="apply">
-          Nothing has been applied. To use it:
-          <code>git apply {{ chosen() }}.patch</code>, after reading it. The
-          same patch comes from the command line with
+          @if (landed()) {
+            It is on a branch, not on yours: your working tree is untouched and
+            nothing was pushed.
+          } @else {
+            Nothing has been applied yet. The button commits to a branch of its
+            own and leaves you where you were; it never writes into your working
+            tree and never pushes.
+          }
+          The same patch comes from the command line with
           <code>{{ command() }}</code>.
         </p>
       }

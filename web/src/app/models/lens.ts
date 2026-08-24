@@ -188,6 +188,15 @@ export interface SurfaceReport {
   packages: PackageSurface[];
 }
 
+/** Where a conversion landed, once somebody pressed the button. */
+export interface Landed {
+  branch: string;
+  commit: string;
+  files: number;
+  /** How to read it, keep it, or drop it. */
+  notes: string[];
+}
+
 /** One file rewritten, and what the compiler said about it. */
 export interface Projection {
   path: string;

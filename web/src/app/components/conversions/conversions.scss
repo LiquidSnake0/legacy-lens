@@ -279,3 +279,43 @@ h2 {
     overflow-wrap: anywhere;
   }
 }
+
+.acts {
+  display: flex;
+  gap: 0.375rem;
+}
+
+/* Where it landed. An accent rule, because something happened and this is the
+   one place on the page where the tool changed the repository. */
+.landed {
+  margin-top: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+
+  .where {
+    font-size: 0.8125rem;
+    color: var(--accent-ink);
+    margin: 0;
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+  }
+
+  ul {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+  }
+
+  li {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    padding: 0.125rem 0;
+    overflow-wrap: anywhere;
+  }
+}

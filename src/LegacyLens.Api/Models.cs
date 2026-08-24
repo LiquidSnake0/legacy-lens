@@ -80,6 +80,15 @@ public record ModerniseRequest(string Path, int TopUnknown = 15);
 public record ConvertRequest(string Path, string Kind);
 
 /// <summary>
+/// A conversion to put on a branch of its own.
+///
+/// The patch is regenerated here rather than sent back by the caller: a patch
+/// that travelled to a browser and back is a patch nobody can prove is the one
+/// that was read.
+/// </summary>
+public record ApplyRequest(string Path, string Kind);
+
+/// <summary>
 /// What a codebase uses of its dependencies, and what could replace them.
 ///
 /// One call rather than three. The surface, the candidates and their coverage

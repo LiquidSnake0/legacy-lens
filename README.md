@@ -487,9 +487,16 @@ it as a diff with the refusals beside it.
 
 ![The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, and the patch shown as a diff nobody has applied](docs/conversions.png)
 
-There is no button on that page that applies anything, and there is not going
-to be one. A tool that commits its own output is a tool whose mistakes stop
-being reviewable.
+The page has one button that changes a repository, and it is deliberately
+narrow: it commits the patch to **a branch of its own** and checks your original
+branch out again. Your working tree is never written to, nothing is pushed, and
+no pull request is opened, because sending your code somewhere is your decision
+and not a button's. What comes back is the branch name and the commands to read
+it, keep it or drop it.
+
+It refuses on an uncommitted working tree, because the commit would carry your
+work in progress and stop being one reviewable change. And it checks the patch
+before creating anything, so a failure leaves nothing to clean up.
 
 **Nothing is applied and nothing is invented.** Every version written is one
 already on disk, and every refusal names its reason. On Orchard the four

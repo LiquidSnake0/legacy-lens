@@ -1,7 +1,7 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 
 import { LensService } from '../../services/lens';
-import { ConversionKind, ConversionOutcome } from '../../models/lens';
+import { ConversionKind, ConversionOutcome, Landed } from '../../models/lens';
 
 /** One conversion, and the sentence that says what it is for. */
 interface Offer {
@@ -62,6 +62,10 @@ export class Conversions {
   readonly failure = signal<string | null>(null);
   readonly showingAll = signal(false);
 
+  readonly landed = signal<Landed | null>(null);
+  readonly applying = signal(false);
+  readonly applyFailure = signal<string | null>(null);
+
   /**
    * How much of a patch is rendered before it is offered as a file instead.
    *
@@ -117,6 +121,7 @@ export class Conversions {
       this.chosen.set(null);
       this.outcome.set(null);
       this.failure.set(null);
+      this.clearLanding();
     });
   }
 
@@ -134,6 +139,7 @@ export class Conversions {
     this.outcome.set(null);
     this.failure.set(null);
     this.showingAll.set(false);
+    this.clearLanding();
     this.loading.set(true);
 
     this.lens.convert(path, kind).subscribe({
@@ -154,6 +160,42 @@ export class Conversions {
 
   showAll(): void {
     this.showingAll.set(true);
+  }
+
+  /**
+   * Puts this conversion on a branch of its own.
+   *
+   * The button is not the risk. The rule has always been that a person
+   * approves the diff, and clicking after reading it is a person approving.
+   * What would break the rule is writing into the working tree, and this does
+   * not: it commits to a new branch and leaves you where you were.
+   */
+  apply(): void {
+    const kind = this.chosen();
+    const path = this.rootPath();
+    if (!kind || !path || this.applying()) return;
+
+    this.clearLanding();
+    this.applying.set(true);
+
+    this.lens.apply(path, kind).subscribe({
+      next: (landed) => {
+        if (!this.alive) return;
+        this.landed.set(landed);
+        this.applying.set(false);
+      },
+      error: (error: Error) => {
+        if (!this.alive) return;
+        this.applyFailure.set(error.message);
+        this.applying.set(false);
+      },
+    });
+  }
+
+  private clearLanding(): void {
+    this.landed.set(null);
+    this.applying.set(false);
+    this.applyFailure.set(null);
   }
 
   /** Which side of the diff a line is, so the markup can say so once. */
