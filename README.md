@@ -617,6 +617,31 @@ where generation sends only the excerpts retrieved for one question. That is
 the difference the choice turns on, and the interface repeats it wherever the
 choice is shown.
 
+### From the published images
+
+Every push to `main` publishes both images to the GitHub container registry,
+and only after the tests, the report, the smoke run, the frontend build and the
+leak guard have all passed. A registry holding an image whose tests never
+passed is worse than no registry: it looks like a release.
+
+```bash
+docker run -d -p 8080:8080 -v lens-index:/data \
+       ghcr.io/liquidsnake0/legacy-lens-api
+
+docker run -d -p 4200:80 ghcr.io/liquidsnake0/legacy-lens-web
+```
+
+Tagged with the commit sha, which is the tag that means something, and with
+`latest`, which will point somewhere else tomorrow. Pushing a `v*` git tag adds
+that name as a third.
+
+A named volume rather than a folder from the host. The API runs as a non-root
+user and the image prepares `/data` for it; a bind mount arrives owned by
+whoever created it on the host, and that user is not this one.
+
+Neither image carries a model. For the whole stack, including Ollama and the
+model pull, use `docker compose up` above.
+
 ### The web interface
 
 `docker compose up` serves it on `http://localhost:4200`. To run it against a
@@ -734,6 +759,11 @@ what the answer claims. That is the screenshot at the top of this file.
 The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
 answers the four that the code covers and declines the three it does not.
+
+Every push to `main` publishes both container images, after everything above is
+green. The one thing missing from that pipeline is a deployment: it builds and
+publishes, and nothing runs it anywhere, because there is nowhere it is meant
+to run yet.
 
 Known gaps for the question-answering half, in order of impact: no reranking,
 and a first index that cannot be made fast on a CPU. See

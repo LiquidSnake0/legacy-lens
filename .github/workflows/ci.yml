@@ -3,6 +3,9 @@ name: build
 on:
   push:
     branches: [main]
+    # A tag publishes a named version. Everything else publishes latest and a
+    # commit sha, so there is always an image that matches a known commit.
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -201,9 +204,88 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Building the image in CI is the only way to know the Dockerfile still
-      # works, it is the one artefact nobody exercises locally.
-      - run: docker build -f src/LegacyLens.Api/Dockerfile -t legacy-lens:ci .
+      # Building the images in CI is the only way to know the Dockerfiles still
+      # work: they are the artefacts nobody exercises locally.
+      #
+      # Both of them. The web one had been shipped in the compose file and
+      # built by nothing here, so a broken frontend image would have been found
+      # by whoever ran `docker compose up` next.
+      - run: docker build -f src/LegacyLens.Api/Dockerfile -t legacy-lens-api:ci .
+      - run: docker build -f web/Dockerfile -t legacy-lens-web:ci .
+
+  # Publishing, and only ever after everything above is green. A registry
+  # holding an image whose tests never passed is worse than no registry: it
+  # looks like a release.
+  publish:
+    needs: [dotnet, report, smoke, web, docker, secrets]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # The only extra right this workflow asks for. The token is issued per
+      # run by GitHub, so nothing here needs a secret anybody has to create,
+      # rotate, or remember to revoke.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the images
+        run: |
+          set -euo pipefail
+
+          # GHCR insists on lowercase and this owner is not, so the name is
+          # folded rather than written out: a fork should publish to its own
+          # namespace without editing this file.
+          repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+          sha=$(echo "${GITHUB_SHA}" | cut -c1-7)
+
+          publish() {
+            name=$1
+            dockerfile=$2
+            target="ghcr.io/${repo}-${name}"
+
+            # The sha tag is the one that means something. latest is a
+            # convenience that will point somewhere else tomorrow.
+            tags="-t ${target}:${sha} -t ${target}:latest"
+
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              tags="${tags} -t ${target}:${GITHUB_REF_NAME}"
+            fi
+
+            # The version label is set explicitly because the base images set
+            # their own: without this the API image announces version 24.04,
+            # which is Ubuntu's and not ours.
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              version="${GITHUB_REF_NAME}"
+            else
+              version="${sha}"
+            fi
+
+            # The source label is what ties the package to this repository on
+            # GHCR. Without it the package appears unattached and inherits
+            # nothing, including the readme nobody would find.
+            docker build -f "${dockerfile}" ${tags} \
+              --label org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
+              --label org.opencontainers.image.revision="${GITHUB_SHA}" \
+              --label org.opencontainers.image.version="${version}" \
+              --label org.opencontainers.image.licenses=MIT \
+              .
+
+            docker push --all-tags "${target}"
+
+            echo "pushed ${target}:${sha}"
+          }
+
+          publish api src/LegacyLens.Api/Dockerfile
+          publish web web/Dockerfile
 
   secrets:
     runs-on: ubuntu-latest
