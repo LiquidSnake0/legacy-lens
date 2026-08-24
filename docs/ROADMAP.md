@@ -629,6 +629,100 @@ text.
 
 ---
 
+## M10. Seams
+
+*Where the code can be cut, and where it cannot.*
+
+A strangler fig replaces a system one capability at a time: the new
+implementation runs beside the old, traffic moves across, and the old code is
+deleted when nothing routes to it any more. It needs somewhere to cut. Michael
+Feathers calls that a **seam**: a place where behaviour can be changed without
+editing the code around it. Legacy code rarely has many, and which ones exist
+decides whether an incremental migration is possible at all or whether the
+honest answer is a rewrite.
+
+M8 already answers *what does this do*. M9 answers *what converts
+mechanically*. Neither answers *where can I cut*, and without that the two
+cannot be composed into a migration a person actually performs.
+
+### Counted on Orchard
+
+Read with a lexical scan, no model involved. The tool does not compute these
+yet; this is the specification.
+
+| | |
+|---|---|
+| Interfaces declared | **567** |
+| Classes declared | **3,332** |
+| Sealed classes | **4** |
+| Static classes | **188** |
+
+**Orchard is unusually seam-rich and must not be taken as typical.** It is a
+CMS built on a dependency injection container, so roughly one interface exists
+for every six classes and almost nothing is sealed. A line-of-business
+application written in 2009 without a container will invert both figures, and
+the tool has to say so rather than report a number that flatters the estate.
+
+### What closes a seam
+
+| | |
+|---|---|
+| `File.*` called directly | **161** |
+| `HttpContext.Current` | **25** |
+| `DateTime.Now` / `UtcNow` | **37** |
+| `ConfigurationManager.*` | **21** |
+
+These are ambient dependencies: a call reaching out of the method to the disk,
+the request, the clock or the config file. Each one is a place where the new
+implementation cannot be substituted, because there is nothing to substitute
+*through*. They are also the reason a characterization test sometimes refuses
+to be deterministic, which M8 already detects by running twice, so the two
+milestones are looking at the same defect from opposite ends.
+
+### The binaries you cannot open
+
+| | |
+|---|---|
+| `HintPath` pointing outside `packages/` | **9** |
+
+An assembly referenced by path rather than by package is one nobody can
+recompile from this repository. It may be a vendor DLL, an internal build
+nobody kept the source of, or a file copied in years ago. For a port it matters
+more than its count suggests:
+
+- If the source exists, it recompiles against the new target and the question
+  disappears.
+- If it ships on NuGet, a version targeting **.NET Standard 2.0** or later is
+  the bridge, since both .NET Framework and modern .NET can consume it.
+- If neither is true, the seam has to go **around** it, not inside it. The
+  capability gets an interface, the old binary keeps serving it on the old
+  runtime, and the strangler replaces the interface rather than the DLL.
+
+Modern .NET will reference a .NET Framework assembly through a compatibility
+shim, and it frequently works. It is not a migration. M8 already recorded what
+that failure looks like from the inside: an assembly that loads and then throws
+`FileNotFoundException` on the first member read, because a dependency it
+needed was never on this machine. A tool that reports such an assembly as
+portable is lying by omission.
+
+### What it should produce
+
+For each capability a person might strangle: the seams that already exist, the
+ambient dependencies that close them, and a verdict of *substitutable*,
+*substitutable after extraction*, or *not without a rewrite*. The value is the
+third one. Anyone can list interfaces; saying plainly that a module cannot be
+cut is what saves the three weeks.
+
+**Why after M9 and not before.** Cutting is a decision made with the safety net
+already in place, and M8 is what provides it. Proposing a seam to someone who
+cannot yet prove the behaviour is unchanged is proposing a leap.
+
+**Effort:** the lexical pass is a weekend and produces most of the table above.
+The verdict is the part that takes real time, and it is the only part worth
+having.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
