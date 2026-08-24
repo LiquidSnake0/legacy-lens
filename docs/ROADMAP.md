@@ -1260,6 +1260,17 @@ The first is a rule of the language, so it lives in the finder: any trigger
 ending in `Attribute` is matched both ways, once, rather than being remembered
 by hand for every future entry. The rest are the catalogue and the ranking.
 
+**Then a real repository broke the fix.** Orchard mentions `Session` 62 times,
+and 56 of them are NHibernate's `ISession`, which shares the name and nothing
+else. The dilemma was being raised mostly by an ORM that has nothing to do with
+it, and a panel that is ninety per cent wrong is worse than one that is empty.
+
+The discriminator is the shape rather than the name: all six real ones are
+`Session[...]`, and NHibernate never indexes its own. A trigger can now be
+written `Session[]`, meaning *only where the name is indexed*, which is a rule
+about the language written where a person can read it rather than a special
+case buried in the finder.
+
 Answers are kept per project. Two codebases behind two different load balancers
 give two different answers to the same question, and mixing them describes
 neither. Deleting a project takes its answers with it, or they would be handed

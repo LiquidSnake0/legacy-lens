@@ -38,9 +38,9 @@ public class DilemmaSites
         // estate three times to answer three questions is three times the wait
         // for the same answer.
         var wanted = catalogue.Dilemmas
-            .SelectMany(d => Spellings(d.Triggers).Select(t => (Trigger: t, Dilemma: d)))
-            .GroupBy(x => x.Trigger, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Distinct().Select(x => x.Dilemma).ToList(), StringComparer.Ordinal);
+            .SelectMany(d => Spellings(d.Triggers).Select(w => (w.Name, Want: new Want(d, w.Indexed))))
+            .GroupBy(x => x.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Want).ToList(), StringComparer.Ordinal);
 
         if (wanted.Count == 0) return [];
 
@@ -48,12 +48,16 @@ public class DilemmaSites
 
         foreach (var path in Walk(rootPath))
         {
-            foreach (var site in SitesIn(path, wanted.Keys))
+            foreach (var (site, indexed) in SitesIn(path, wanted.Keys))
             {
-                foreach (var dilemma in wanted[site.Name])
+                foreach (var want in wanted[site.Name])
                 {
-                    if (!found.TryGetValue(dilemma.Id, out var sites))
-                        found[dilemma.Id] = sites = [];
+                    // A trigger written `Session[]` only counts where the name
+                    // is indexed. See Spellings for why that earns its place.
+                    if (want.Indexed && !indexed) continue;
+
+                    if (!found.TryGetValue(want.Dilemma.Id, out var sites))
+                        found[want.Dilemma.Id] = sites = [];
 
                     sites.Add(site);
                 }
@@ -77,29 +81,45 @@ public class DilemmaSites
             .ToList();
     }
 
+    /// <summary>One dilemma's claim on a name, and the shape it requires.</summary>
+    private record Want(Dilemma Dilemma, bool Indexed);
+
     /// <summary>
-    /// Both ways an attribute can be written.
+    /// What a trigger matches, and in what shape.
     ///
-    /// C# lets `[SessionState]` mean `SessionStateAttribute`, and the short
-    /// form is the one people actually write. Found by running this against a
-    /// textbook session-state controller and watching it raise nothing: the
-    /// catalogue named the type and the code named the attribute.
+    /// Two rules, both of them about the language rather than about any one
+    /// dilemma, which is why they live here instead of being spelled out
+    /// entry by entry in a file somebody has to remember to spell them in.
     ///
-    /// Handled here rather than by writing both spellings into the catalogue,
-    /// because it is a rule of the language and not a fact about any one
-    /// dilemma. Written in the catalogue it would have to be remembered every
-    /// time, and it would be forgotten.
+    /// **An attribute can be written short.** C# lets `[SessionState]` mean
+    /// `SessionStateAttribute`, and the short form is the one people write. A
+    /// catalogue naming the type read a textbook session controller and raised
+    /// nothing at all.
+    ///
+    /// **A trigger ending in `[]` only counts where the name is indexed.**
+    /// Measured on Orchard: 62 mentions of `Session`, of which 6 are ASP.NET
+    /// session state and 56 are NHibernate's. Every one of the six is
+    /// `Session[...]`, and NHibernate's `ISession` has no indexer, so the
+    /// shape separates them where the name alone cannot. Without it the
+    /// dilemma is raised mostly by an ORM that has nothing to do with it, and
+    /// a panel that is ninety per cent wrong is worse than one that is empty.
     /// </summary>
-    private static IEnumerable<string> Spellings(IEnumerable<string> triggers)
+    private static IEnumerable<(string Name, bool Indexed)> Spellings(IEnumerable<string> triggers)
     {
         foreach (var trigger in triggers)
         {
-            yield return trigger;
+            if (trigger.EndsWith("[]", StringComparison.Ordinal) && trigger.Length > 2)
+            {
+                yield return (trigger[..^2], true);
+                continue;
+            }
+
+            yield return (trigger, false);
 
             if (trigger.EndsWith("Attribute", StringComparison.Ordinal)
                 && trigger.Length > "Attribute".Length)
             {
-                yield return trigger[..^"Attribute".Length];
+                yield return (trigger[..^"Attribute".Length], false);
             }
         }
     }
@@ -113,7 +133,8 @@ public class DilemmaSites
     /// have inflated it. Here the question is where to point a reader, and
     /// `HttpContext.Current` on line 47 is exactly where they should look.
     /// </summary>
-    private static IEnumerable<Site> SitesIn(string path, IEnumerable<string> names)
+    private static IEnumerable<(Site Site, bool Indexed)> SitesIn(
+        string path, IEnumerable<string> names)
     {
         string source;
         try
@@ -155,12 +176,35 @@ public class DilemmaSites
 
             var line = name.GetLocation().GetLineSpan().StartLinePosition.Line;
 
-            yield return new Site(
-                path,
-                line + 1,
-                text,
-                line < lines.Length ? lines[line].Trim() : string.Empty);
+            yield return (
+                new Site(
+                    path,
+                    line + 1,
+                    text,
+                    line < lines.Length ? lines[line].Trim() : string.Empty),
+                Indexed(name));
         }
+    }
+
+    /// <summary>
+    /// Whether this occurrence of the name is being indexed.
+    ///
+    /// `Session["cart"]` rather than `session.Query`. The name is the whole of
+    /// the thing being indexed, so a member access that ends in it counts and
+    /// one that merely contains it does not.
+    /// </summary>
+    private static bool Indexed(SyntaxNode name)
+    {
+        var outermost = name;
+
+        while (outermost.Parent is MemberAccessExpressionSyntax member
+               && member.Name == outermost)
+        {
+            outermost = member;
+        }
+
+        return outermost.Parent is ElementAccessExpressionSyntax access
+               && access.Expression == outermost;
     }
 
     /// <summary>

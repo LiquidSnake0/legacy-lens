@@ -781,21 +781,30 @@ Three rules hold it to that:
 | | |
 |---|---|
 | the outcomes are finite and written first | there is a known place to land |
-| every question cites a line | not "how do you handle sessions", but the four lines that do |
+| every question cites a line | not "how do you handle sessions", but the lines that do |
 | it stops when nothing more can be ruled out | rather than asking until you close the tab |
 
-![The questioner: the four lines that raised the decision, the next question, and what each answer would rule out](docs/decisions.png)
+![The questioner on Orchard: the twelve lines that raised the session state decision, the next question, and what each answer would rule out](docs/decisions.png)
 
 Every choice says what it would rule out **before you click it**, computed
 against what is still standing. Halfway through, an answer often rules out
 nothing, and the screen says so.
+
+A trigger in the catalogue can be written `Session[]`, which means *only where
+the name is indexed*. That is not decoration. Orchard mentions `Session` 62
+times, six of which are ASP.NET session state and fifty-six are NHibernate's
+`ISession`: the same word and nothing else in common. Every one of the six is
+`Session[...]` and NHibernate never indexes its own, so the shape separates them
+where the name alone cannot. Found by pointing it at a real repository, and a
+panel that is ninety per cent wrong is worse than one that is empty.
 
 It ends three ways: on an outcome, on every outcome ruled out, which is a real
 result rather than a failure, or on two that nothing left to ask can separate,
 which is said plainly instead of picked between. What comes out separates its
 sources:
 
-> The code says: `Session` is written in four places, here they are.
+> The code says: session state is touched in twelve places across seven files,
+> here they are.
 > You said: more than one instance, behind a load balancer.
 > Therefore: a distributed cache.
 
@@ -921,7 +930,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 454 tests, no network, ~4 s
+dotnet test                                   # 456 tests, no network, ~4 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 131 tests, no network, ~5 s
@@ -938,7 +947,7 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 454 unit tests covering
+**Question answering** needs an index and a local model. 456 unit tests covering
 every layer, plus 131 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 

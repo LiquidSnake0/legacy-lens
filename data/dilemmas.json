@@ -5,11 +5,15 @@
 
   "session-state": {
     "name": "Where session state goes",
-    // Session is in here because the type names above are the ones nobody
-    // writes. Real code says Session["cart"], and a catalogue that only knows
-    // HttpSessionState reads a textbook session controller and raises nothing.
-    // Found by running it against one.
-    "triggers": ["Session", "HttpSessionState", "HttpSessionStateBase", "SessionStateAttribute", "SessionStateBehavior", "SessionStateMode"],
+    // Session[] is in here because the type names beside it are the ones
+    // nobody writes: real code says Session["cart"], and a catalogue that only
+    // knows HttpSessionState reads a textbook session controller and raises
+    // nothing. The [] is not decoration. It means "only where the name is
+    // indexed", and it is what separates ASP.NET session state from
+    // NHibernate's ISession, which shares the name and nothing else. Measured
+    // on Orchard: 62 mentions of Session, 6 of them this dilemma and all 6
+    // indexed. Both halves found by running it against real code.
+    "triggers": ["Session[]", "HttpSessionState", "HttpSessionStateBase", "SessionStateAttribute", "SessionStateBehavior", "SessionStateMode"],
     "what": "Session exists on modern .NET, and where it is kept is a decision the old code never had to make because IIS made it. Nothing in these files records which way it went.",
     "outcomes": [
       { "id": "in-memory", "name": "In-memory state", "note": "One process, lost on restart. The default, and the one that breaks quietly the day a second instance appears." },

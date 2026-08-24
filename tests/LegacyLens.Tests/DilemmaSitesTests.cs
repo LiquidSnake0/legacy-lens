@@ -32,7 +32,7 @@ public class DilemmaSitesTests : IDisposable
             {
               "state": {
                 "name": "Where state goes",
-                "triggers": ["HttpSessionState", "HttpContext", "SessionStateAttribute"],
+                "triggers": ["HttpSessionState", "HttpContext", "SessionStateAttribute", "Session[]"],
                 "outcomes": [ { "id": "a" }, { "id": "b" } ],
                 "questions": []
               },
@@ -198,6 +198,43 @@ public class DilemmaSitesTests : IDisposable
             }
             """);
 
+        var site = Assert.Single(Find()[0].Sites);
+
+        Assert.Equal(3, site.Line);
+    }
+
+    [Fact]
+    public void A_trigger_written_with_brackets_only_counts_where_the_name_is_indexed()
+    {
+        // Measured on Orchard, which has 62 mentions of `Session` of which 56
+        // are NHibernate's `ISession`: the same word, and nothing else in
+        // common. NHibernate never indexes it, so the shape separates them
+        // where the name alone cannot.
+        Write("Store.cs", """
+            public class Store
+            {
+                public object Read() => Session["cart"];
+                public object Query() => Session.CreateCriteria();
+            }
+            """);
+
+        var site = Assert.Single(Find()[0].Sites);
+
+        Assert.Equal(3, site.Line);
+    }
+
+    [Fact]
+    public void An_indexed_name_reached_through_a_member_access_still_counts()
+    {
+        Write("Store.cs", """
+            public class Store
+            {
+                public object Read() => HttpContext.Current.Session["cart"];
+            }
+            """);
+
+        // One line, and it raises the dilemma rather than being skipped for
+        // not being indexed directly.
         var site = Assert.Single(Find()[0].Sites);
 
         Assert.Equal(3, site.Line);
