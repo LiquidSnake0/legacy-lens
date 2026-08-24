@@ -47,6 +47,37 @@ public enum SkipReason
     FailedItsOwnCheck,
 
     /// <summary>
+    /// A parameter's type is one the file declares itself, so the same value
+    /// cannot be handed to both versions.
+    ///
+    /// Recompiled into the other assembly it is a different type with the same
+    /// name. Rebuilding an equivalent object there would be comparing two
+    /// objects rather than one, and any difference found could as easily be the
+    /// rebuild's as the code's.
+    /// </summary>
+    ArgumentNotPortable,
+
+    /// <summary>The rewrite has no type of that name.</summary>
+    NoCounterpart,
+
+    /// <summary>
+    /// The method is gone from the rewrite, or its parameters changed.
+    ///
+    /// A real finding about the rewrite, and not a behaviour difference, so it
+    /// is not reported as one.
+    /// </summary>
+    SignatureChanged,
+
+    /// <summary>
+    /// Every case was dropped by one side or the other, so the method was
+    /// named but never actually compared.
+    /// </summary>
+    NothingLeftToCompare,
+
+    /// <summary>Past the number of methods one run will attempt.</summary>
+    BeyondTheLimit,
+
+    /// <summary>
     /// A type in its signature, or one it reaches when called, lives in an
     /// assembly that is not present.
     ///

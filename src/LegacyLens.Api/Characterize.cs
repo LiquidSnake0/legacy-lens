@@ -116,31 +116,8 @@ internal static class Characterize
         Console.WriteLine();
 
         foreach (var (reason, count) in run.Refusals)
-            Console.WriteLine($"  {count,6}  {Explain(reason)}");
+            Console.WriteLine($"  {count,6}  {Reasons.Explain(reason)}");
 
         Console.WriteLine();
     }
-
-    private static string Explain(SkipReason reason) => reason switch
-    {
-        SkipReason.ParameterTypeNotSupported =>
-            "takes a parameter this tool cannot invent a value for",
-        SkipReason.NothingToObserve =>
-            "returns void, so only its side effects change anything",
-        SkipReason.NotConstructible =>
-            "needs an instance that cannot be built without arguments",
-        SkipReason.NotAPlainMethod =>
-            "a property accessor, an operator, or generated",
-        SkipReason.NotDeterministic =>
-            "two identical calls disagreed: a clock, a guid or a random number",
-        SkipReason.TooSlow =>
-            "did not return in time",
-        SkipReason.ResultNotComparable =>
-            "returned something no assertion can compare",
-        SkipReason.FailedItsOwnCheck =>
-            "the generated test did not compile or did not pass",
-        SkipReason.DependencyMissing =>
-            "needs an assembly that is not on this machine",
-        _ => reason.ToString(),
-    };
 }

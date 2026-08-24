@@ -42,7 +42,15 @@ public record ProjectionVerdict(
     /// </summary>
     public bool Sound => Invented.Count == 0;
 
-    /// <summary>The sentence this is allowed to make, and no larger one.</summary>
+    /// <summary>
+    /// The sentence this is allowed to make, and no larger one.
+    ///
+    /// It ends with the disclaimer because the compiler cannot say anything
+    /// about behaviour: a file can be valid code and quietly return something
+    /// else. Where a run has actually compared the two versions, the projection
+    /// composes that sentence over this one, which is why the disclaimer lives
+    /// at the end rather than in the middle.
+    /// </summary>
     public string Claim =>
         Compiles
             ? $"Compiles against {Target}. Behaviour not verified."
@@ -54,6 +62,9 @@ public record ProjectionVerdict(
               + (Unimported.Count > 0 ? $" and {Unimported.Count} missing a using" : "")
               + ". Behaviour not verified."
             : $"Does not compile against {Target}.";
+
+    /// <summary>The disclaimer, so that whoever replaces it does not spell it twice.</summary>
+    public const string Unverified = "Behaviour not verified.";
 }
 
 /// <summary>

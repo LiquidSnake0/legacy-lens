@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using LegacyLens.Analysis;
+using LegacyLens.Characterization;
 
 namespace LegacyLens.Api.Generation;
 
@@ -15,7 +16,28 @@ public record ProjectionResult(
     int Attempts,
     /// <summary>Correspondences from the catalogue that were handed to it.</summary>
     IReadOnlyList<string> Given,
-    IReadOnlyList<string> Notes);
+    IReadOnlyList<string> Notes,
+    /// <summary>
+    /// What both versions did when called with the same values, when this
+    /// server is allowed to call them at all. Null means it was not run, and
+    /// the reason is in the notes.
+    /// </summary>
+    EquivalenceReport? Behaviour = null)
+{
+    /// <summary>
+    /// Everything this projection is allowed to say, with both checks counted.
+    ///
+    /// The compiler's sentence ends in a disclaimer about behaviour, because
+    /// the compiler cannot see any. Where a run has compared the two versions,
+    /// its sentence takes that place: a projection whose behaviour was checked
+    /// should not still be carrying a note saying it was not, and a reader
+    /// following only this field should never be told less than was measured.
+    /// </summary>
+    public string Claim => Behaviour is null
+        ? Verdict.Claim
+        : Verdict.Claim.Replace(ProjectionVerdict.Unverified, Behaviour.Claim,
+            StringComparison.Ordinal);
+}
 
 /// <summary>
 /// A rewritten file, compiled before anyone is shown it.
@@ -59,11 +81,13 @@ public class Projections
         RegexOptions.Singleline | RegexOptions.Compiled);
 
     private readonly IChatClients _chats;
+    private readonly Execution _execution;
     private readonly ILogger<Projections> _log;
 
-    public Projections(IChatClients chats, ILogger<Projections> log)
+    public Projections(IChatClients chats, Execution execution, ILogger<Projections> log)
     {
         _chats = chats;
+        _execution = execution;
         _log = log;
     }
 
@@ -169,8 +193,15 @@ public class Projections
             // that exists nowhere.
             if (verdict.Sound)
             {
+                // Only now, and only on something that compiles and invents
+                // nothing. Running a rewrite that names types which do not
+                // exist would fail for a reason already known, and running one
+                // at all is a decision the operator makes rather than this
+                // method.
+                var behaviour = Behaviour(before, after, notes);
+
                 return new ProjectionResult(
-                    path, package, before, after, verdict, attempt, given, notes);
+                    path, package, before, after, verdict, attempt, given, notes, behaviour);
             }
 
             _log.LogInformation(
@@ -185,6 +216,30 @@ public class Projections
 
         return new ProjectionResult(
             path, package, before, after, verdict, Attempts, given, notes);
+    }
+
+    /// <summary>
+    /// What both versions do, when this server is allowed to find out.
+    ///
+    /// The step this milestone exists for. Everything up to here proves the
+    /// rewrite is valid code; only calling both versions with the same values
+    /// says whether it still does the same thing. On a file whose work happens
+    /// through a web framework it will compare nothing and say so, which is
+    /// the honest answer rather than a missing one.
+    /// </summary>
+    private EquivalenceReport? Behaviour(string before, string after, List<string> notes)
+    {
+        if (!_execution.Allowed)
+        {
+            notes.Add(_execution.Refusal);
+            return null;
+        }
+
+        var report = new Equivalence().Compare(before, after);
+
+        notes.Add(report.Claim);
+
+        return report;
     }
 
     /// <summary>

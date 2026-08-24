@@ -155,3 +155,12 @@ public record AnswerRequest(string Dilemma, string Question, string Answer, stri
 
 /// <summary>Starts one dilemma over, leaving the others alone.</summary>
 public record ForgetDiagnosisRequest(string Dilemma, string? Workspace = null);
+
+/// <summary>
+/// Two files to call with the same values.
+///
+/// Paths rather than source. Everything else here reads from disk, and an
+/// endpoint that accepts a body of code and runs it is a different kind of
+/// thing entirely.
+/// </summary>
+public record EquivalenceRequest(string Before, string After);

@@ -5,6 +5,7 @@ using LegacyLens.Api.Embeddings;
 using LegacyLens.Api.Generation;
 using LegacyLens.Api.Ingestion;
 using LegacyLens.Api.Storage;
+using LegacyLens.Characterization;
 
 // Writing the report is the one capability here that needs no server, no model
 // and no index: it reads a directory and prints markdown. Exposing it as an
@@ -23,6 +24,16 @@ if (args is ["report", var target, ..])
 if (args is ["characterize", var assemblyPath, ..])
 {
     Characterize.Run(assemblyPath, args.Skip(2).ToArray());
+    return;
+}
+
+// Two versions of one file, called with the same values, to see whether the
+// rewrite still does the same thing. A command here, and a route only where the
+// operator allowed running code: someone typing this against two paths they
+// chose has already made the decision a server cannot make for them.
+if (args is ["equivalence", var originalPath, var rewrittenPath, ..])
+{
+    CompareBehaviour.Run(originalPath, rewrittenPath);
     return;
 }
 
@@ -144,6 +155,10 @@ builder.Services.AddScoped<AnswerService>();
 builder.Services.AddSingleton<IngestionJobs>();
 builder.Services.AddScoped<Projections>();
 builder.Services.AddSingleton<Applier>();
+
+// Read once at startup rather than per request, so the answer to "is this
+// server allowed to run code" cannot change between two calls in one session.
+builder.Services.AddSingleton<Execution>();
 
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration["CORS_ORIGIN"] ?? "http://localhost:4200")
@@ -637,8 +652,11 @@ app.MapPost("/api/project", async (
             compiles = result.Verdict.Compiles,
             // The question worth asking of a file compiled outside its project.
             sound = result.Verdict.Sound,
-            // The sentence this is allowed to make, and no larger one.
-            claim = result.Verdict.Claim,
+            // The sentence this is allowed to make, and no larger one. Taken
+            // from the result rather than the verdict, because the verdict
+            // ends in a disclaimer about behaviour that a run may have since
+            // replaced with a measurement.
+            claim = result.Claim,
             target = result.Verdict.Target,
             invented = result.Verdict.Invented,
             fromProject = result.Verdict.FromProject,
@@ -647,6 +665,10 @@ app.MapPost("/api/project", async (
             result.Attempts,
             result.Given,
             result.Notes,
+            // Null unless this server was told it may run code. The reason is
+            // in the notes either way, so a reader is never left wondering
+            // whether nothing moved or nothing was tried.
+            behaviour = Behaviour(result.Behaviour),
         });
     }
     catch (HttpRequestException ex)
@@ -1006,6 +1028,83 @@ object Shape(Dilemma dilemma, IReadOnlyList<Answered> answers)
         // though the tool gave up.
         landed = remaining.Count == 1 ? remaining[0] : null,
         exhausted = remaining.Count == 0,
+    };
+}
+
+// Two versions of one file, both called with the same values.
+//
+// The step that turns "it compiles and invents nothing" into "and nothing
+// moved". It reads two files from disk rather than taking source in the body,
+// which keeps it the same shape as everything else here, and it runs only where
+// the operator allowed running code.
+app.MapPost("/api/equivalence", (EquivalenceRequest request, Execution execution) =>
+{
+    if (!execution.Allowed)
+        return Results.Json(new { error = execution.Refusal }, statusCode: StatusCodes.Status403Forbidden);
+
+    if (string.IsNullOrWhiteSpace(request.Before) || string.IsNullOrWhiteSpace(request.After))
+        return Results.BadRequest(new { error = "Two paths are required: the original and the rewrite." });
+
+    foreach (var path in new[] { request.Before, request.After })
+    {
+        if (!File.Exists(path)) return Results.BadRequest(new { error = $"No such file: {path}." });
+    }
+
+    try
+    {
+        var report = new Equivalence().Compare(
+            File.ReadAllText(request.Before), File.ReadAllText(request.After));
+
+        return Results.Ok(new
+        {
+            before = request.Before,
+            after = request.After,
+            behaviour = Behaviour(report),
+        });
+    }
+    catch (IOException exception)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
+});
+
+/// <summary>
+/// An equivalence report as the interface reads it.
+///
+/// The refusals travel with it rather than being available on request. They are
+/// the half that decides what the rest means, and a caller that has to ask for
+/// them separately is a caller that will not.
+/// </summary>
+object? Behaviour(EquivalenceReport? report)
+{
+    if (report is null) return null;
+
+    return new
+    {
+        report.Ran,
+        report.Verified,
+        report.Claim,
+        report.Cases,
+        moved = report.Moved.Count,
+        methods = report.Methods.Select(m => new
+        {
+            m.Type,
+            m.Method,
+            m.Signature,
+            m.Cases,
+            m.Matched,
+            m.Note,
+            m.Divergences,
+        }),
+        refusals = report.Refusals.Select(r => new
+        {
+            reason = r.Reason.ToString(),
+            r.Count,
+            explanation = Reasons.Explain(r.Reason),
+        }),
+        beforeErrors = report.BeforeErrors,
+        afterErrors = report.AfterErrors,
+        report.ElapsedMs,
     };
 }
 

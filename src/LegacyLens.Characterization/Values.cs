@@ -178,14 +178,28 @@ public static class Values
     /// code nobody has read. Walking in step gives every value of every
     /// parameter a turn, for a number of cases equal to the longest list.
     /// </summary>
-    public static IReadOnlyList<object?[]> Cases(IReadOnlyList<Type> parameters, int limit)
+    public static IReadOnlyList<object?[]> Cases(IReadOnlyList<Type> parameters, int limit) =>
+        Cases(parameters, limit, extra: null);
+
+    /// <summary>
+    /// The same, with values the code itself mentioned added to each column.
+    ///
+    /// Invented values find the boundaries somebody thought of in advance.
+    /// The boundary a particular method turns on is written down a few lines
+    /// away, and <see cref="Literals"/> is where it comes from. Duplicates are
+    /// dropped, so a file that says 0 does not spend a case saying it again.
+    /// </summary>
+    public static IReadOnlyList<object?[]> Cases(
+        IReadOnlyList<Type> parameters,
+        int limit,
+        Func<Type, IReadOnlyList<object?>>? extra)
     {
         if (parameters.Count == 0) return [[]];
 
         // Written as a lambda rather than a method group: For now has an
         // overload taking a depth, and a method group would bind to Select's
         // indexed overload instead.
-        var columns = parameters.Select(p => For(p)).ToList();
+        var columns = parameters.Select(p => Column(p, extra)).ToList();
         if (columns.Any(c => c.Count == 0)) return [];
 
         var count = Math.Min(columns.Max(c => c.Count), limit);
@@ -193,6 +207,43 @@ public static class Values
         return Enumerable.Range(0, count)
             .Select(row => columns.Select(column => column[row % column.Count]).ToArray())
             .ToList();
+    }
+
+    /// <summary>
+    /// One parameter's candidates: what this tool invents, and what the file
+    /// said, taken in turn.
+    ///
+    /// Alternating rather than one list after the other, and that is not a
+    /// stylistic choice. The limit caps rows, not candidates, so appending the
+    /// file's values put them past the end of any short run: lowering the case
+    /// budget silently switched off reading the code, and the boundary in the
+    /// source went untried without anything saying so. Taken in turn, both
+    /// kinds get a go at every budget.
+    ///
+    /// Zero and empty still come first, because they remain the cheapest cases
+    /// to try and the ones most code gets wrong.
+    /// </summary>
+    private static IReadOnlyList<object?> Column(Type type, Func<Type, IReadOnlyList<object?>>? extra)
+    {
+        var invented = For(type);
+
+        if (extra is null) return invented;
+
+        var actual = Nullable.GetUnderlyingType(type) ?? type;
+        var seen = new HashSet<object?>(invented);
+        var mentioned = extra(actual).Where(seen.Add).ToList();
+
+        if (mentioned.Count == 0) return invented;
+
+        var merged = new List<object?>(invented.Count + mentioned.Count);
+
+        for (var i = 0; i < Math.Max(invented.Count, mentioned.Count); i++)
+        {
+            if (i < invented.Count) merged.Add(invented[i]);
+            if (i < mentioned.Count) merged.Add(mentioned[i]);
+        }
+
+        return merged;
     }
 
     /// <summary>
