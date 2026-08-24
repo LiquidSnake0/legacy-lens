@@ -35,6 +35,42 @@ if (args is ["convert", var convertTarget, ..])
     return;
 }
 
+// What a codebase uses of its dependencies, rather than what they offer.
+//
+// The first question anyone asks about a package with no future is which
+// alternative covers what they actually use, and nobody can answer it without
+// counting. No model is involved: this reads the syntax.
+if (args is ["surface", var surfaceTarget, ..])
+{
+    var surfaces = args.Length > 2
+        ? [new ApiSurface().Of(surfaceTarget, args[2])]
+        : new ApiSurface().All(surfaceTarget);
+
+    foreach (var surface in surfaces)
+    {
+        Console.Out.WriteLine(
+            $"{surface.Package}: {surface.Uses} use(s) of {surface.Types.Count} type(s), "
+            + $"across {surface.Files} file(s).");
+
+        if (surface.Types.Count > 0)
+        {
+            Console.Out.WriteLine(
+                $"  {surface.TypesForMostOfIt} type(s) and {surface.FilesForMostOfIt} "
+                + "file(s) carry four fifths of it.");
+
+            foreach (var type in surface.Types.Take(10))
+            {
+                Console.Out.WriteLine($"    {type.Uses,5}  {type.Name} ({type.Files} file(s))");
+            }
+        }
+
+        foreach (var note in surface.Notes) Console.Error.WriteLine($"  {note}");
+        Console.Out.WriteLine();
+    }
+
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();

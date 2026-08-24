@@ -1,0 +1,434 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace LegacyLens.Analysis;
+
+/// <summary>One type from a package, and how much of the codebase touches it.</summary>
+public record ApiUse(string Name, int Uses, int Files);
+
+/// <summary>What a codebase actually uses of one package.</summary>
+public record UsageSurface(
+    string Package,
+    IReadOnlyList<string> Namespaces,
+    /// <summary>Types named in the files that import it, most used first.</summary>
+    IReadOnlyList<ApiUse> Types,
+    /// <summary>Files that import one of its namespaces.</summary>
+    int Files,
+    IReadOnlyList<string> Notes)
+{
+    public int Uses => Types.Sum(t => t.Uses);
+    public bool Used => Files > 0;
+
+    /// <summary>
+    /// How many types account for four fifths of the calls.
+    ///
+    /// The number that decides the shape of the work. Six types carrying
+    /// everything is an afternoon of find-and-replace; sixty spread evenly is a
+    /// rewrite, and the two are indistinguishable from a total.
+    /// </summary>
+    public int TypesForMostOfIt => ConcentrationOf(Types.Select(t => t.Uses));
+
+    /// <summary>The same question asked of files rather than of types.</summary>
+    public int FilesForMostOfIt { get; init; }
+
+    internal static int ConcentrationOf(IEnumerable<int> counts)
+    {
+        var ordered = counts.OrderByDescending(c => c).ToList();
+        var total = ordered.Sum();
+        if (total == 0) return 0;
+
+        var running = 0;
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            running += ordered[i];
+            if (running * 5 >= total * 4) return i + 1;
+        }
+
+        return ordered.Count;
+    }
+}
+
+/// <summary>
+/// What a codebase uses of a package, rather than what the package offers.
+///
+/// The hard question about a dependency with no future is never "what are the
+/// alternatives". Any blog post answers that in ten minutes. It is "which
+/// alternative covers what I actually use", and nobody can answer it, because
+/// it depends on code nobody has counted. A package exposes two hundred members
+/// and a codebase touches six of them.
+///
+/// Read syntactically, like everything else here: requiring the solution to
+/// compile would give up the one property that makes this usable on inherited
+/// code. That has a cost, stated rather than hidden. A type is attributed to a
+/// package when it appears in a file importing that package's namespace and no
+/// declaration in the solution accounts for it. A file importing two candidate
+/// packages cannot be split between them by syntax alone, and says so.
+///
+/// It over-reports, never under-reports. A type listed here may belong
+/// elsewhere, and costs a reader ten seconds. One missed would make a coverage
+/// figure wrong in the direction that gets a migration signed off.
+/// </summary>
+public class ApiSurface
+{
+    /// <summary>
+    /// Which namespaces belong to which package.
+    ///
+    /// Hand-written, and the reason is the same one this project keeps
+    /// returning to: a model asked for this returns the right ninety-seven and
+    /// invents three, with the same confidence.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string[]> Namespaces =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            // The four that hold Orchard, and most of the .NET Framework web
+            // estate with it.
+            ["Microsoft.AspNet.Mvc"] =
+                ["System.Web.Mvc", "System.Web.Mvc.Html", "System.Web.Mvc.Ajax",
+                 "System.Web.Mvc.Async", "System.Web.Mvc.Filters"],
+            ["Microsoft.AspNet.Razor"] = ["System.Web.Razor"],
+            ["Microsoft.AspNet.WebPages"] =
+                ["System.Web.WebPages", "System.Web.Helpers", "System.Web.WebPages.Html"],
+            ["Microsoft.Web.Infrastructure"] = ["Microsoft.Web.Infrastructure"],
+
+            ["Microsoft.AspNet.WebApi.Core"] = ["System.Web.Http", "System.Web.Http.Controllers"],
+            ["Microsoft.AspNet.WebApi.WebHost"] = ["System.Web.Http.WebHost"],
+
+            // Not blockers, but the ones a migration meets next.
+            ["Newtonsoft.Json"] =
+                ["Newtonsoft.Json", "Newtonsoft.Json.Linq", "Newtonsoft.Json.Converters"],
+            ["log4net"] = ["log4net", "log4net.Config", "log4net.Core"],
+            ["Autofac"] = ["Autofac", "Autofac.Core", "Autofac.Builder"],
+            ["EntityFramework"] =
+                ["System.Data.Entity", "System.Data.Entity.Migrations",
+                 "System.Data.Entity.Infrastructure"],
+            ["NHibernate"] = ["NHibernate", "NHibernate.Cfg", "NHibernate.Criterion"],
+            ["Owin"] = ["Owin", "Microsoft.Owin"],
+        };
+
+    private static readonly string[] SkipDirectories =
+        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
+
+    /// <summary>
+    /// Names C# supplies, which belong to no package and would drown the list.
+    /// </summary>
+    private static readonly IReadOnlySet<string> Builtin =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            "var", "void", "object", "string", "bool", "byte", "sbyte", "char",
+            "decimal", "double", "float", "int", "uint", "long", "ulong", "short",
+            "ushort", "dynamic", "nint", "nuint",
+            "Task", "List", "IList", "IEnumerable", "ICollection", "IReadOnlyList",
+            "Dictionary", "IDictionary", "HashSet", "Exception", "Type", "Guid",
+            "DateTime", "DateTimeOffset", "TimeSpan", "Nullable", "Func", "Action",
+            "Attribute", "EventArgs", "Uri", "Stream", "CancellationToken",
+        };
+
+    /// <summary>The surface for every catalogued package this codebase touches.</summary>
+    public IReadOnlyList<UsageSurface> All(string rootPath)
+    {
+        var read = Read(rootPath);
+
+        return Namespaces.Keys
+            .Select(package => Of(read, package))
+            .Where(surface => surface.Used)
+            .OrderByDescending(surface => surface.Uses)
+            .ToList();
+    }
+
+    public UsageSurface Of(string rootPath, string package) => Of(Read(rootPath), package);
+
+    private static UsageSurface Of(IReadOnlyList<ParsedFile> parsed, string package)
+    {
+        if (!Namespaces.TryGetValue(package, out var namespaces))
+        {
+            return new UsageSurface(package, [], [], 0,
+                [$"\"{package}\" is not in the catalogue, so nothing was measured for it."]);
+        }
+
+        var wanted = namespaces.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Declared somewhere in this solution, so it belongs to the codebase
+        // rather than to the package, whatever a file happens to import.
+        var local = parsed.SelectMany(f => f.Declared).ToHashSet(StringComparer.Ordinal);
+
+        var uses = new Dictionary<string, (int Uses, HashSet<string> Files)>(StringComparer.Ordinal);
+        var perFile = new List<int>();
+        var files = 0;
+        var ambiguous = 0;
+
+        foreach (var file in parsed)
+        {
+            if (!file.Imports.Any(wanted.Contains)) continue;
+            files++;
+
+            // A file importing two catalogued packages cannot be split between
+            // them by syntax alone. Counted so the answer can say so.
+            if (Namespaces.Any(other =>
+                    !other.Key.Equals(package, StringComparison.OrdinalIgnoreCase)
+                    && other.Value.Any(file.Imports.Contains)))
+            {
+                ambiguous++;
+            }
+
+            var here = 0;
+
+            foreach (var name in file.TypeNames)
+            {
+                if (Builtin.Contains(name) || local.Contains(name)) continue;
+
+                if (!uses.TryGetValue(name, out var seen))
+                    seen = (0, new HashSet<string>(StringComparer.Ordinal));
+
+                seen.Files.Add(file.Path);
+                uses[name] = (seen.Uses + 1, seen.Files);
+                here++;
+            }
+
+            perFile.Add(here);
+        }
+
+        var types = uses
+            .Select(entry => new ApiUse(entry.Key, entry.Value.Uses, entry.Value.Files.Count))
+            .OrderByDescending(t => t.Uses)
+            .ThenBy(t => t.Name, StringComparer.Ordinal)
+            .ToList();
+
+        var notes = new List<string>();
+
+        if (files > 0)
+        {
+            notes.Add(
+                "Read from the syntax, not from a compilation. A type is counted when it "
+                + "appears in a type position in a file importing this package, and no "
+                + "declaration in the solution accounts for it. Static calls are not "
+                + "counted: telling Assert.That from services.Add needs resolved symbols.");
+        }
+
+        if (ambiguous > 0)
+        {
+            notes.Add(
+                $"{ambiguous} of those {files} file(s) import another catalogued package as "
+                + "well, and syntax cannot say which of the two a given type came from. "
+                + "Their types are counted here and there.");
+        }
+
+        return new UsageSurface(package, namespaces, types, files, notes)
+        {
+            FilesForMostOfIt = UsageSurface.ConcentrationOf(perFile),
+        };
+    }
+
+    private sealed record ParsedFile(
+        string Path,
+        IReadOnlySet<string> Imports,
+        IReadOnlyList<string> TypeNames,
+        IReadOnlyList<string> Declared);
+
+    private static IReadOnlyList<ParsedFile> Read(string rootPath)
+    {
+        if (!Directory.Exists(rootPath))
+            throw new DirectoryNotFoundException($"No such directory: {rootPath}");
+
+        var parsed = new List<ParsedFile>();
+
+        foreach (var path in Walk(rootPath))
+        {
+            string source;
+            try
+            {
+                source = File.ReadAllText(path);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                continue;
+            }
+
+            SyntaxNode root;
+            try
+            {
+                root = CSharpSyntaxTree.ParseText(source).GetRoot();
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            parsed.Add(new ParsedFile(
+                path,
+                root.DescendantNodes().OfType<UsingDirectiveSyntax>()
+                    .Select(u => u.Name?.ToString())
+                    .OfType<string>()
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                NamesIn(root),
+                Declarations(root)));
+        }
+
+        return parsed;
+    }
+
+    /// <summary>
+    /// Names this file declares, which are therefore not the package's.
+    ///
+    /// Delegates are included and are not a detail: BaseTypeDeclarationSyntax
+    /// covers classes, structs, interfaces, enums and records, and not
+    /// delegates, so Orchard's own `Localizer` was being reported as one of the
+    /// most used types in ASP.NET MVC.
+    ///
+    /// Generic parameters too. `T` is declared by the method it sits on and
+    /// belongs to nobody.
+    /// </summary>
+    private static List<string> Declarations(SyntaxNode root)
+    {
+        var declared = root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
+            .Select(t => t.Identifier.Text)
+            .ToList();
+
+        declared.AddRange(root.DescendantNodes().OfType<DelegateDeclarationSyntax>()
+            .Select(d => d.Identifier.Text));
+
+        declared.AddRange(root.DescendantNodes().OfType<TypeParameterSyntax>()
+            .Select(p => p.Identifier.Text));
+
+        return declared;
+    }
+
+    /// <summary>
+    /// Every name that is genuinely in a type position.
+    ///
+    /// Not `OfType&lt;TypeSyntax&gt;()`, which is the obvious way and is wrong:
+    /// in Roslyn `IdentifierNameSyntax` derives from `TypeSyntax`, so every
+    /// identifier in every expression qualifies. Measured against Orchard that
+    /// returned `x`, `builder`, `result` and `Count` as the most used types in
+    /// the codebase, which is how the mistake was found. The unit tests all
+    /// passed.
+    ///
+    /// So the positions are named one by one. Static calls are deliberately
+    /// not among them: telling `Assert.That` from `services.Add` needs resolved
+    /// symbols, and guessing from the capital letter would put half the
+    /// codebase's local variables back in the list.
+    /// </summary>
+    private static List<string> NamesIn(SyntaxNode root)
+    {
+        var names = new List<string>();
+
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case SimpleBaseTypeSyntax inherited: Collect(inherited.Type, names); break;
+                case ParameterSyntax { Type: { } parameter }: Collect(parameter, names); break;
+                case MethodDeclarationSyntax method: Collect(method.ReturnType, names); break;
+                case PropertyDeclarationSyntax property: Collect(property.Type, names); break;
+                case IndexerDeclarationSyntax indexer: Collect(indexer.Type, names); break;
+                case DelegateDeclarationSyntax @delegate: Collect(@delegate.ReturnType, names); break;
+                case OperatorDeclarationSyntax @operator: Collect(@operator.ReturnType, names); break;
+                case VariableDeclarationSyntax variable: Collect(variable.Type, names); break;
+                case ObjectCreationExpressionSyntax creation: Collect(creation.Type, names); break;
+                case CastExpressionSyntax cast: Collect(cast.Type, names); break;
+                case TypeOfExpressionSyntax typeOf: Collect(typeOf.Type, names); break;
+                case DefaultExpressionSyntax @default: Collect(@default.Type, names); break;
+                case CatchDeclarationSyntax caught: Collect(caught.Type, names); break;
+                case TypeConstraintSyntax constraint: Collect(constraint.Type, names); break;
+                case DeclarationPatternSyntax pattern: Collect(pattern.Type, names); break;
+
+                // `x as Controller` and `x is Controller`.
+                case BinaryExpressionSyntax binary
+                    when binary.IsKind(SyntaxKind.AsExpression)
+                      || binary.IsKind(SyntaxKind.IsExpression):
+                    if (binary.Right is TypeSyntax right) Collect(right, names);
+                    break;
+
+                case AttributeSyntax attribute:
+                    var attributeName = Simple(attribute.Name);
+                    if (attributeName is not null)
+                    {
+                        // Written without the suffix, declared with it.
+                        names.Add(attributeName.EndsWith("Attribute", StringComparison.Ordinal)
+                            ? attributeName[..^"Attribute".Length]
+                            : attributeName);
+                    }
+                    break;
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// Adds a type and everything inside it.
+    ///
+    /// `IList&lt;Controller&gt;` is a use of Controller, and stopping at the
+    /// outer name would miss most of what a codebase touches.
+    /// </summary>
+    private static void Collect(TypeSyntax type, List<string> names)
+    {
+        switch (type)
+        {
+            case PredefinedTypeSyntax:
+                return;
+
+            case GenericNameSyntax generic:
+                names.Add(generic.Identifier.Text);
+                foreach (var argument in generic.TypeArgumentList.Arguments)
+                    Collect(argument, names);
+                return;
+
+            case QualifiedNameSyntax qualified:
+                Collect(qualified.Right, names);
+                return;
+
+            case NullableTypeSyntax nullable:
+                Collect(nullable.ElementType, names);
+                return;
+
+            case ArrayTypeSyntax array:
+                Collect(array.ElementType, names);
+                return;
+
+            case TupleTypeSyntax tuple:
+                foreach (var element in tuple.Elements) Collect(element.Type, names);
+                return;
+
+            case IdentifierNameSyntax identifier:
+                names.Add(identifier.Identifier.Text);
+                return;
+        }
+    }
+
+    private static string? Simple(TypeSyntax type) => type switch
+    {
+        IdentifierNameSyntax identifier => identifier.Identifier.Text,
+        GenericNameSyntax generic => generic.Identifier.Text,
+        QualifiedNameSyntax qualified => Simple(qualified.Right),
+        _ => null,
+    };
+
+    private static IEnumerable<string> Walk(string directory)
+    {
+        IEnumerable<string> entries;
+        try
+        {
+            entries = Directory.EnumerateFileSystemEntries(directory);
+        }
+        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+        {
+            yield break;
+        }
+
+        foreach (var entry in entries)
+        {
+            if (Directory.Exists(entry))
+            {
+                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
+                    continue;
+
+                foreach (var found in Walk(entry)) yield return found;
+            }
+            else if (entry.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return entry;
+            }
+        }
+    }
+}

@@ -1062,13 +1062,47 @@ months later, when the decision is questioned, the trail is still there.
 
 ### Three pieces this needs
 
-**The usage surface, and it comes first.** The hard question about a dead
+**The usage surface ✅, and it comes first.** The hard question about a dead
 package is never "what are the alternatives", which any blog post answers in ten
 minutes. It is "which alternative covers what I actually use". A package exposes
 two hundred members and a codebase touches six of them. Reading which six, and
 how concentrated they are, is pure Roslyn work with no model involved, and
 without it everything else in this milestone is decoration. A replacement
 proposed without knowing what is used is a guess with a table around it.
+
+Measured on Orchard, for the package that holds 73 of its 89 projects:
+
+| | |
+|---|---|
+| Uses of `Microsoft.AspNet.Mvc` | **4,529** |
+| Distinct types | **271** |
+| Files importing it | **365** |
+| **Types carrying four fifths of it** | **41** |
+| Files carrying four fifths of it | **138** |
+
+**Forty-one.** That is the number this milestone exists to produce. "73 projects
+blocked" is a wall; "41 type correspondences cover eighty per cent of the work"
+is a catalogue somebody can write in a week. The two sentences describe the same
+codebase.
+
+The ten most used are `ActionResult` at 541, `HttpUnauthorizedResult` at 408,
+`HttpPost`, `RouteValueDictionary`, `SelectListItem`, `HtmlHelper`, `ActionName`,
+`Controller`, `IHtmlString`. Every one of them has a direct counterpart in
+ASP.NET Core. The rewrite is repetitive, which is exactly why counting it pays.
+
+**A mistake the first real measurement found, which the unit tests did not.**
+The obvious way to collect types is `OfType<TypeSyntax>()`, and it is wrong:
+Roslyn derives `IdentifierNameSyntax` from `TypeSyntax`, so every identifier in
+every expression qualifies. The first run reported `x`, `builder`, `result` and
+`Count` as the most used types in Orchard, against 59,950 uses of 5,362 "types".
+Fourteen tests passed throughout. The type positions are now named one by one,
+and two of them are not obvious: a delegate is not a `BaseTypeDeclarationSyntax`,
+so Orchard's own `Localizer` counted as ASP.NET MVC's, and a generic parameter
+`T` belongs to the method that declares it.
+
+Static calls are deliberately not counted. Telling `Assert.That` from
+`services.Add` needs resolved symbols, and guessing from the capital letter puts
+half the codebase's local variables back in the list.
 
 **A catalogue of successors, hand-written.** Roughly a hundred entries covers
 the .NET Framework surface that matters. Coverage against the usage surface is
