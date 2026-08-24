@@ -8,15 +8,15 @@ by teams with years of head start. The gap worth filling is elsewhere: analysis
 of inherited .NET, running locally, for organisations that are not allowed to
 send their source anywhere.
 
-The last two milestones write, and they are ordered by what a wrong output
-costs. **M8 writes tests, never production code**: a generated test that is
+The milestones that write are ordered by what a wrong output costs. **M8 writes tests, never production code**: a generated test that is
 wrong fails on the spot and is discarded before anyone sees it, so the machine
 checks its own work and no human is asked to trust anything. **M9 writes into
 the code itself**, which is why it comes last and why the line is drawn at "the
 tool proposes a diff, a person approves it". M9 is also the one concession to
 the position above, and Microsoft is the reason: it replaced a deterministic
 upgrade tool with a generative one and shipped the exact failure mode this
-codebase exists to avoid.
+codebase exists to avoid. **M11 writes nothing at all**: it asks questions, and
+what it produces is a plan and a sketch that compiles.
 
 A rule that holds across every milestone:
 
@@ -956,6 +956,170 @@ cannot yet prove the behaviour is unchanged is proposing a leap.
 **Effort:** the lexical pass is a weekend and produces most of the table above.
 The verdict is the part that takes real time, and it is the only part worth
 having.
+
+---
+
+## M11. Measure, migrate, mutate
+
+*Three steps, and the tool changes role between them.*
+
+M9 ends on a number that reads like a wall: **73 of 89 projects cannot be
+ported**, held by four packages with no path to modern .NET. That is the honest
+answer and it is where every tool in this space stops. It is also useless on its
+own. "Blocked" is not a plan, and a CTO who reads it has learned that the
+project is hard, which they already knew.
+
+The four blockers are not the same problem wearing one label:
+
+| | |
+|---|---|
+| `Microsoft.AspNet.Mvc` | has a successor, and a line-by-line correspondence for most of it |
+| `Microsoft.AspNet.Razor` | has a successor, same story |
+| `Microsoft.Web.Infrastructure` | has no successor because it **disappears**: nothing replaces it |
+| `Microsoft.AspNet.WebPages` | has no successor and no equivalent. This one is a rewrite |
+
+One is replaced, one is deleted, one is rewritten. Three budgets that have
+nothing to do with each other, currently reported as one word.
+
+This milestone is the ladder out of that, in three steps that are worth naming
+because they are worth selling separately.
+
+---
+
+### Measure
+
+Everything M0 through M6 already do, gathered behind one surface instead of nine
+endpoints: the map, the diagrams, the risk ranking, the packaging survey, the
+seams, the assessment. No model is involved and none of it is new. What is new
+is that it is one screen and one question box rather than a README full of curl.
+
+**This is the part that sells first.** It runs in a day, on a read-only copy,
+and commits nobody to anything: here is what converts by itself, here is what
+never will, and here are the measurements behind both. The rest of this
+milestone is the engagement that follows, and nobody grants that before seeing
+this.
+
+---
+
+### Migrate
+
+The mechanical conversions from M9, applied rather than downloaded.
+
+A button, and the button is not the risk. The rule has always been that a person
+approves the diff, and clicking after reading is a person approving the diff.
+What changes is where the result lands: a branch and a pull request, never a
+write into the working tree. The history, the second reader and the revert all
+come free with that, and none of them survive a tool that edits files in place.
+
+On Orchard this covers ten projects. Ten of eighty-nine, said plainly, because
+the number is the finding.
+
+---
+
+### Mutate
+
+The other seventy-nine, and the part that does not exist yet.
+
+Here the tool stops answering questions and starts asking them. That inversion
+is the whole idea, and it is not a interface flourish: on a non-trivial case the
+missing information is **not in the code**. Whether a session must survive a
+restart, whether an endpoint has callers nobody controls, how many machines sit
+behind a load balancer. No static analysis will ever recover any of it. The
+model cannot answer those, and it is the only thing in the system that knows
+which of them to ask, because it has read the file and knows what the target
+framework does with each answer.
+
+The model interrogates. It still does not decide.
+
+Three rules keep that from being a chatbot with a logo.
+
+**The set of outcomes is finite and written down first.** "Session does not
+survive a restart" has four exits, not forty: in-memory state, a distributed
+cache, the database, or the state is removed. They live in a hand-written
+catalogue. Questions exist to eliminate them, so there is always a known place
+to land, and a question that eliminates nothing is a question that does not get
+asked.
+
+**Every question cites a line.** Not "how do you handle sessions" but "this
+controller writes `Session` at line 47 and reads it at line 112, and those two
+calls can land on different machines". A question with no reference to the code
+is a generic questionnaire, and it reads as one by the second screen.
+
+**There is a stopping condition.** The session ends when an answer stops
+reducing the remaining options. Measurable, and the alternative is a model that
+asks until the reader closes the tab.
+
+What comes out separates its sources, which no migration tool does today:
+
+> The code says: `Session` is written in 47 places.
+> You said: two instances behind a load balancer.
+> Therefore: a distributed cache, and here are the 47 places.
+
+Every conclusion traces to a measured fact or to a sentence somebody owned. Six
+months later, when the decision is questioned, the trail is still there.
+
+---
+
+### Three pieces this needs
+
+**The usage surface, and it comes first.** The hard question about a dead
+package is never "what are the alternatives", which any blog post answers in ten
+minutes. It is "which alternative covers what I actually use". A package exposes
+two hundred members and a codebase touches six of them. Reading which six, and
+how concentrated they are, is pure Roslyn work with no model involved, and
+without it everything else in this milestone is decoration. A replacement
+proposed without knowing what is used is a guess with a table around it.
+
+**A catalogue of successors, hand-written.** Roughly a hundred entries covers
+the .NET Framework surface that matters. Coverage against the usage surface is
+then arithmetic: this candidate covers 6 of 6, that one covers 4 of 6 and the
+two it misses appear in 4 files. **The catalogue is not generated**, for the
+reason this whole document keeps returning to: a model asked for successors
+returns the right ninety-seven and invents three, with the same confidence, and
+inventing package references is the exact failure reported against the tool
+Microsoft shipped.
+
+**A compiled projection.** These rewrites are repetitive: one ASP.NET MVC
+controller resembles every other one, so a reader who sees one before and after
+knows what the remaining forty-six cost. The model writes that projection, and
+then it is compiled against the real target framework in a throwaway project. If
+it compiles, the packages exist, the members exist and the signatures are right,
+which removes the entire family of errors that ruins the tools this replaces. It
+ships labelled for what it is: **compiles against .NET 10, behaviour not
+verified.** That is a smaller claim than "here is your migrated code" and a far
+more useful one than a chat transcript somebody has to go and test.
+
+Built in that order. Reversed, it produces handsome projections of code nobody
+counted, which is the competitor this project exists to be different from.
+
+---
+
+### What it does not promise
+
+**A compiled projection is not a passing test.** It proves the code is valid,
+not that it behaves the same. That needs the characterization net from M8:
+record the behaviour, transform, replay, and discard the transformation if
+anything moved. Until those two are wired together, Mutate produces a plan and a
+sketch, not a migration.
+
+**No architecture is recommended in the abstract.** The tool does not say
+"microservices". It says which projects depend on nothing but themselves, which
+one is referenced by thirty-four others, and which two reference each other and
+are therefore one component that does not know it. Those are read from the
+dependency graph. What to do with them is a decision that depends on team size,
+traffic and who is on call, and none of that is in the code.
+
+**No estimate in days.** Volume and shape, measured: 366 `System.Web` references
+across 73 projects, and whether 200 of them sit in twelve files or are spread
+evenly, which is the difference between three weeks and six months. The price is
+set by a person, because it depends on who does the work. A tool that announces
+"47 days" will be wrong, and that is the error people remember, because it is
+the one that got them to sign.
+
+**Effort:** Measure is assembly, a week. Migrate is a button and a pull request
+on top of M9, days. Mutate is the milestone: the usage surface first, then the
+catalogue, then the projection loop, and the catalogue is written by hand and
+keeps being written.
 
 ---
 
