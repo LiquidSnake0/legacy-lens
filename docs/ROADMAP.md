@@ -26,7 +26,7 @@ A rule that holds across every milestone:
 
 ---
 
-## M0. Hold up on a real codebase
+## M0. Hold up on a real codebase ✅
 
 *The prerequisite. Nothing below is demonstrable until this is true.*
 
@@ -94,7 +94,7 @@ Still open:
 
 ---
 
-## M2. The danger zone
+## M2. The danger zone ✅
 
 *Where the code will hurt, before anyone touches it.*
 
@@ -159,7 +159,7 @@ immediately, and it makes an argument rather than describing a state.
 
 ---
 
-## M3. Hybrid search
+## M3. Hybrid search ✅
 
 *The retrieval gap, and the largest quality win available.*
 
@@ -192,7 +192,7 @@ shown.
 
 ---
 
-## M4. Class diagrams
+## M4. Class diagrams ✅
 
 *UML per module, extracted rather than imagined.*
 
@@ -215,7 +215,7 @@ The model's only job is grouping and naming the clusters.
 
 ---
 
-## M5. Demo comfort
+## M5. Demo comfort ✅
 
 *Small things that decide whether a demonstration lands.*
 
@@ -510,7 +510,7 @@ easy half; deciding what to refuse was the work.
 
 ---
 
-## M9. Mechanical migrations
+## M9. Mechanical migrations 🟡
 
 *The transformations that are the same in every codebase.*
 
