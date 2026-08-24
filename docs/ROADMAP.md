@@ -656,6 +656,57 @@ text.
 
 ---
 
+### Second conversion: the SDK format, measured on Orchard
+
+The rewrite itself is close to trivial. A pre-SDK file is a hundred and fifty
+lines of which the SDK supplies all but ten. What is not trivial is knowing
+when the ninety lines being deleted contained the one that mattered, so the
+verdict is the deliverable and the patch is what is left when there is nothing
+in the way.
+
+| | |
+|---|---|
+| Projects judged | **89** |
+| Converted | **10** |
+| Refused, with a named reason | **79** |
+| Patches accepted by `git apply --check` | **10 of 10** |
+| Project files still valid XML after applying | **10 of 10** |
+
+Refusals overlap, so these do not sum to 79:
+
+| | |
+|---|---|
+| Custom build targets | **77** |
+| A `ProjectExtensions` block, which carries the project flavour | **73** |
+| Imports the SDK does not supply | **76** |
+| Depends on packages with no path forward | **73** |
+
+**Eleven in twelve projects cannot have their format converted mechanically,
+and the reason is almost never the format.** It is a custom target, a web
+flavour, or a dependency that ends the conversation before the file is even
+opened. Any tool reporting a higher success rate on this estate is either
+deleting build steps or not looking.
+
+Unrecognised properties are carried over rather than dropped, which leaves
+noise in the output: a class library emerges still declaring its ClickOnce
+publish settings. That is the deliberate trade. Deleting a property the tool did
+not understand is the one mistake it cannot detect afterwards, so it keeps them
+and says so in the caveats.
+
+### A measurement that was wrong the first time
+
+Counted with `grep`, eighty-eight of eighty-nine projects appeared to carry a
+custom target and only one project looked clean. Counted with an XML parser,
+seventy-seven do and eleven are clean. The Visual Studio template ships a
+`<Target Name="BeforeBuild">` block **inside an XML comment**, and a line-based
+search cannot tell that from a real one.
+
+The same shape as the 279 binding redirects earlier in this document: a quick
+count, a plausible number, and a conclusion that would have been wrong. The
+scan has to parse what it claims to measure.
+
+---
+
 ## M10. Seams
 
 *Where the code can be cut, and where it cannot.*
