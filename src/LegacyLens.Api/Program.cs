@@ -64,6 +64,42 @@ if (args is ["surface", var surfaceTarget, ..])
             }
         }
 
+        // What could replace it, scored against what is actually used.
+        var catalogue = Successors.Load();
+        var ranked = new Successors().Rank(surface, catalogue);
+
+        if (ranked.Count == 0)
+        {
+            Console.Out.WriteLine(
+                $"  No candidate replacement catalogued ({catalogue.Source}).");
+        }
+
+        foreach (var coverage in ranked)
+        {
+            Console.Out.WriteLine();
+            Console.Out.WriteLine(
+                $"  -> {(coverage.Candidate.Length == 0 ? "nothing, and nothing is needed" : coverage.Candidate)}"
+                + $": covers {coverage.Percent}% of the calls");
+            Console.Out.WriteLine($"     {coverage.Note}");
+
+            if (coverage.Blocked)
+            {
+                Console.Out.WriteLine(
+                    $"     {coverage.Unavailable.Count} type(s), {coverage.UsesUnavailable} call(s), "
+                    + "have no replacement at all:");
+
+                foreach (var use in coverage.Unavailable.Take(6))
+                    Console.Out.WriteLine($"       {use.Uses,5}  {use.Name} ({use.Files} file(s))");
+            }
+
+            if (coverage.Unknown.Count > 0)
+            {
+                Console.Out.WriteLine(
+                    $"     {coverage.Unknown.Count} type(s), {coverage.UsesUnknown} call(s), are not "
+                    + "in the catalogue. Unknown, which is not the same as fine.");
+            }
+        }
+
         foreach (var note in surface.Notes) Console.Error.WriteLine($"  {note}");
         Console.Out.WriteLine();
     }

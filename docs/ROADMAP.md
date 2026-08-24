@@ -1104,14 +1104,48 @@ Static calls are deliberately not counted. Telling `Assert.That` from
 `services.Add` needs resolved symbols, and guessing from the capital letter puts
 half the codebase's local variables back in the list.
 
-**A catalogue of successors, hand-written.** Roughly a hundred entries covers
+**A catalogue of successors ✅, hand-written.** Roughly a hundred entries covers
 the .NET Framework surface that matters. Coverage against the usage surface is
-then arithmetic: this candidate covers 6 of 6, that one covers 4 of 6 and the
-two it misses appear in 4 files. **The catalogue is not generated**, for the
-reason this whole document keeps returning to: a model asked for successors
-returns the right ninety-seven and invents three, with the same confidence, and
-inventing package references is the exact failure reported against the tool
-Microsoft shipped.
+then arithmetic. **The catalogue is not generated**, for the reason this whole
+document keeps returning to: a model asked for successors returns the right
+ninety-seven and invents three, with the same confidence, and inventing package
+references is the exact failure reported against the tool Microsoft shipped.
+
+It is a **file**, not a table in an assembly. It grows with every migration
+anybody performs and should not need a rebuild to do so, and it is the part that
+took the work: the engine around it is a week, the knowledge in it is years.
+That also makes it separable from the code, which matters for anyone who wants
+to keep one and publish the other.
+
+Every type gets one of **three** answers, never two:
+
+| | |
+|---|---|
+| a named replacement | it converts |
+| recorded as having none | a blocker, and the fact worth having |
+| absent from the catalogue | **unknown**, which is not the same as fine |
+
+Folding the last two together is how "we have not looked at this" becomes "this
+is fine", and that sentence is what gets a migration signed off and discovered
+in month four.
+
+First run against Orchard, for `Microsoft.AspNet.Mvc`:
+
+| | |
+|---|---|
+| Calls covered by `Microsoft.AspNetCore.Mvc` | **61%** |
+| Types recorded as having no replacement | 3, over 5 calls |
+| Types the catalogue says nothing about | **219, over 1,779 calls** |
+
+**Sixty-one per cent from a first pass, and the honest part is the 219.** The
+catalogue is young; what makes the number usable is that it says so instead of
+counting silence as success. Coverage is weighted by calls rather than by type,
+because a type used five hundred times and one used once are not the same amount
+of work.
+
+`Microsoft.Web.Infrastructure` is catalogued with an empty successor and a note:
+nothing replaces it because nothing needs to, and deleting the reference is the
+migration.
 
 **A compiled projection.** These rewrites are repetitive: one ASP.NET MVC
 controller resembles every other one, so a reader who sees one before and after

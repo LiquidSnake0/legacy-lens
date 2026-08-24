@@ -683,6 +683,38 @@ Set `CHAT_PROVIDER=openai` only when that trade is acceptable.
 
 ---
 
+## What replaces what
+
+For a package with no future, the hard question is never what the alternatives
+are. It is which alternative covers what you actually use, and that depends on
+code nobody has counted.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- surface /repos/my-solution
+```
+
+It reads what the codebase uses of each catalogued package, how concentrated
+that usage is, and scores the candidate replacements against it. No model is
+involved.
+
+On Orchard, for the package that blocks 73 of its 89 projects: 4,529 calls
+across 271 types and 365 files, of which **41 types carry four fifths**. That is
+the number that turns "73 projects blocked" into a catalogue somebody can write.
+
+Every type gets one of three answers, and the third is the point:
+
+| | |
+|---|---|
+| a named replacement | it converts |
+| recorded as having none | a blocker, and worth knowing early |
+| **absent from the catalogue** | **unknown, which is not the same as fine** |
+
+`data/successors.json` holds it, as data rather than as code. It grows with
+every migration anybody performs and does not need a rebuild to do so, and
+`Successors.Load(path)` takes a different one. Coverage is weighted by calls
+rather than by type, because a type used five hundred times and one used once
+are not the same amount of work.
+
 ## Deploying it
 
 **Read this part before putting it on a public address.** The API has no

@@ -1,0 +1,176 @@
+{
+  "//": "What replaces what. Data rather than code, so it grows without a rebuild.",
+  "//1": "A type mapped to null is a recorded fact: nothing in the new package does its job.",
+  "//2": "A type absent from this file is unknown, which is not the same as fine.",
+
+  "Microsoft.AspNet.Mvc": [
+    {
+      "package": "Microsoft.AspNetCore.Mvc",
+      "note": "The pipeline, the routing and the filters all change shape. Most types have a counterpart, and the controllers still have to be moved onto the new hosting model.",
+      "types": {
+        "Controller": "Controller",
+        "ControllerBase": "ControllerBase",
+        "ActionResult": "IActionResult",
+        "ViewResult": "ViewResult",
+        "PartialViewResult": "PartialViewResult",
+        "JsonResult": "JsonResult",
+        "ContentResult": "ContentResult",
+        "EmptyResult": "EmptyResult",
+        "FileResult": "FileResult",
+        "FileContentResult": "FileContentResult",
+        "FileStreamResult": "FileStreamResult",
+        "RedirectResult": "RedirectResult",
+        "RedirectToRouteResult": "RedirectToRouteResult",
+        "HttpNotFoundResult": "NotFoundResult",
+        "HttpUnauthorizedResult": "UnauthorizedResult",
+        "HttpStatusCodeResult": "StatusCodeResult",
+
+        "HttpGet": "HttpGetAttribute",
+        "HttpPost": "HttpPostAttribute",
+        "HttpPut": "HttpPutAttribute",
+        "HttpDelete": "HttpDeleteAttribute",
+        "ActionName": "ActionNameAttribute",
+        "NonAction": "NonActionAttribute",
+        "Route": "RouteAttribute",
+        "Bind": "BindAttribute",
+        "ValidateAntiForgeryToken": "ValidateAntiForgeryTokenAttribute",
+        "Authorize": "AuthorizeAttribute",
+        "AllowAnonymous": "AllowAnonymousAttribute",
+
+        "ActionFilterAttribute": "ActionFilterAttribute",
+        "IActionFilter": "IActionFilter",
+        "IAuthorizationFilter": "IAuthorizationFilter",
+        "IExceptionFilter": "IExceptionFilter",
+        "IResultFilter": "IResultFilter",
+        "FilterAttribute": "Attribute",
+
+        "ModelStateDictionary": "ModelStateDictionary",
+        "SelectListItem": "SelectListItem",
+        "SelectList": "SelectList",
+        "MultiSelectList": "MultiSelectList",
+        "RouteValueDictionary": "RouteValueDictionary",
+        "ViewDataDictionary": "ViewDataDictionary",
+        "TempDataDictionary": "ITempDataDictionary",
+        "UrlHelper": "IUrlHelper",
+        "HtmlHelper": "IHtmlHelper",
+        "AjaxHelper": null,
+        "MvcHtmlString": "HtmlString",
+        "IHtmlString": "IHtmlContent",
+        "IView": "IView",
+        "IViewEngine": "IViewEngine",
+        "ViewEngineResult": "ViewEngineResult",
+        "IModelBinder": "IModelBinder",
+        "IValueProvider": "IValueProvider",
+        "IController": null,
+        "IControllerFactory": null,
+        "ControllerContext": "ControllerContext",
+        "ActionExecutingContext": "ActionExecutingContext",
+        "ActionExecutedContext": "ActionExecutedContext",
+        "ResultExecutingContext": "ResultExecutingContext",
+        "ResultExecutedContext": "ResultExecutedContext",
+        "ExceptionContext": "ExceptionContext",
+        "AuthorizationContext": "AuthorizationFilterContext",
+
+        "ChildActionOnly": null,
+        "AsyncController": null,
+        "AreaRegistration": null,
+        "ViewMasterPage": null,
+        "ViewPage": null,
+        "ViewUserControl": null,
+        "HandleErrorAttribute": null,
+        "OutputCacheAttribute": null,
+        "ValidateInputAttribute": null,
+        "SessionStateAttribute": null,
+        "MvcApplication": null,
+        "DependencyResolver": null,
+        "IDependencyResolver": null,
+        "ModelBinders": null,
+        "ValueProviderFactories": null,
+        "GlobalFilters": null
+      }
+    }
+  ],
+
+  "Microsoft.AspNet.WebPages": [
+    {
+      "package": "Microsoft.AspNetCore.Mvc.Razor",
+      "note": "No direct successor. Razor itself carries over, the WebPages hosting model does not, and anything built on it is a rewrite rather than a replacement.",
+      "types": {
+        "WebPage": null,
+        "WebPageBase": null,
+        "HelperResult": "HelperResult",
+        "WebSecurity": null,
+        "HtmlHelper": "IHtmlHelper",
+        "ValidationHelper": null
+      }
+    }
+  ],
+
+  "Microsoft.Web.Infrastructure": [
+    {
+      "package": "",
+      "note": "Nothing replaces it because nothing needs to. It existed to register modules at run time under System.Web, which modern .NET does not have. Remove the reference.",
+      "types": {
+        "DynamicModuleUtility": null
+      }
+    }
+  ],
+
+  "Newtonsoft.Json": [
+    {
+      "package": "System.Text.Json",
+      "note": "In the framework, faster, and stricter. The strictness is the migration: trailing commas, comments, case-insensitive names and number-as-string all have to be turned on deliberately, and JObject has no counterpart worth pretending about.",
+      "types": {
+        "JsonConvert": "JsonSerializer",
+        "JsonSerializer": "JsonSerializer",
+        "JsonSerializerSettings": "JsonSerializerOptions",
+        "JsonPropertyAttribute": "JsonPropertyNameAttribute",
+        "JsonIgnoreAttribute": "JsonIgnoreAttribute",
+        "JsonConverter": "JsonConverter",
+        "JsonReader": "Utf8JsonReader",
+        "JsonWriter": "Utf8JsonWriter",
+        "JsonException": "JsonException",
+        "Formatting": "JsonSerializerOptions.WriteIndented",
+        "JObject": null,
+        "JArray": null,
+        "JToken": null,
+        "JProperty": null,
+        "JValue": null,
+        "JsonSchema": null,
+        "DefaultContractResolver": null,
+        "IContractResolver": null
+      }
+    }
+  ],
+
+  "log4net": [
+    {
+      "package": "Microsoft.Extensions.Logging",
+      "note": "The abstraction is in the framework and the appenders are not. Configuration moves from XML to code or to appsettings, and the hierarchy of named loggers becomes categories.",
+      "types": {
+        "ILog": "ILogger",
+        "LogManager": "ILoggerFactory",
+        "Level": "LogLevel",
+        "ILoggerRepository": null,
+        "XmlConfigurator": null,
+        "AppenderSkeleton": null,
+        "IAppender": null,
+        "PatternLayout": null
+      }
+    },
+    {
+      "package": "Serilog",
+      "note": "Closer to log4net in spirit, with sinks in place of appenders and structured properties rather than formatted strings. A third-party dependency where the other option is in the framework.",
+      "types": {
+        "ILog": "ILogger",
+        "LogManager": "Log",
+        "Level": "LogEventLevel",
+        "ILoggerRepository": null,
+        "XmlConfigurator": null,
+        "AppenderSkeleton": null,
+        "IAppender": "ILogEventSink",
+        "PatternLayout": null
+      }
+    }
+  ]
+}
