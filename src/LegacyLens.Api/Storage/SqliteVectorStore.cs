@@ -11,8 +11,11 @@ public interface IVectorStore
     /// </summary>
     SqliteConnection Connection { get; }
 
-    Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default);
-    Task<IReadOnlyList<SearchHit>> SearchAsync(float[] query, int topK, CancellationToken ct = default);
+    Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, string workspace = Workspaces.Default,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<SearchHit>> SearchAsync(float[] query, int topK,
+        string workspace = Workspaces.Default, CancellationToken ct = default);
 
     /// <summary>
     /// Full-text search over the same chunks.
@@ -21,7 +24,8 @@ public interface IVectorStore
     /// wants that exact token, and an embedding has no reason to favour an
     /// exact match on a proper noun it never saw in training.
     /// </summary>
-    Task<IReadOnlyList<SearchHit>> SearchTextAsync(string query, int topK, CancellationToken ct = default);
+    Task<IReadOnlyList<SearchHit>> SearchTextAsync(string query, int topK,
+        string workspace = Workspaces.Default, CancellationToken ct = default);
 
     /// <summary>
     /// The text of one indexed chunk, so a citation can be opened and read.
@@ -31,10 +35,11 @@ public interface IVectorStore
     /// changed since. Showing the current file would let a citation point at
     /// something the answer never saw.
     /// </summary>
-    Task<Chunk?> ExcerptAsync(string filePath, int startLine, CancellationToken ct = default);
+    Task<Chunk?> ExcerptAsync(string filePath, int startLine,
+        string workspace = Workspaces.Default, CancellationToken ct = default);
 
-    Task ClearAsync(CancellationToken ct = default);
-    Task<int> CountAsync(CancellationToken ct = default);
+    Task ClearAsync(string workspace = Workspaces.Default, CancellationToken ct = default);
+    Task<int> CountAsync(string workspace = Workspaces.Default, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -59,12 +64,24 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         using var create = _connection.CreateCommand();
         create.CommandText = """
             CREATE TABLE IF NOT EXISTS chunks (
-                id         TEXT PRIMARY KEY,
-                file_path  TEXT NOT NULL,
-                start_line INTEGER NOT NULL,
-                end_line   INTEGER NOT NULL,
-                content    TEXT NOT NULL,
-                embedding  BLOB NOT NULL
+                id           TEXT NOT NULL,
+                file_path    TEXT NOT NULL,
+                start_line   INTEGER NOT NULL,
+                end_line     INTEGER NOT NULL,
+                content      TEXT NOT NULL,
+                embedding    BLOB NOT NULL,
+                -- Which project this belongs to. Created here rather than added
+                -- by the migration alone, so a store opened on its own is in the
+                -- right shape from the first insert. The migration exists for
+                -- files written before the column did.
+                workspace_id TEXT NOT NULL DEFAULT 'default',
+
+                -- A chunk id is its file path and start line, so two workspaces
+                -- indexing a path of the same name produce the same id for two
+                -- different pieces of code. Keyed on the id alone, the second
+                -- would overwrite the first and the isolation would be a
+                -- comment rather than a fact.
+                PRIMARY KEY (workspace_id, id)
             );
 
             -- Full-text index over the same rows. FTS5 ships with SQLite, so
@@ -76,6 +93,7 @@ public class SqliteVectorStore : IVectorStore, IDisposable
             -- written.
             CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
                 id UNINDEXED,
+                workspace_id UNINDEXED,
                 content,
                 tokenize = 'unicode61'
             );
@@ -95,6 +113,11 @@ public class SqliteVectorStore : IVectorStore, IDisposable
     /// </summary>
     private void Backfill()
     {
+        // An index written before the workspace column existed still has the
+        // old full-text shape here: the migration rebuilds it, and filling it
+        // now would fail on a column that is not there yet.
+        if (!HasColumn("chunks_fts", "workspace_id")) return;
+
         using var count = _connection.CreateCommand();
         count.CommandText =
             "SELECT (SELECT COUNT(*) FROM chunks) - (SELECT COUNT(*) FROM chunks_fts)";
@@ -102,15 +125,31 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         if (Convert.ToInt32(count.ExecuteScalar()) <= 0) return;
 
         using var fill = _connection.CreateCommand();
+        // Matched on the pair, because an id is only unique within a workspace.
         fill.CommandText = """
-            INSERT INTO chunks_fts (id, content)
-            SELECT id, content FROM chunks
-            WHERE id NOT IN (SELECT id FROM chunks_fts);
+            INSERT INTO chunks_fts (id, workspace_id, content)
+            SELECT c.id, c.workspace_id, c.content FROM chunks c
+            WHERE NOT EXISTS (
+                SELECT 1 FROM chunks_fts f
+                WHERE f.id = c.id AND f.workspace_id = c.workspace_id);
             """;
         fill.ExecuteNonQuery();
     }
 
-    public async Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default)
+    private bool HasColumn(string table, string column)
+    {
+        using var command = _connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({table});";
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            if (reader.GetString(1).Equals(column, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    public async Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks,
+        string workspace = Workspaces.Default, CancellationToken ct = default)
     {
         // One transaction for the batch: SQLite commits per statement otherwise,
         // which turns a 20k-row insert into 20k fsyncs.
@@ -118,9 +157,9 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         await using var command = _connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            INSERT INTO chunks (id, file_path, start_line, end_line, content, embedding)
-            VALUES ($id, $path, $start, $end, $content, $embedding)
-            ON CONFLICT(id) DO UPDATE SET
+            INSERT INTO chunks (id, file_path, start_line, end_line, content, embedding, workspace_id)
+            VALUES ($id, $path, $start, $end, $content, $embedding, $workspace)
+            ON CONFLICT(workspace_id, id) DO UPDATE SET
                 file_path = excluded.file_path,
                 start_line = excluded.start_line,
                 end_line = excluded.end_line,
@@ -134,6 +173,8 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         var end       = command.Parameters.Add("$end", SqliteType.Integer);
         var content   = command.Parameters.Add("$content", SqliteType.Text);
         var embedding = command.Parameters.Add("$embedding", SqliteType.Blob);
+        // Constant for the batch, so it is bound once rather than per row.
+        command.Parameters.AddWithValue("$workspace", workspace);
 
         foreach (var item in chunks)
         {
@@ -152,11 +193,13 @@ public class SqliteVectorStore : IVectorStore, IDisposable
         await using var fts = _connection.CreateCommand();
         fts.Transaction = transaction;
         fts.CommandText = """
-            DELETE FROM chunks_fts WHERE id = $id;
-            INSERT INTO chunks_fts (id, content) VALUES ($id, $content);
+            DELETE FROM chunks_fts WHERE id = $id AND workspace_id = $workspace;
+            INSERT INTO chunks_fts (id, workspace_id, content)
+            VALUES ($id, $workspace, $content);
             """;
         var ftsId = fts.Parameters.Add("$id", SqliteType.Text);
         var ftsContent = fts.Parameters.Add("$content", SqliteType.Text);
+        fts.Parameters.AddWithValue("$workspace", workspace);
 
         foreach (var item in chunks)
         {
@@ -170,13 +213,16 @@ public class SqliteVectorStore : IVectorStore, IDisposable
     }
 
     public async Task<IReadOnlyList<SearchHit>> SearchAsync(
-        float[] query, int topK, CancellationToken ct = default)
+        float[] query, int topK, string workspace = Workspaces.Default,
+        CancellationToken ct = default)
     {
         var hits = new List<SearchHit>();
 
         await using var command = _connection.CreateCommand();
         command.CommandText =
-            "SELECT id, file_path, start_line, end_line, content, embedding FROM chunks";
+            "SELECT id, file_path, start_line, end_line, content, embedding FROM chunks " +
+            "WHERE workspace_id = $workspace";
+        command.Parameters.AddWithValue("$workspace", workspace);
 
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
@@ -198,7 +244,8 @@ public class SqliteVectorStore : IVectorStore, IDisposable
     }
 
     public async Task<IReadOnlyList<SearchHit>> SearchTextAsync(
-        string query, int topK, CancellationToken ct = default)
+        string query, int topK, string workspace = Workspaces.Default,
+        CancellationToken ct = default)
     {
         var terms = Tokenise(query);
         if (terms.Length == 0) return [];
@@ -212,12 +259,13 @@ public class SqliteVectorStore : IVectorStore, IDisposable
             SELECT c.id, c.file_path, c.start_line, c.end_line, c.content,
                    -bm25(chunks_fts) AS relevance
             FROM chunks_fts
-            JOIN chunks c ON c.id = chunks_fts.id
-            WHERE chunks_fts MATCH $query
+            JOIN chunks c ON c.id = chunks_fts.id AND c.workspace_id = chunks_fts.workspace_id
+            WHERE chunks_fts MATCH $query AND c.workspace_id = $workspace
             ORDER BY relevance DESC
             LIMIT $limit;
             """;
         command.Parameters.AddWithValue("$query", string.Join(" OR ", terms));
+        command.Parameters.AddWithValue("$workspace", workspace);
         command.Parameters.AddWithValue("$limit", topK);
 
         try
@@ -242,17 +290,19 @@ public class SqliteVectorStore : IVectorStore, IDisposable
     }
 
     public async Task<Chunk?> ExcerptAsync(
-        string filePath, int startLine, CancellationToken ct = default)
+        string filePath, int startLine, string workspace = Workspaces.Default,
+        CancellationToken ct = default)
     {
         await using var command = _connection.CreateCommand();
         command.CommandText = """
             SELECT id, file_path, start_line, end_line, content
             FROM chunks
-            WHERE file_path = $path AND start_line = $start
+            WHERE file_path = $path AND start_line = $start AND workspace_id = $workspace
             LIMIT 1;
             """;
         command.Parameters.AddWithValue("$path", filePath);
         command.Parameters.AddWithValue("$start", startLine);
+        command.Parameters.AddWithValue("$workspace", workspace);
 
         await using var reader = await command.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct)) return null;
@@ -277,17 +327,24 @@ public class SqliteVectorStore : IVectorStore, IDisposable
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-    public async Task ClearAsync(CancellationToken ct = default)
+    public async Task ClearAsync(string workspace = Workspaces.Default, CancellationToken ct = default)
     {
         await using var command = _connection.CreateCommand();
-        command.CommandText = "DELETE FROM chunks; DELETE FROM chunks_fts;";
+        // Scoped, not wholesale: another workspace has its own rows in the
+        // same virtual table.
+        command.CommandText = """
+            DELETE FROM chunks_fts WHERE workspace_id = $workspace;
+            DELETE FROM chunks WHERE workspace_id = $workspace;
+            """;
+        command.Parameters.AddWithValue("$workspace", workspace);
         await command.ExecuteNonQueryAsync(ct);
     }
 
-    public async Task<int> CountAsync(CancellationToken ct = default)
+    public async Task<int> CountAsync(string workspace = Workspaces.Default, CancellationToken ct = default)
     {
         await using var command = _connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM chunks";
+        command.CommandText = "SELECT COUNT(*) FROM chunks WHERE workspace_id = $workspace";
+        command.Parameters.AddWithValue("$workspace", workspace);
         return Convert.ToInt32(await command.ExecuteScalarAsync(ct));
     }
 

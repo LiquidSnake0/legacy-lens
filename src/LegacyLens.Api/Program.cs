@@ -60,10 +60,28 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// The schema is brought forward once, before any request can read a table
+// whose shape has changed. Constructing the store opens the file and creates
+// what is missing; this adds the workspace column, the index and the rebuilt
+// ledger on top of an index that predates them.
+_ = new Workspaces(app.Services.GetRequiredService<IVectorStore>().Connection);
+
 app.UseCors();
 
-app.MapGet("/api/health", async (IVectorStore store, CancellationToken ct) =>
-    Results.Ok(new { status = "ok", indexedChunks = await store.CountAsync(ct) }));
+app.MapGet("/api/health", (IVectorStore store) =>
+{
+    // Counted per workspace rather than in total. One number over a file
+    // holding three projects answers a question nobody asked.
+    var workspaces = new Workspaces(store.Connection).All();
+
+    return Results.Ok(new
+    {
+        status = "ok",
+        indexedChunks = workspaces.Sum(w => w.Chunks),
+        workspaces = workspaces.Select(w => new { w.Id, w.Name, w.Chunks }),
+    });
+});
 
 app.MapPost("/api/ingest", async (
     IngestRequest request, IngestionService service, CancellationToken ct) =>
@@ -73,7 +91,7 @@ app.MapPost("/api/ingest", async (
 
     try
     {
-        return Results.Ok(await service.IngestAsync(request.Path, ct));
+        return Results.Ok(await service.IngestAsync(request.Path, request.Workspace, ct));
     }
     catch (DirectoryNotFoundException ex)
     {
@@ -93,7 +111,7 @@ app.MapPost("/api/ask", async (
 
     try
     {
-        return Results.Ok(await service.AnswerAsync(request, ct));
+        return Results.Ok(await service.AnswerAsync(request, request.Workspace, ct));
     }
     catch (HttpRequestException ex)
     {
@@ -127,7 +145,7 @@ app.MapPost("/api/ask/stream", async (
     // emits camelCase, and a client reading both would break on one of them.
     var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
 
-    await foreach (var item in service.StreamAsync(request, ct))
+    await foreach (var item in service.StreamAsync(request, request.Workspace, ct))
     {
         var (name, payload) = item switch
         {
@@ -147,9 +165,9 @@ app.MapPost("/api/ask/stream", async (
 // A citation the reader cannot open is a claim they have to take on trust,
 // which is the opposite of what citing sources is for.
 app.MapGet("/api/excerpt", async (
-    string path, int line, IVectorStore store, CancellationToken ct) =>
+    string path, int line, IVectorStore store, CancellationToken ct, string? workspace = null) =>
 {
-    var chunk = await store.ExcerptAsync(path, line, ct);
+    var chunk = await store.ExcerptAsync(path, line, workspace ?? Workspaces.Default, ct);
 
     return chunk is null
         ? Results.NotFound(new { error = $"No indexed chunk at {path}:{line}." })
@@ -197,6 +215,27 @@ app.MapPost("/api/report", (ReportRequest request) =>
 // Where a strangler fig could put the new implementation beside the old, and
 // where it could not. Reads source only: no compilation, so it answers on a
 // solution that does not build.
+// One index per project. Without them a second project means deleting the
+// first, or asking questions of a mixture of the two.
+app.MapGet("/api/workspaces", (IVectorStore store) =>
+    Results.Ok(new Workspaces(store.Connection).All()));
+
+app.MapPost("/api/workspaces", (CreateWorkspaceRequest request, IVectorStore store) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name))
+        return Results.BadRequest(new { error = "A name is required." });
+
+    var created = new Workspaces(store.Connection).Create(request.Name, request.RootPath ?? string.Empty);
+    return Results.Created($"/api/workspaces/{created.Id}", created);
+});
+
+// Deletes the chunks with it. A workspace row removed on its own would leave
+// chunks nothing can name, which is worse than either outcome.
+app.MapDelete("/api/workspaces/{id}", (string id, IVectorStore store) =>
+    new Workspaces(store.Connection).Delete(id)
+        ? Results.NoContent()
+        : Results.NotFound(new { error = $"No workspace {id}." }));
+
 app.MapPost("/api/seams", (SeamsRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.Path))
@@ -383,12 +422,12 @@ app.MapPost("/api/diagram", (DiagramRequest request) =>
     }
 });
 
-app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct) =>
+app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct, string? workspace = null) =>
 {
-    await store.ClearAsync(ct);
+    await store.ClearAsync(workspace ?? Workspaces.Default, ct);
     // The ledger has to go too. Left behind, it would report every file as
     // already indexed and the next ingest would do nothing at all.
-    new IngestionLedger(store.Connection).Clear();
+    new IngestionLedger(store.Connection, workspace ?? Workspaces.Default).Clear();
     return Results.NoContent();
 });
 

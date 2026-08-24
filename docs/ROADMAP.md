@@ -354,7 +354,7 @@ underneath were already right. Most of it went on what to leave out.
 
 ---
 
-## M7. First run
+## M7. First run 🟡
 
 *The gap between "a thing I built" and "a thing someone else can start".*
 
@@ -373,15 +373,44 @@ behind the same button.
 - **Which model.** Local Ollama by default, or the user's own API key. Both
   keep the operator out of the loop. Hosting a shared instance is a different
   product with different obligations, and it is deliberately not this one.
-- **Workspaces.** One index per project, selectable. This is the real work: a
+- **Workspaces ✅.** One index per project, selectable. This is the real work: a
   `workspace_id` on chunks and a schema migration. The form is an afternoon.
+
+**Workspaces, done.** Every chunk, every full-text row and every ledger entry
+carries the project it belongs to, and all six store operations are scoped by
+it. `GET/POST/DELETE /api/workspaces` manage them; `/api/ingest` and `/api/ask`
+take one; `/api/health` counts per project rather than reporting a single number
+over a file holding three.
+
+The part worth writing down is the collision. A chunk id is its file path and
+its start line, so two projects that each contain a `src/A.cs` produce the same
+id for two unrelated pieces of code. Keyed on the id alone, the second index
+silently overwrote the first, and the same held for the full-text table, which
+kept one searchable row holding whichever text was written last. Both are now
+keyed on the pair, which SQLite cannot express as an alteration, so an index
+written before this migrates by being rebuilt once. An existing index is carried
+into a workspace named for what it is rather than refused, because refusing
+throws away hours of embedding that are still perfectly good.
+
+Thirteen tests cover it against a real SQLite file, including an index
+hand-written in the shape it had before workspaces existed, since the migration
+has to survive files that no code in the repository can still produce. Removing
+the composite key fails six of them.
+
+One fault only the running instance found: deleting a workspace that had never
+been indexed hit a ledger table that no ingestion had yet created. The tests all
+indexed something first and so created it on the way past. The schema is now
+brought up at startup rather than by the first ingestion.
+
+**What is left here:** the launch form, answering immediately with the fast half
+while indexing runs behind it, and the model choice.
 
 **Why it still ranks this high.** The measurements say the fast half is a
 genuine product on its own and it is currently invisible. Answering immediately
 with it is the one item here that does not wait for a self-serve audience: the
 report in M6 wants the same split, so that piece gets built either way.
 
-**Effort:** a weekend for workspaces, an afternoon for the form.
+**Effort:** the weekend for workspaces is spent. An afternoon for the form.
 
 ---
 

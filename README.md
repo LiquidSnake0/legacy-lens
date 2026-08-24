@@ -485,6 +485,23 @@ curl -X POST localhost:8080/api/ask \
 By default it indexes whatever is in `./repos`. Set `REPOS_PATH` in `.env` to
 mount a directory from elsewhere instead.
 
+### More than one project
+
+Both calls above take an optional `workspace`. Left out, they use `default`,
+which is also where an index built before workspaces existed ends up.
+
+```bash
+curl -X POST localhost:8080/api/workspaces \
+     -H 'content-type: application/json' \
+     -d '{"name":"Billing","rootPath":"/repos/billing"}'
+```
+
+That returns an id to pass as `"workspace"` when indexing and when asking.
+`GET /api/workspaces` lists them with their chunk counts, and
+`DELETE /api/workspaces/{id}` removes one along with everything indexed under
+it. Two projects in one index file cannot see each other's code, including when
+they contain files at the same relative path.
+
 ### The web interface
 
 `docker compose up` serves it on `http://localhost:4200`. To run it against a

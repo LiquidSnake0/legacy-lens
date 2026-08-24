@@ -20,17 +20,22 @@ public class IngestionLedger
 {
     private readonly SqliteConnection _connection;
 
-    public IngestionLedger(SqliteConnection connection)
+    private readonly string _workspace;
+
+    public IngestionLedger(SqliteConnection connection, string workspace = "default")
     {
         _connection = connection;
+        _workspace = workspace;
 
         using var create = _connection.CreateCommand();
         create.CommandText = """
             CREATE TABLE IF NOT EXISTS indexed_files (
-                path        TEXT PRIMARY KEY,
+                path         TEXT NOT NULL,
                 content_hash TEXT NOT NULL,
-                chunk_count INTEGER NOT NULL,
-                indexed_at  TEXT NOT NULL
+                chunk_count  INTEGER NOT NULL,
+                indexed_at   TEXT NOT NULL,
+                workspace_id TEXT NOT NULL DEFAULT 'default',
+                PRIMARY KEY (workspace_id, path)
             );
             """;
         create.ExecuteNonQuery();
@@ -48,7 +53,8 @@ public class IngestionLedger
         var known = new Dictionary<string, string>(StringComparer.Ordinal);
 
         using var command = _connection.CreateCommand();
-        command.CommandText = "SELECT path, content_hash FROM indexed_files";
+        command.CommandText = "SELECT path, content_hash FROM indexed_files WHERE workspace_id = $workspace";
+        command.Parameters.AddWithValue("$workspace", _workspace);
 
         using var reader = command.ExecuteReader();
         while (reader.Read()) known[reader.GetString(0)] = reader.GetString(1);
@@ -60,14 +66,15 @@ public class IngestionLedger
     {
         using var command = _connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO indexed_files (path, content_hash, chunk_count, indexed_at)
-            VALUES ($path, $hash, $chunks, $at)
-            ON CONFLICT(path) DO UPDATE SET
+            INSERT INTO indexed_files (path, content_hash, chunk_count, indexed_at, workspace_id)
+            VALUES ($path, $hash, $chunks, $at, $workspace)
+            ON CONFLICT(workspace_id, path) DO UPDATE SET
                 content_hash = excluded.content_hash,
                 chunk_count  = excluded.chunk_count,
                 indexed_at   = excluded.indexed_at;
             """;
         command.Parameters.AddWithValue("$path", path);
+        command.Parameters.AddWithValue("$workspace", _workspace);
         command.Parameters.AddWithValue("$hash", hash);
         command.Parameters.AddWithValue("$chunks", chunks);
         command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
@@ -88,10 +95,12 @@ public class IngestionLedger
         using var command = _connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
-            DELETE FROM chunks     WHERE file_path = $path;
-            DELETE FROM chunks_fts WHERE id NOT IN (SELECT id FROM chunks);
-            DELETE FROM indexed_files WHERE path = $path;
+            DELETE FROM chunks_fts WHERE id IN (
+                SELECT id FROM chunks WHERE file_path = $path AND workspace_id = $workspace);
+            DELETE FROM chunks        WHERE file_path = $path AND workspace_id = $workspace;
+            DELETE FROM indexed_files WHERE path = $path AND workspace_id = $workspace;
             """;
+        command.Parameters.AddWithValue("$workspace", _workspace);
         var parameter = command.Parameters.Add("$path", SqliteType.Text);
 
         foreach (var path in paths)
@@ -103,10 +112,12 @@ public class IngestionLedger
         transaction.Commit();
     }
 
+    /// <summary>Only this workspace. Another project's ledger is not ours to drop.</summary>
     public void Clear()
     {
         using var command = _connection.CreateCommand();
-        command.CommandText = "DELETE FROM indexed_files";
+        command.CommandText = "DELETE FROM indexed_files WHERE workspace_id = $workspace";
+        command.Parameters.AddWithValue("$workspace", _workspace);
         command.ExecuteNonQuery();
     }
 }

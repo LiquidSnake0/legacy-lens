@@ -27,10 +27,11 @@ public class IngestionService
         _log = log;
     }
 
-    public async Task<IngestResponse> IngestAsync(string rootPath, CancellationToken ct = default)
+    public async Task<IngestResponse> IngestAsync(string rootPath,
+        string workspace = Workspaces.Default, CancellationToken ct = default)
     {
         var stopwatch = Stopwatch.StartNew();
-        var ledger = new IngestionLedger(_store.Connection);
+        var ledger = new IngestionLedger(_store.Connection, workspace);
         var known = ledger.Known();
 
         var files = _walker.Walk(rootPath).ToList();
@@ -145,7 +146,8 @@ public class IngestionService
                     split.Select(c => c.EmbeddingText).ToList(), ct);
 
                 await _store.UpsertAsync(
-                    split.Zip(vectors, (chunk, vector) => new EmbeddedChunk(chunk, vector)).ToList(), ct);
+                    split.Zip(vectors, (chunk, vector) => new EmbeddedChunk(chunk, vector)).ToList(),
+                    workspace, ct);
             }
 
             // Recorded only once the chunks are stored, and hashed from the

@@ -33,11 +33,11 @@ public record Citation(
     /// </summary>
     string FoundBy);
 
-public record IngestRequest(string Path);
+public record IngestRequest(string Path, string Workspace = "default");
 
 public record IngestResponse(int FilesRead, int ChunksIndexed, long ElapsedMs);
 
-public record AskRequest(string Question, int TopK = 6);
+public record AskRequest(string Question, int TopK = 6, string Workspace = "default");
 
 public record AskResponse(string Answer, IReadOnlyList<Citation> Sources);
 
@@ -68,3 +68,6 @@ public record SeamsRequest(string Path, int Top = 20);
 /// a document nobody can compare against last month's.
 /// </summary>
 public record ReportRequest(string Path, int Top = 15, int HistoryMonths = 24);
+
+/// <summary>A project to index on its own.</summary>
+public record CreateWorkspaceRequest(string Name, string? RootPath = null);

@@ -150,21 +150,27 @@ public class AnswerServiceTests
         public SqliteConnection Connection => throw new NotSupportedException();
 
         public Task<IReadOnlyList<SearchHit>> SearchAsync(
-            float[] query, int topK, CancellationToken ct = default) => Task.FromResult(vector);
+            float[] query, int topK, string workspace = Workspaces.Default,
+            CancellationToken ct = default) => Task.FromResult(vector);
 
         public Task<IReadOnlyList<SearchHit>> SearchTextAsync(
-            string query, int topK, CancellationToken ct = default) => Task.FromResult(text);
+            string query, int topK, string workspace = Workspaces.Default,
+            CancellationToken ct = default) => Task.FromResult(text);
 
-        public Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks, CancellationToken ct = default) =>
+        public Task UpsertAsync(IReadOnlyList<EmbeddedChunk> chunks,
+            string workspace = Workspaces.Default, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         public Task<Chunk?> ExcerptAsync(
-            string filePath, int startLine, CancellationToken ct = default) =>
+            string filePath, int startLine, string workspace = Workspaces.Default,
+            CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task ClearAsync(CancellationToken ct = default) => throw new NotSupportedException();
+        public Task ClearAsync(string workspace = Workspaces.Default, CancellationToken ct = default) =>
+            throw new NotSupportedException();
 
-        public Task<int> CountAsync(CancellationToken ct = default) => Task.FromResult(vector.Count);
+        public Task<int> CountAsync(string workspace = Workspaces.Default,
+            CancellationToken ct = default) => Task.FromResult(vector.Count);
     }
 
     private class FakeChat(IReadOnlyList<string> tokens, Exception? failsAfter) : IChatClient

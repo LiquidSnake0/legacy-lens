@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 
+using LegacyLens.Api.Storage;
+
 namespace LegacyLens.Api.Generation;
 
 /// <summary>One piece of a streamed answer.</summary>
@@ -35,9 +37,10 @@ public class AnswerService
         _chat = chat;
     }
 
-    public async Task<AskResponse> AnswerAsync(AskRequest request, CancellationToken ct = default)
+    public async Task<AskResponse> AnswerAsync(AskRequest request,
+        string workspace = Workspaces.Default, CancellationToken ct = default)
     {
-        var hits = await _retriever.RetrieveAsync(request.Question, request.TopK, ct);
+        var hits = await _retriever.RetrieveAsync(request.Question, request.TopK, workspace, ct);
 
         // Nothing cleared the score floor. Say so rather than handing the model
         // an empty context and letting it fill the silence.
@@ -56,6 +59,7 @@ public class AnswerService
     /// </summary>
     public async IAsyncEnumerable<AnswerEvent> StreamAsync(
         AskRequest request,
+        string workspace = Workspaces.Default,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         // C# forbids yield return inside a catch, so failures are captured
@@ -65,7 +69,7 @@ public class AnswerService
 
         try
         {
-            hits = await _retriever.RetrieveAsync(request.Question, request.TopK, ct);
+            hits = await _retriever.RetrieveAsync(request.Question, request.TopK, workspace, ct);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidOperationException)
         {

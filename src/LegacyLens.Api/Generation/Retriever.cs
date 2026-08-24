@@ -52,7 +52,8 @@ public class Retriever
     }
 
     public async Task<IReadOnlyList<SearchHit>> RetrieveAsync(
-        string question, int topK, CancellationToken ct = default)
+        string question, int topK, string workspace = Workspaces.Default,
+        CancellationToken ct = default)
     {
         var queryVector = await _embeddings.EmbedAsync(question, ct);
 
@@ -65,8 +66,8 @@ public class Retriever
         // approximate index makes asking for more actually cost something.
         var wide = topK * 4;
 
-        var vector = await _store.SearchAsync(queryVector, wide, ct);
-        var text = await _store.SearchTextAsync(question, wide, ct);
+        var vector = await _store.SearchAsync(queryVector, wide, workspace, ct);
+        var text = await _store.SearchTextAsync(question, wide, workspace, ct);
 
         return Rank(Merge(vector, text), topK);
     }
