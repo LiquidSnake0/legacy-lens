@@ -26,6 +26,15 @@ if (args is ["characterize", var assemblyPath, ..])
     return;
 }
 
+// The mechanical conversions, as a patch. A command as well as a route,
+// because what comes out is meant to be redirected to a file and handed to
+// `git apply` by a person who read it first. Nothing here writes to the tree.
+if (args is ["convert", var convertTarget, ..])
+{
+    Conversions.Run(convertTarget, args.Skip(2).ToArray());
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
@@ -369,6 +378,43 @@ app.MapDelete("/api/workspaces/{id}", async (string id, IVectorStore store, Inge
     return await WithConnection(store, () => new Workspaces(store.Connection).Delete(id))
         ? Results.NoContent()
         : Results.NotFound(new { error = $"No workspace {id}." });
+});
+
+// The mechanical conversions, as a patch nobody has applied.
+//
+// The same code the `convert` command runs. A route as well, so the interface
+// can show a diff beside the survey that argued for it.
+app.MapPost("/api/convert", (ConvertRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!Directory.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such directory: {request.Path}." });
+
+    try
+    {
+        var outcome = Conversions.For(request.Kind, request.Path);
+
+        return Results.Ok(new
+        {
+            outcome.Kind,
+            outcome.Patch,
+            outcome.Notes,
+            // Named separately because on a real estate this is the longer
+            // list, and it is the one that decides what the work actually is.
+            outcome.Refusals,
+            empty = outcome.Empty,
+        });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message, kinds = Conversions.Kinds });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
 });
 
 app.MapPost("/api/seams", (SeamsRequest request) =>

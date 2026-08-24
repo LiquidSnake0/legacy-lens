@@ -64,6 +64,24 @@ public static class UnifiedDiff
         return patch.ToString();
     }
 
+    /// <summary>
+    /// A patch adding a file. The mirror of <see cref="Deleting"/>: git wants
+    /// `/dev/null` on the "before" side rather than an empty file.
+    /// </summary>
+    public static string Creating(string relativePath, string content)
+    {
+        var (lines, endsWithNewline) = Split(content);
+        var patch = new StringBuilder();
+        patch.Append($"diff --git a/{relativePath} b/{relativePath}\n");
+        patch.Append("new file mode 100644\n");
+        patch.Append("--- /dev/null\n");
+        patch.Append($"+++ b/{relativePath}\n");
+        patch.Append($"@@ -0,0 +1,{lines.Length} @@\n");
+        foreach (var line in lines) patch.Append($"+{line}\n");
+        if (!endsWithNewline) patch.Append(NoNewline);
+        return patch.ToString();
+    }
+
     private const string NoNewline = "\\ No newline at end of file\n";
 
     /// <summary>

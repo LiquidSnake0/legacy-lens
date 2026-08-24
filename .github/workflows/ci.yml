@@ -128,6 +128,21 @@ jobs:
 
           expect "which models are offered" 200 "$(call http://127.0.0.1:5199/api/models)"
 
+          # The conversions, over this repository. Modern projects, so every
+          # kind has nothing to do, and answering that is the check: an empty
+          # patch with a reason beats a 500.
+          for kind in packages sdk versions config; do
+            expect "convert: $kind" 200 \
+              "$(call -X POST http://127.0.0.1:5199/api/convert \
+                      -H 'content-type: application/json' \
+                      -d "{\"path\":\"$GITHUB_WORKSPACE/src\",\"kind\":\"$kind\"}")"
+          done
+
+          expect "an unknown conversion is refused" 400 \
+            "$(call -X POST http://127.0.0.1:5199/api/convert \
+                    -H 'content-type: application/json' \
+                    -d "{\"path\":\"$GITHUB_WORKSPACE/src\",\"kind\":\"nope\"}")"
+
           # A repository URL git should never be handed. ext:: runs a command
           # as the transport, so this one has to be refused before git sees it.
           expect "a transport that runs commands is refused" 400 \

@@ -454,6 +454,55 @@ into it from a web request is remote code execution with a JSON body.
 
 ---
 
+## Mechanical conversions
+
+The transformations that are the same in every codebase, each emitted as a patch
+nobody has applied.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- convert /repos/my-solution
+```
+
+With no kind it says what there is to do. With one it writes the patch to
+standard output and the reasons to standard error, so this leaves a file git
+can take and prints what to read first:
+
+```bash
+dotnet run --project src/LegacyLens.Api -- convert /repos/my-solution sdk > sdk.patch
+git apply --check sdk.patch
+```
+
+| | |
+|---|---|
+| `packages` | `packages.config` to `PackageReference` |
+| `sdk` | pre-SDK project files to the SDK format |
+| `versions` | one version per package across the solution |
+| `config` | `appSettings` and `connectionStrings` to `appsettings.json` |
+
+One kind at a time, because `packages` and `sdk` both rewrite the project file
+and a patch carrying both cannot apply: its second half is written against text
+its first half already moved. `POST /api/convert` with `{"path":..., "kind":...}`
+returns the same patch with its notes and refusals.
+
+**Nothing is applied and nothing is invented.** Every version written is one
+already on disk, and every refusal names its reason. On Orchard the four
+produce ten patches and seventy-nine refusals, which is the honest ratio: eleven
+projects in twelve cannot have their format converted, and the reason is almost
+never the format.
+
+Two things it reports rather than does. A version bump crossing a major is
+flagged, because nothing in a version number says whether the API changed. And
+binding redirects are named and never edited: a redirect carries an assembly
+version, which is not the package version and cannot be derived from it by
+reading these files.
+
+The configuration conversion carries the settings and leaves the call sites
+alone. `ConfigurationManager` is a static reachable from anywhere and
+`IConfiguration` is a dependency somebody hands in, so moving one to the other
+changes every caller of every type that reads configuration. What it does
+instead is tell you which keys the code reads that no config file declares.
+On Orchard that is one, and it is a null the application already meets.
+
 ## Running it
 
 Requirements: Docker, and roughly 6 GB of free RAM for the generation model.
@@ -664,16 +713,16 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 219 unit tests covering
-every layer, no network, no model, 400 ms for the suite, and the pipeline has
-been run end to end against a real repository: this one.
+**Question answering** needs an index and a local model. 355 unit tests covering
+every layer, plus 85 in the browser, no network and no model in either, and the
+pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no
 index, no compilation, and a 414,611-line solution documented in two seconds.
 
-Indexing its own 21 source files produced 58 chunks in 48 seconds on a laptop
+Indexing its own 42 source files produced 281 chunks in four minutes on a laptop
 CPU, and it answers questions about itself correctly, citing lines that hold
-what the answer claims.
+what the answer claims. That is the screenshot at the top of this file.
 
 The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now

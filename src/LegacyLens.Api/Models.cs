@@ -71,6 +71,14 @@ public record DiagramRequest(string Path, string? Namespace = null, string? Type
 
 public record ModerniseRequest(string Path, int TopUnknown = 15);
 
+/// <summary>
+/// One mechanical conversion to propose.
+///
+/// <paramref name="Kind"/> is one at a time on purpose: two of them rewrite the
+/// same project file, so a patch carrying both cannot apply.
+/// </summary>
+public record ConvertRequest(string Path, string Kind);
+
 /// <summary>Where the code can be cut, and what closes the cut.</summary>
 public record SeamsRequest(string Path, int Top = 20);
 

@@ -566,7 +566,7 @@ compiles and runs.
 
 ---
 
-## M9. Mechanical migrations 🟡
+## M9. Mechanical migrations ✅
 
 *The transformations that are the same in every codebase.*
 
@@ -649,10 +649,11 @@ the order. Same reason an autopilot is not installed on an aircraft whose
 instrument panel is dark: the instruments are not a prerequisite to the
 automation, they are what makes commanding it possible at all.
 
-**Effort:** the mechanical conversion is bounded and knowable, a weekend. The
-layer that decides *which* conversions to propose, and says plainly when the
-answer is "this does not port", is the part that takes real time. Nothing here
-ships before the surface a person commands it from.
+**Effort:** spent. The mechanical conversion was bounded and knowable, as
+expected. The layer that decides *which* conversions to propose, and says
+plainly when the answer is "this does not port", took the rest of it, which was
+also as expected: on Orchard the four conversions produce ten patches and
+seventy-nine named refusals.
 
 ### First conversion, measured on Orchard
 
@@ -721,6 +722,99 @@ noise in the output: a class library emerges still declaring its ClickOnce
 publish settings. That is the deliberate trade. Deleting a property the tool did
 not understand is the one mistake it cannot detect afterwards, so it keeps them
 and says so in the caveats.
+
+---
+
+### Third conversion: one version per package, measured on Orchard
+
+The conversion nobody puts in a demo, and the one that decides whether the
+others are safe. A package pinned to three versions in three projects is what
+binding redirects exist to paper over, and converting a project's format on top
+of that disagreement carries it forward silently.
+
+| | |
+|---|---|
+| Distinct packages | **93** |
+| Pinned to more than one version | **0** |
+| Patch produced | **none** |
+
+**Nothing to do, and it was checked.** That is the whole result on this estate,
+and it is worth having: "no divergence" and "not looked at" are the same
+silence otherwise. On a drifted estate this is the first patch to apply and the
+one that makes the rest reviewable.
+
+Every version it would write is one already on disk. Choosing the newest of
+what is present cannot invent a package that does not exist, which is the
+failure reported against the tools this replaces. Asking nuget.org for
+something newer could, and would also mean two runs over the same unchanged
+repository disagree.
+
+Two things it says out loud rather than doing:
+
+**Crossing a major version is a code change.** Nothing in a version number says
+whether the API changed, so unifying 6.0.8 and 13.0.3 is flagged rather than
+performed quietly.
+
+**Binding redirects are named and never edited.** A redirect names an assembly
+version, which is not the package version and cannot be derived from it by
+reading these files. Guessing one produces a build that succeeds and an
+application that throws on first use.
+
+---
+
+### Fourth conversion: configuration, measured on Orchard
+
+`appSettings` and `connectionStrings` become one `appsettings.json`. The call
+sites do not move, and the reason is the point: `ConfigurationManager` is a
+static reachable from anywhere and `IConfiguration` is a dependency somebody
+hands in. Rewriting the calls means opening a seam in every type that reads
+configuration and changing every caller of those types. A tool that did it
+anyway would emit a patch that does not compile, which is worse than no patch.
+
+| | |
+|---|---|
+| Config files read | **65** |
+| App settings carried over | **9** |
+| Connection strings carried over | **1** |
+| Keys declared twice with different values | **1** |
+| **Keys the code reads that nothing declares** | **1** |
+| Reads whose key is computed at runtime | **9** |
+| Call sites left alone, across 6 types | **11** |
+
+The undeclared key is the finding: `Orchard.Glimpse:WhitelistedIpAddresses`, read
+at `WhitelistedIpAddressesSecurityPolicy.cs:14` and declared in none of the 65
+config files. That is a null the application already meets at runtime, and it
+was there long before anyone thought about porting.
+
+**A defect this found in itself, on the first real run.** The first version
+nested dotted keys, turning `Mail.Host` into `{ "Mail": { "Host": ... } }`,
+because that is what a person writing the file by hand would do. It is wrong.
+.NET joins nested names with a colon, so the key becomes `Mail:Host` and every
+call site reading `Mail.Host` gets null. Keys are now kept exactly as they were
+written. A translation that improves on its source is a different file with the
+same name.
+
+---
+
+### All four, accepted by git on Orchard
+
+| | |
+|---|---|
+| `convert repos/orchard packages` | 33 KB, **accepted** |
+| `convert repos/orchard sdk` | 61 KB, **accepted** |
+| `convert repos/orchard versions` | no patch, nothing divergent |
+| `convert repos/orchard config` | 718 B, **accepted** |
+
+Checked with `git apply --check` against the real repository rather than
+against a fixture, and the same patches come back byte-identical through
+`POST /api/convert`.
+
+**They were also, until this point, unreachable.** The first two conversions
+had existed and been tested for several milestones with no command and no route
+to obtain them: this section described a patch a person approves, and no person
+could get one without writing C#. `convert <path> <kind>` writes the patch to
+standard output and the reasons to standard error, so redirecting it leaves a
+file git can take.
 
 ### A measurement that was wrong the first time
 
