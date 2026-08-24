@@ -757,6 +757,51 @@ project's own. What comes back is labelled for exactly what was checked:
 *nothing invented, behaviour not verified.* Proving behaviour needs the
 characterization tests above, which is a larger promise.
 
+### What it cannot decide for you
+
+Some of what decides a migration is not in the repository. How many machines
+serve the application, whether a request may land on a different one than the
+last, whether anybody would notice a cold cache. Reading the code harder does
+not produce those answers.
+
+```bash
+curl -X POST localhost:8080/api/diagnose \
+     -H 'content-type: application/json' \
+     -d '{"path":"/repos/app","workspace":"app"}'
+```
+
+It reads the code for the names that raise a catalogued decision, prints the
+lines they appear on, and asks. **No model is involved here either.** The
+questions come from `data/dilemmas.json`, and where each one leads was written
+down before anyone was asked, which is what separates a diagnosis from a
+conversation.
+
+Three rules hold it to that:
+
+| | |
+|---|---|
+| the outcomes are finite and written first | there is a known place to land |
+| every question cites a line | not "how do you handle sessions", but the four lines that do |
+| it stops when nothing more can be ruled out | rather than asking until you close the tab |
+
+![The questioner: the four lines that raised the decision, the next question, and what each answer would rule out](docs/decisions.png)
+
+Every choice says what it would rule out **before you click it**, computed
+against what is still standing. Halfway through, an answer often rules out
+nothing, and the screen says so.
+
+It ends three ways: on an outcome, on every outcome ruled out, which is a real
+result rather than a failure, or on two that nothing left to ask can separate,
+which is said plainly instead of picked between. What comes out separates its
+sources:
+
+> The code says: `Session` is written in four places, here they are.
+> You said: more than one instance, behind a load balancer.
+> Therefore: a distributed cache.
+
+Answers are kept against the project they belong to and nowhere else. Deleting
+the project takes them with it.
+
 ## Deploying it
 
 **Read this part before putting it on a public address.** The API has no
@@ -876,10 +921,10 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 219 tests, no network, ~3 s
+dotnet test                                   # 454 tests, no network, ~4 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 5 tests, no network, ~1 s
+cd web && npm test                            # 131 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -893,8 +938,8 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 355 unit tests covering
-every layer, plus 99 in the browser, no network and no model in either, and the
+**Question answering** needs an index and a local model. 454 unit tests covering
+every layer, plus 131 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

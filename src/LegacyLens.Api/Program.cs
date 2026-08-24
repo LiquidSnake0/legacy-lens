@@ -449,7 +449,14 @@ app.MapDelete("/api/workspaces/{id}", async (string id, IVectorStore store, Inge
     // workspace that no longer exists, and they would never be found again.
     jobs.Forget(id);
 
-    return await WithConnection(store, () => new Workspaces(store.Connection).Delete(id))
+    return await WithConnection(store, () =>
+    {
+        // The answers go with it. Answers about code that is no longer indexed
+        // would sit there being wrong, and would be handed to whichever
+        // workspace later reuses the identifier.
+        new Diagnoses(store.Connection).ForgetAll(id);
+        return new Workspaces(store.Connection).Delete(id);
+    })
         ? Results.NoContent()
         : Results.NotFound(new { error = $"No workspace {id}." });
 });
@@ -851,6 +858,156 @@ app.MapDelete("/api/index", async (IVectorStore store, CancellationToken ct, str
     });
     return Results.NoContent();
 });
+
+// The decisions the code cannot make on its own.
+//
+// Everything else in this tool measures. This asks, because some of what
+// decides a migration is not in the repository: how many machines are behind
+// the load balancer, whether a request may land on a different one than the
+// last, whether anyone would notice if a cache went cold. No amount of reading
+// the code answers those.
+//
+// The questions come from a catalogue rather than from a model. A model asked
+// what to ask produces plausible questions with no known set of answers behind
+// them, and a diagnosis that cannot say where it will land is a conversation.
+// These land somewhere chosen before anybody was asked anything, and stop as
+// soon as nothing else can be ruled out.
+app.MapPost("/api/diagnose", async (DiagnoseRequest request, IVectorStore store) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    if (!Directory.Exists(request.Path))
+        return Results.BadRequest(new { error = $"No such directory: {request.Path}." });
+
+    var catalogue = Dilemmas.Load();
+    var workspace = request.Workspace ?? Workspaces.Default;
+
+    IReadOnlyList<Raised> raised;
+    try
+    {
+        raised = new DilemmaSites().Find(request.Path, catalogue);
+    }
+    catch (DirectoryNotFoundException exception)
+    {
+        return Results.BadRequest(new { error = exception.Message });
+    }
+
+    var answers = await WithConnection(store, () =>
+    {
+        var diagnoses = new Diagnoses(store.Connection);
+
+        return raised.ToDictionary(
+            r => r.Dilemma.Id,
+            r => diagnoses.Answers(workspace, r.Dilemma.Id),
+            StringComparer.Ordinal);
+    });
+
+    return Results.Ok(new
+    {
+        catalogue = catalogue.Source,
+        workspace,
+        dilemmas = raised.Select(r => new
+        {
+            diagnosis = Shape(r.Dilemma, answers[r.Dilemma.Id]),
+            // Where in the code it came up. A question that names no line is a
+            // questionnaire, and it reads as one: the reader can tell nothing
+            // was read before they were asked.
+            r.Files,
+            mentions = r.Sites.Count,
+            sites = r.Sites,
+        }),
+    });
+});
+
+app.MapPost("/api/diagnose/answer", async (AnswerRequest request, IVectorStore store) =>
+{
+    var catalogue = Dilemmas.Load();
+    var dilemma = catalogue.Find(request.Dilemma ?? string.Empty);
+
+    if (dilemma is null)
+        return Results.BadRequest(new { error = $"No dilemma {request.Dilemma}." });
+
+    var question = dilemma.Questions.FirstOrDefault(
+        q => q.Id.Equals(request.Question, StringComparison.OrdinalIgnoreCase));
+
+    if (question is null)
+        return Results.BadRequest(new { error = $"No question {request.Question} in {dilemma.Id}." });
+
+    // Refused rather than stored. An answer outside the choices eliminates
+    // nothing, so it would save cleanly, change nothing on screen, and leave
+    // the reader wondering which of the two is broken.
+    var choice = question.Choices.FirstOrDefault(
+        c => c.Answer.Equals(request.Answer, StringComparison.OrdinalIgnoreCase));
+
+    if (choice is null)
+    {
+        return Results.BadRequest(new
+        {
+            error = $"\"{request.Answer}\" is not one of the answers to {question.Id}.",
+            answers = question.Choices.Select(c => c.Answer),
+        });
+    }
+
+    var workspace = request.Workspace ?? Workspaces.Default;
+
+    var answers = await WithConnection(store, () =>
+    {
+        var diagnoses = new Diagnoses(store.Connection);
+        diagnoses.Answer(workspace, dilemma.Id, question.Id, choice.Answer);
+        return diagnoses.Answers(workspace, dilemma.Id);
+    });
+
+    return Results.Ok(Shape(dilemma, answers));
+});
+
+// Starts one over, leaving the others alone.
+app.MapPost("/api/diagnose/forget", async (ForgetDiagnosisRequest request, IVectorStore store) =>
+{
+    var dilemma = Dilemmas.Load().Find(request.Dilemma ?? string.Empty);
+
+    if (dilemma is null)
+        return Results.BadRequest(new { error = $"No dilemma {request.Dilemma}." });
+
+    var workspace = request.Workspace ?? Workspaces.Default;
+
+    await WithConnection(store, () =>
+        new Diagnoses(store.Connection).Forget(workspace, dilemma.Id));
+
+    return Results.Ok(Shape(dilemma, []));
+});
+
+/// <summary>
+/// A diagnosis as the interface reads it.
+///
+/// Built from the answers every time rather than stored. Recomputing four
+/// derived facts costs nothing and cannot fall out of step with the answers
+/// they came from, which a stored copy eventually does.
+/// </summary>
+object Shape(Dilemma dilemma, IReadOnlyList<Answered> answers)
+{
+    var diagnosis = new Diagnosis(dilemma, answers);
+    var remaining = diagnosis.Remaining;
+
+    return new
+    {
+        dilemma.Id,
+        dilemma.Name,
+        dilemma.What,
+        answers,
+        remaining,
+        outcomes = dilemma.Outcomes.Count,
+        next = diagnosis.Next,
+        diagnosis.Settled,
+        diagnosis.Reasoning,
+        // Settled with nothing left is not the same as settled on an answer.
+        // It means the answers ruled out every outcome the catalogue knows,
+        // and saying so is better than showing an empty panel that reads as
+        // though the tool gave up.
+        landed = remaining.Count == 1 ? remaining[0] : null,
+        exhausted = remaining.Count == 0,
+    };
+}
 
 // Ollama being down is the single most likely thing to go wrong, and a bare 500
 // with an empty body sends the reader looking in the wrong place.

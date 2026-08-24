@@ -140,3 +140,18 @@ public record CreateWorkspaceRequest(
     string? RootPath = null,
     string? RepositoryUrl = null,
     string? Token = null);
+
+/// <summary>The decisions a codebase raises, and what has been said about them.</summary>
+public record DiagnoseRequest(string Path, string? Workspace = null);
+
+/// <summary>
+/// One answer to one question.
+///
+/// The workspace is what the answer belongs to. Two projects behind two
+/// different load balancers give two different answers to the same question,
+/// and mixing them is how a diagnosis ends up describing neither.
+/// </summary>
+public record AnswerRequest(string Dilemma, string Question, string Answer, string? Workspace = null);
+
+/// <summary>Starts one dilemma over, leaving the others alone.</summary>
+public record ForgetDiagnosisRequest(string Dilemma, string? Workspace = null);

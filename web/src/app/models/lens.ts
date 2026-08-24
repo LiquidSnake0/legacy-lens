@@ -230,3 +230,76 @@ export interface Excerpt {
   endLine: number;
   content: string;
 }
+
+/** One of the finitely many places a dilemma can end. */
+export interface Outcome {
+  id: string;
+  name: string;
+  note: string;
+}
+
+/** An answer, and what choosing it rules out. */
+export interface Choice {
+  answer: string;
+  eliminates: string[];
+  because: string;
+}
+
+/** Something the code cannot say, asked once. */
+export interface Question {
+  id: string;
+  ask: string;
+  why: string;
+  choices: Choice[];
+}
+
+/** One answer somebody gave. */
+export interface Answered {
+  questionId: string;
+  answer: string;
+}
+
+/** A line of code that raised the question. */
+export interface Site {
+  path: string;
+  line: number;
+  name: string;
+  text: string;
+}
+
+/**
+ * A decision in progress.
+ *
+ * Everything derived comes from the server, which computes it from the answers
+ * every time. The alternative was to fold in the browser, which means two
+ * implementations of the same rule and one of them eventually wrong.
+ */
+export interface DiagnosisState {
+  id: string;
+  name: string;
+  what: string;
+  answers: Answered[];
+  remaining: Outcome[];
+  outcomes: number;
+  next: Question | null;
+  settled: boolean;
+  reasoning: string[];
+  /** The one outcome left, when exactly one is. */
+  landed: Outcome | null;
+  /** Every outcome ruled out, which is an answer of a different kind. */
+  exhausted: boolean;
+}
+
+/** A dilemma this codebase raises, and where. */
+export interface RaisedDilemma {
+  diagnosis: DiagnosisState;
+  files: number;
+  mentions: number;
+  sites: Site[];
+}
+
+export interface DiagnoseReport {
+  catalogue: string;
+  workspace: string;
+  dilemmas: RaisedDilemma[];
+}

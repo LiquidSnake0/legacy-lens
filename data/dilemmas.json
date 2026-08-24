@@ -1,0 +1,140 @@
+{
+  "//": "Decisions the code cannot make on its own, and the finitely many places each can end.",
+  "//1": "The outcomes are written first. Questions exist only to eliminate them, so there is always a known place to land.",
+  "//2": "What no catalogue can know is how many machines are behind the load balancer. That is the only reason a person is in this loop.",
+
+  "session-state": {
+    "name": "Where session state goes",
+    // Session is in here because the type names above are the ones nobody
+    // writes. Real code says Session["cart"], and a catalogue that only knows
+    // HttpSessionState reads a textbook session controller and raises nothing.
+    // Found by running it against one.
+    "triggers": ["Session", "HttpSessionState", "HttpSessionStateBase", "SessionStateAttribute", "SessionStateBehavior", "SessionStateMode"],
+    "what": "Session exists on modern .NET, and where it is kept is a decision the old code never had to make because IIS made it. Nothing in these files records which way it went.",
+    "outcomes": [
+      { "id": "in-memory", "name": "In-memory state", "note": "One process, lost on restart. The default, and the one that breaks quietly the day a second instance appears." },
+      { "id": "distributed", "name": "A distributed cache", "note": "Redis or SQL Server as a backing store. Survives restarts and spans instances, at the cost of a dependency to run and pay for." },
+      { "id": "database", "name": "The database you already have", "note": "No new dependency. Slower per read, and the schema becomes yours to migrate." },
+      { "id": "remove", "name": "No session at all", "note": "Move the state into the request or a token. The most work and the only one that removes the problem instead of relocating it." }
+    ],
+    "questions": [
+      {
+        "id": "restart",
+        "ask": "Does this state have to survive the application restarting?",
+        "why": "A deployment restarts it. If losing the state then is an incident, memory is out.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["in-memory"], "because": "Memory does not survive a restart, so it cannot hold state that must." },
+          { "answer": "no", "eliminates": [], "because": "Losing it on restart is acceptable, which leaves every option open." }
+        ]
+      },
+      {
+        "id": "instances",
+        "ask": "Is more than one instance serving this, behind a load balancer?",
+        "why": "Two instances means two memories, and a read landing on the wrong one returns nothing.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["in-memory"], "because": "A second instance has its own memory, so a read can land where nothing was written." },
+          { "answer": "no", "eliminates": ["distributed"], "because": "One instance needs no distributed cache, and paying to run one buys nothing." }
+        ]
+      },
+      {
+        "id": "new-dependency",
+        "ask": "Can you run and pay for one more piece of infrastructure?",
+        "why": "A distributed cache is a service somebody operates, monitors and is woken up by.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["database"], "because": "With infrastructure available, the cache is the better fit than loading the database with it." },
+          { "answer": "no", "eliminates": ["distributed"], "because": "Nobody to run it means it is not an option, whatever its merits." }
+        ]
+      },
+      {
+        "id": "how-much",
+        "ask": "Is the state small enough to fit in a cookie or a token?",
+        "why": "State that fits in the request needs nowhere to live at all.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["distributed", "database"], "because": "State carried by the request needs no store behind it." },
+          { "answer": "no", "eliminates": ["remove"], "because": "Too large to carry, so it has to live somewhere." }
+        ]
+      }
+    ]
+  },
+
+  "http-context": {
+    "name": "What replaces the ambient request",
+    "triggers": ["HttpContext", "HttpContextBase", "HttpContextWrapper", "HttpRequestBase", "HttpResponseBase"],
+    "what": "HttpContext.Current is a static that reaches the request from anywhere. Modern .NET has no such static, on purpose: the code that used it has to be handed the request instead, and how far that reaches is not visible from any one file.",
+    "outcomes": [
+      { "id": "inject", "name": "Inject IHttpContextAccessor", "note": "The direct translation. Keeps the shape of the code and keeps the coupling to the web." },
+      { "id": "parameters", "name": "Pass what is actually used", "note": "The user's name, the tenant, the URL: whatever the code really wanted. More work, and the class stops needing a web request to be tested." },
+      { "id": "scoped-service", "name": "A scoped service that holds it", "note": "One place reads the request and everything else asks that. A middle path when many classes need the same two or three values." }
+    ],
+    "questions": [
+      {
+        "id": "how-many-values",
+        "ask": "Does the code use more than two or three things from the request?",
+        "why": "Passing four parameters is clearer than an accessor. Passing fourteen is not.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["parameters"], "because": "Too many values to pass one by one without the signatures becoming unreadable." },
+          { "answer": "no", "eliminates": [], "because": "Few enough values that passing them is still an option." }
+        ]
+      },
+      {
+        "id": "outside-web",
+        "ask": "Does anything call this outside a web request: a job, a console, a test?",
+        "why": "An accessor returns null there, which is a crash rather than an error message.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["inject"], "because": "The accessor is null outside a request, so anything that runs elsewhere cannot depend on it." },
+          { "answer": "no", "eliminates": [], "because": "Only ever inside a request, so the accessor is available wherever this runs." }
+        ]
+      },
+      {
+        "id": "how-many-classes",
+        "ask": "Do many classes need the same values from the request?",
+        "why": "Repeating the same three reads in twenty classes is the thing a scoped service exists to stop.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["parameters", "inject"], "because": "One service reading the request once beats twenty classes each doing it." },
+          { "answer": "no", "eliminates": ["scoped-service"], "because": "One or two classes do not need a service between them and the request." }
+        ]
+      }
+    ]
+  },
+
+  "output-cache": {
+    "name": "What replaces output caching",
+    "triggers": ["OutputCacheAttribute", "OutputCache", "HttpCachePolicy", "HttpCachePolicyBase"],
+    "what": "OutputCache has no counterpart in ASP.NET Core, which is why the catalogue records it as having none. What takes its place depends on who the response is for, and no file says that.",
+    "outcomes": [
+      { "id": "response-cache", "name": "Response caching headers", "note": "Tells the browser and any proxy to keep it. Nothing is stored on your side, and you cannot clear it once sent." },
+      { "id": "output-cache-core", "name": "Output caching middleware", "note": "The closest match, in .NET 7 and later. Stored on the server, and can be evicted by tag." },
+      { "id": "in-code", "name": "Cache inside the code", "note": "IMemoryCache around the expensive part rather than the response. Precise, and it is no longer the same feature." },
+      { "id": "none", "name": "Stop caching it", "note": "Sometimes the caching was for a load that no longer exists, and removing it is the whole migration." }
+    ],
+    "questions": [
+      {
+        "id": "per-user",
+        "ask": "Does the response differ per signed-in user?",
+        "why": "A cache shared between users that varies per user is a data leak, not a performance problem.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["response-cache"], "because": "Headers let a shared proxy serve one user's response to another." },
+          { "answer": "no", "eliminates": [], "because": "The same response suits everyone, so any of these can hold it." }
+        ]
+      },
+      {
+        "id": "eviction",
+        "ask": "Does something need to clear this cache before it expires?",
+        "why": "An editor publishing a change expects to see it, and a header cannot be recalled.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["response-cache"], "because": "Once a response is cached downstream, nothing on your side can evict it." },
+          { "answer": "no", "eliminates": [], "because": "Expiry alone is enough, which leaves the simpler options open." }
+        ]
+      },
+      {
+        "id": "still-needed",
+        "ask": "Is this page still slow enough to need caching?",
+        "why": "Some of these were added for hardware that has since been replaced twice.",
+        "choices": [
+          { "answer": "yes", "eliminates": ["none"], "because": "It still earns its place, so something has to replace it." },
+          { "answer": "no", "eliminates": ["response-cache", "output-cache-core", "in-code"], "because": "Nothing to replace: the fastest migration is deleting the attribute." }
+        ]
+      }
+    ]
+  }
+}

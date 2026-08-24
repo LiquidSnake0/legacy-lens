@@ -5,7 +5,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 import {
   AskResponse, Health, ApiError, Excerpt, Workspace, IngestionJob,
   ModelChoice, ModelOptions, RiskReport, ConversionKind, ConversionOutcome,
-  SurfaceReport, Projection, Landed,
+  SurfaceReport, Projection, Landed, DiagnoseReport, DiagnosisState,
 } from '../models/lens';
 
 /**
@@ -242,6 +242,36 @@ export class LensService {
 
     return this.http
       .get<Excerpt>(`${this.baseUrl}/excerpt`, { params: query })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * The decisions this codebase raises, with whatever has been said about them.
+   *
+   * Fast: it reads the source for the names that raise each dilemma and reads
+   * the stored answers. Nothing is asked of a model here, and nothing is
+   * decided without somebody answering.
+   */
+  diagnose(path: string, workspace: string): Observable<DiagnoseReport> {
+    return this.http
+      .post<DiagnoseReport>(`${this.baseUrl}/diagnose`, { path, workspace })
+      .pipe(catchError(this.explain));
+  }
+
+  /** Records one answer and returns where the diagnosis now stands. */
+  answerDilemma(
+    dilemma: string, question: string, answer: string, workspace: string,
+  ): Observable<DiagnosisState> {
+    return this.http
+      .post<DiagnosisState>(`${this.baseUrl}/diagnose/answer`,
+        { dilemma, question, answer, workspace })
+      .pipe(catchError(this.explain));
+  }
+
+  /** Starts one dilemma over, leaving the others alone. */
+  forgetDilemma(dilemma: string, workspace: string): Observable<DiagnosisState> {
+    return this.http
+      .post<DiagnosisState>(`${this.baseUrl}/diagnose/forget`, { dilemma, workspace })
       .pipe(catchError(this.explain));
   }
 

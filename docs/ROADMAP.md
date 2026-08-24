@@ -1036,24 +1036,28 @@ the number is the finding.
 
 ---
 
-### Mutate
+### Mutate ✅
 
 The other seventy-nine.
 
-**The three pieces are built and visible.** The surface, the candidates with
-their coverage, and a projection of one file, all in the browser rather than
-only behind a command. What is not built is the questioner below.
+**All four pieces are built and visible.** The surface, the candidates with
+their coverage, a projection of one file, and the questioner, all in the browser
+rather than only behind a command.
 
 Here the tool stops answering questions and starts asking them. That inversion
-is the whole idea, and it is not a interface flourish: on a non-trivial case the
+is the whole idea, and it is not an interface flourish: on a non-trivial case the
 missing information is **not in the code**. Whether a session must survive a
 restart, whether an endpoint has callers nobody controls, how many machines sit
-behind a load balancer. No static analysis will ever recover any of it. The
-model cannot answer those, and it is the only thing in the system that knows
-which of them to ask, because it has read the file and knows what the target
-framework does with each answer.
+behind a load balancer. No static analysis will ever recover any of it.
 
-The model interrogates. It still does not decide.
+**The questioner is deterministic, and no model is involved in it.** This
+reverses what an earlier draft of this document said, and the reason is the
+reason everything else here is written down rather than generated: a model asked
+what to ask produces plausible questions with no known set of answers behind
+them, and a diagnosis that cannot say where it will land is a conversation. The
+questions come from a hand-written catalogue, and the anchoring in the code is
+mechanical because the files and the lines are already measured. A catalogue is
+verifiable. A model deciding what to ask is not.
 
 Three rules keep that from being a chatbot with a logo.
 
@@ -1064,10 +1068,11 @@ catalogue. Questions exist to eliminate them, so there is always a known place
 to land, and a question that eliminates nothing is a question that does not get
 asked.
 
-**Every question cites a line.** Not "how do you handle sessions" but "this
-controller writes `Session` at line 47 and reads it at line 112, and those two
-calls can land on different machines". A question with no reference to the code
-is a generic questionnaire, and it reads as one by the second screen.
+**Every question cites a line.** Not "how do you handle sessions" but the four
+lines in this controller that write and read `Session`, printed with their file
+and line numbers above the question. A question with no reference to the code is
+a generic questionnaire, and it reads as one by the second screen: the reader
+can tell nothing was read before they were asked.
 
 **There is a stopping condition.** The session ends when an answer stops
 reducing the remaining options. Measurable, and the alternative is a model that
@@ -1217,6 +1222,48 @@ file uses them differently.
 It ships labelled for what it is: **nothing invented, behaviour not verified.**
 Smaller than "here is your migrated code" and far more useful than a chat
 transcript somebody has to go and test.
+
+**The questioner ✅.** Three dilemmas so far, each one raised by names that
+appear in the code: where session state goes, what replaces the ambient request,
+what replaces output caching. Four outcomes, four questions and a stopping
+condition apiece.
+
+The engine is a fold. Nothing is stored but the answers, and everything
+derived, what is still possible, what to ask next, whether it has landed, is
+recomputed from them. There is no second copy of the state to fall out of step
+with the first, and an answer to a question a later catalogue no longer contains
+is skipped rather than fatal, so a diagnosis recorded last month still reads
+correctly today.
+
+Every choice says what it would rule out **before it is clicked**, computed
+against what is still standing rather than against the full list. Halfway
+through a session an answer often rules out nothing, and the screen says so. An
+answer that quietly narrows things behind the reader's back is what makes a
+wizard untrustworthy.
+
+Three endings, not one. It lands on an outcome; or every outcome is ruled out,
+which is a real result and says so rather than showing an empty panel; or two
+remain and nothing left to ask can separate them, which is stated plainly
+instead of picked between.
+
+**What running it found, and the unit tests did not.** Twenty-nine tests passed
+against a textbook session-state controller that raised **nothing at all**:
+
+| | |
+|---|---|
+| The catalogue named `SessionStateAttribute` | the code writes `[SessionState]`, and C# allows the short form |
+| The catalogue named `HttpSessionState` | real code writes `Session["cart"]`, and the type name appears nowhere |
+| `using System.Web.SessionState;` matched | a using is not a place a reader can go and see the problem |
+| Two triggers on one line | printed the same line twice, which reads as a defect in the tool |
+
+The first is a rule of the language, so it lives in the finder: any trigger
+ending in `Attribute` is matched both ways, once, rather than being remembered
+by hand for every future entry. The rest are the catalogue and the ranking.
+
+Answers are kept per project. Two codebases behind two different load balancers
+give two different answers to the same question, and mixing them describes
+neither. Deleting a project takes its answers with it, or they would be handed
+to whichever project next reuses the identifier.
 
 Built in that order. Reversed, it produces handsome projections of code nobody
 counted, which is the competitor this project exists to be different from.

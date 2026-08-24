@@ -23,6 +23,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
 
+# The catalogues, which are data and not code: what replaces what, and the
+# decisions the code cannot make on its own. Both are looked for beside the
+# binary, and without this copy the deployed image finds neither and quietly
+# answers that nothing is catalogued. Nothing here is secret; both files are in
+# the repository and are meant to be edited without a rebuild, which a bind
+# mount over /app/data still allows.
+COPY data/ ./data/
+
 # Nothing here needs root, and the aspnet image already ships a non-root "app"
 # user, so there is none to create.
 #

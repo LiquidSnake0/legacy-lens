@@ -1,0 +1,161 @@
+<section class="decisions">
+  <h2>What it cannot decide for you</h2>
+
+  <p class="note">
+    These are the questions the code does not answer. How many machines serve
+    this, whether a request may land on a different one than the last, whether
+    anyone would notice a cold cache. Every question below is raised by a line
+    in your code, and each one is asked only while it can still rule something
+    out.
+  </p>
+
+  @if (loading()) {
+    <p class="pending">Reading the code for decisions it cannot make.</p>
+  } @else if (failure()) {
+    <p class="failed">{{ failure() }}</p>
+  } @else if (dilemmas().length === 0) {
+    <p class="pending">
+      Nothing here raises one of the catalogued decisions. That is a statement
+      about the catalogue as much as about the code: it is written by hand, and
+      it is still short.
+    </p>
+  } @else {
+    <p class="tally">
+      {{ dilemmas().length }} decision(s) raised, {{ settledCount() }} settled.
+    </p>
+
+    <ul class="dilemmas">
+      @for (raised of dilemmas(); track raised.diagnosis.id) {
+        <li [class.open]="isOpen(raised)" [class.settled]="raised.diagnosis.settled">
+          <button
+            type="button"
+            class="head"
+            [attr.aria-expanded]="isOpen(raised)"
+            (click)="toggle(raised)"
+          >
+            <div class="which">
+              <span class="name">{{ raised.diagnosis.name }}</span>
+              <span class="where">
+                {{ raised.mentions }} mention(s) across {{ raised.files }} file(s)
+              </span>
+            </div>
+
+            <div class="progress">
+              <span class="state">
+                @if (raised.diagnosis.landed; as landed) {
+                  {{ landed.name }}
+                } @else if (raised.diagnosis.exhausted) {
+                  nothing left
+                } @else {
+                  {{ raised.diagnosis.remaining.length }} of
+                  {{ raised.diagnosis.outcomes }} still possible
+                }
+              </span>
+              <div class="bar">
+                <div class="fill" [style.width.%]="ruledOut(raised.diagnosis)"></div>
+              </div>
+            </div>
+
+            <span class="chevron" aria-hidden="true">{{ isOpen(raised) ? '-' : '+' }}</span>
+          </button>
+
+          @if (isOpen(raised)) {
+            <div class="detail">
+              <p class="what">{{ raised.diagnosis.what }}</p>
+
+              <h3>Where it came up</h3>
+              <ul class="sites">
+                @for (site of raised.sites; track site.path + ':' + site.line) {
+                  <li>
+                    <span class="at">{{ siteLabel(site) }}</span>
+                    <code>{{ site.text }}</code>
+                  </li>
+                }
+              </ul>
+
+              @if (raised.diagnosis.reasoning.length > 0) {
+                <h3>What you have said</h3>
+                <ol class="reasoning">
+                  @for (line of raised.diagnosis.reasoning; track line) {
+                    <li>{{ line }}</li>
+                  }
+                </ol>
+              }
+
+              @if (raised.diagnosis.next; as question) {
+                <div class="question">
+                  <h3>Next</h3>
+                  <p class="ask">{{ question.ask }}</p>
+                  <p class="why">{{ question.why }}</p>
+
+                  <div class="choices">
+                    @for (choice of question.choices; track choice.answer) {
+                      <button
+                        type="button"
+                        class="choice"
+                        [disabled]="saving() === raised.diagnosis.id"
+                        (click)="answer(raised, choice)"
+                      >
+                        <span class="answer">{{ choice.answer }}</span>
+                        <span class="cost">{{ cost(raised.diagnosis, choice) }}</span>
+                      </button>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <div class="landed">
+                  <h3>Where this lands</h3>
+
+                  @if (raised.diagnosis.landed; as outcome) {
+                    <p class="outcome">{{ outcome.name }}</p>
+                    <p class="why">{{ outcome.note }}</p>
+                  } @else if (raised.diagnosis.exhausted) {
+                    <p class="outcome">Nothing here fits.</p>
+                    <p class="why">
+                      Your answers ruled out every outcome this catalogue knows
+                      about. That is a real result rather than a failure: this
+                      situation needs somebody to look at it, and the catalogue
+                      is short enough that yours may simply not be in it yet.
+                    </p>
+                  } @else {
+                    <p class="outcome">
+                      {{ raised.diagnosis.remaining.length }} outcomes are still
+                      standing, and nothing left to ask can separate them.
+                    </p>
+                    <p class="why">
+                      Which means either would work on what you have told it.
+                      Stopping here is deliberate: a question that rules nothing
+                      out is one that wastes your time to look thorough.
+                    </p>
+                    <ul class="standing">
+                      @for (outcome of raised.diagnosis.remaining; track outcome.id) {
+                        <li><strong>{{ outcome.name }}</strong> {{ outcome.note }}</li>
+                      }
+                    </ul>
+                  }
+                </div>
+              }
+
+              @if (raised.diagnosis.answers.length > 0) {
+                <button
+                  type="button"
+                  class="restart"
+                  [disabled]="saving() === raised.diagnosis.id"
+                  (click)="restart(raised)"
+                >
+                  Start this one over
+                </button>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ul>
+
+    <p class="note closing">
+      Your answers are kept against this project, and nothing else. They are not
+      sent to a model: the questions come from a catalogue in the repository,
+      and where each one leads was written down before you were asked.
+    </p>
+  }
+</section>
