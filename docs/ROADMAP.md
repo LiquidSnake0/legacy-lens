@@ -816,6 +816,13 @@ could get one without writing C#. `convert <path> <kind>` writes the patch to
 standard output and the reasons to standard error, so redirecting it leaves a
 file git can take.
 
+The interface shows the same thing: four conversions to pick from, the patch as
+a diff, and the refusals given a heading rather than folded away, because on a
+real estate they are the longer list. Nothing on that page applies anything,
+and the page says so under every patch. A tool that commits its own output is a
+tool whose mistakes stop being reviewable, which would undo the argument the
+whole milestone rests on.
+
 ### A measurement that was wrong the first time
 
 Counted with `grep`, eighty-eight of eighty-nine projects appeared to carry a

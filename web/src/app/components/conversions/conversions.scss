@@ -1,0 +1,281 @@
+/* The same grammar as the rest: a quiet list, one accent, and code in mono
+   with the two sides of a diff separated by tone rather than by decoration. */
+
+.conversions {
+  margin: 2.5rem 0 0;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line-faint);
+}
+
+h2 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.5rem;
+}
+
+.note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  max-width: 60ch;
+  margin: 0 0 1.25rem;
+}
+
+/* ---- picking one ---- */
+
+.offers {
+  display: grid;
+  /* Four of them, so two by two rather than three and an orphan. */
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.offer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: left;
+  font-family: inherit;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--ink);
+  }
+
+  &.picked {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+
+    .title { color: var(--accent-ink); }
+  }
+
+  .title {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--ink);
+  }
+
+  .what {
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+}
+
+.pending,
+.failed {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+.failed {
+  color: var(--danger);
+  background: var(--danger-wash);
+  border-left: 2px solid var(--danger);
+  padding: 0.625rem 0.75rem;
+}
+
+/* ---- what came back ---- */
+
+/* The count, which is the answer. Everything else folds. */
+.summary {
+  font-size: 0.875rem;
+  color: var(--ink);
+  margin: 0 0 0.75rem;
+  padding-left: 0.875rem;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 4px;
+    height: 1px;
+    background: var(--accent);
+  }
+}
+
+.notes {
+  margin: 0 0 1rem;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+
+  summary {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0.5rem;
+  }
+
+  li {
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 0.1875rem 0.75rem;
+    max-width: 76ch;
+  }
+}
+
+/* Folded, because it is long. Given a heading, because it is the point. */
+.refusals {
+  margin: 0 0 1rem;
+  border: 1px solid var(--line-faint);
+  border-radius: var(--radius);
+
+  summary {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+  }
+
+  .why {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin: 0;
+    padding: 0 0.75rem;
+    max-width: 60ch;
+  }
+
+  ul {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0 0 0.5rem;
+  }
+
+  li {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--muted);
+    padding: 0.1875rem 0.75rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+.patch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.375rem;
+}
+
+.count {
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.quiet {
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.3125rem 0.6875rem;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+}
+
+.patch {
+  margin: 0;
+  padding: 0.75rem 0;
+  background: var(--wash);
+  border-radius: var(--radius);
+  overflow-x: auto;
+
+  code {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    line-height: 1.55;
+  }
+}
+
+.line {
+  display: block;
+  padding: 0 0.75rem;
+  white-space: pre;
+
+  /* Tone rather than decoration: the diff already carries its own + and -,
+     and a second marker beside them is noise. */
+  &.added {
+    color: var(--ok);
+    background: color-mix(in srgb, var(--ok) 8%, transparent);
+  }
+
+  &.removed {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 7%, transparent);
+  }
+
+  &.file {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  &.hunk {
+    color: var(--accent-ink);
+  }
+
+  &.context {
+    color: var(--muted);
+  }
+}
+
+.more {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.625rem 0 0;
+  max-width: 60ch;
+}
+
+.link {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--accent-ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* The sentence that has to be on the page: it was not applied. */
+.apply {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.875rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px dotted var(--line-faint);
+  max-width: 68ch;
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink);
+    background: var(--wash);
+    padding: 0.0625rem 0.3125rem;
+    border-radius: var(--radius);
+    overflow-wrap: anywhere;
+  }
+}

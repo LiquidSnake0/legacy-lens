@@ -482,7 +482,14 @@ git apply --check sdk.patch
 One kind at a time, because `packages` and `sdk` both rewrite the project file
 and a patch carrying both cannot apply: its second half is written against text
 its first half already moved. `POST /api/convert` with `{"path":..., "kind":...}`
-returns the same patch with its notes and refusals.
+returns the same patch with its notes and refusals, and the web interface shows
+it as a diff with the refusals beside it.
+
+![The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, and the patch shown as a diff nobody has applied](docs/conversions.png)
+
+There is no button on that page that applies anything, and there is not going
+to be one. A tool that commits its own output is a tool whose mistakes stop
+being reviewable.
 
 **Nothing is applied and nothing is invented.** Every version written is one
 already on disk, and every refusal names its reason. On Orchard the four
@@ -714,7 +721,7 @@ Working, in two halves.
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
 **Question answering** needs an index and a local model. 355 unit tests covering
-every layer, plus 85 in the browser, no network and no model in either, and the
+every layer, plus 99 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

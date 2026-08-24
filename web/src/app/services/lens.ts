@@ -4,7 +4,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 
 import {
   AskResponse, Health, ApiError, Excerpt, Workspace, IngestionJob,
-  ModelChoice, ModelOptions, RiskReport,
+  ModelChoice, ModelOptions, RiskReport, ConversionKind, ConversionOutcome,
 } from '../models/lens';
 
 /**
@@ -108,6 +108,18 @@ export class LensService {
   risk(path: string, top = 12): Observable<RiskReport> {
     return this.http
       .post<RiskReport>(`${this.baseUrl}/risk`, { path, top })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * Proposes one mechanical conversion over a folder.
+   *
+   * One kind per call, because two of them rewrite the same project file and a
+   * patch carrying both cannot apply.
+   */
+  convert(path: string, kind: ConversionKind): Observable<ConversionOutcome> {
+    return this.http
+      .post<ConversionOutcome>(`${this.baseUrl}/convert`, { path, kind })
       .pipe(catchError(this.explain));
   }
 

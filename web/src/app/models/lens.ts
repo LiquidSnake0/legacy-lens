@@ -116,6 +116,25 @@ export interface IngestResponse {
   elapsedMs: number;
 }
 
+/** The mechanical conversions, one at a time. */
+export type ConversionKind = 'packages' | 'sdk' | 'versions' | 'config';
+
+/**
+ * One conversion's result.
+ *
+ * The patch is never applied by anything here. It is text to read, and to hand
+ * to `git apply` if the reader decides to.
+ */
+export interface ConversionOutcome {
+  kind: ConversionKind;
+  patch: string;
+  /** What the patch does, and what it does not handle. */
+  notes: string[];
+  /** What was refused, with the reason. Usually the longer list, and the point. */
+  refusals: string[];
+  empty: boolean;
+}
+
 /** What the API answers with when the model cannot be reached. */
 export interface ApiError {
   error: string;

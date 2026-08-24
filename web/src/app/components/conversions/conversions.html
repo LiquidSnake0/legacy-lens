@@ -1,0 +1,93 @@
+<section class="conversions">
+  <h2>What converts on its own</h2>
+
+  <p class="note">
+    The transformations that are the same in every codebase. Each one is a
+    patch to read: nothing here writes to your tree, and no button on this page
+    applies anything. Pick one to see what it would do, and what it refuses.
+  </p>
+
+  <div class="offers">
+    @for (offer of offers; track offer.kind) {
+      <button
+        type="button"
+        class="offer"
+        [class.picked]="chosen() === offer.kind"
+        [attr.aria-expanded]="chosen() === offer.kind"
+        (click)="choose(offer.kind)"
+      >
+        <span class="title">{{ offer.title }}</span>
+        <span class="what">{{ offer.what }}</span>
+      </button>
+    }
+  </div>
+
+  @if (loading()) {
+    <p class="pending">Reading the project files. No model involved.</p>
+  } @else if (failure()) {
+    <p class="failed">{{ failure() }}</p>
+  } @else if (outcome(); as result) {
+    <div class="result">
+      @if (summary(); as headline) {
+        <p class="summary">{{ headline }}</p>
+      }
+
+      @if (detail().length) {
+        <details class="notes">
+          <summary>{{ detail().length }} note(s) on what the patch does not handle</summary>
+          <ul>
+            @for (note of detail(); track $index) {
+              <li>{{ note }}</li>
+            }
+          </ul>
+        </details>
+      }
+
+      @if (result.refusals.length) {
+        <details class="refusals">
+          <summary>
+            {{ result.refusals.length }} refused, each with a reason
+          </summary>
+          <p class="why">
+            The longer list on a real estate, and the one that decides what the
+            work is. A tool reporting a higher success rate here is either
+            deleting build steps or not looking.
+          </p>
+          <ul>
+            @for (refusal of result.refusals; track $index) {
+              <li>{{ refusal }}</li>
+            }
+          </ul>
+        </details>
+      }
+
+      @if (result.empty) {
+        <p class="pending">No patch, and that is the answer rather than a silence.</p>
+      } @else {
+        <div class="patch-head">
+          <span class="count">{{ lines().length }} lines shown</span>
+          <button type="button" class="quiet" (click)="download()">Save the patch</button>
+        </div>
+
+        <pre class="patch"><code>@for (line of lines(); track $index) {<span class="line" [class]="side(line)">{{ line }}
+</span>}</code></pre>
+
+        @if (truncated()) {
+          <p class="more">
+            {{ truncated() }} more lines. A real conversion runs to tens of
+            thousands, which no browser is the right place to read.
+            <button type="button" class="link" (click)="showAll()">Show them anyway</button>
+            or save the file.
+          </p>
+        }
+
+        <p class="apply">
+          Nothing has been applied. To use it:
+          <code>git apply {{ chosen() }}.patch</code>, after reading it. The
+          same patch comes from the command line with
+          <code>{{ command() }}</code>.
+        </p>
+      }
+    </div>
+  }
+</section>
