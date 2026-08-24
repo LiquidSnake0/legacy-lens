@@ -485,7 +485,7 @@ its first half already moved. `POST /api/convert` with `{"path":..., "kind":...}
 returns the same patch with its notes and refusals, and the web interface shows
 it as a diff with the refusals beside it.
 
-![The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, and the patch shown as a diff nobody has applied](docs/conversions.png)
+![The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, the patch as a diff, and the button that puts it on a branch of its own](docs/conversions.png)
 
 The page has one button that changes a repository, and it is deliberately
 narrow: it commits the patch to **a branch of its own** and checks your original
@@ -715,6 +715,8 @@ Every type gets one of three answers, and the third is the point:
 | a named replacement | it converts |
 | recorded as having none | a blocker, and worth knowing early |
 | **absent from the catalogue** | **unknown, which is not the same as fine** |
+
+![What holds a codebase back: what it uses of each package, what could replace it, what nothing replaces, and the file worth projecting first](docs/dependencies.png)
 
 `data/successors.json` holds it, as data rather than as code. It grows with
 every migration anybody performs and does not need a rebuild to do so, and
