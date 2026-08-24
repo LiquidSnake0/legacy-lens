@@ -108,6 +108,21 @@ describe('App', () => {
     expect(status).toContain('Billing');
   });
 
+  it('gives one number for how much is indexed, not two', () => {
+    // The header count is from the last time the list loaded; the panel below
+    // reports what the current run has written since. On screen together they
+    // disagree, so while a run is going the panel is the one that speaks.
+    const fixture = build();
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('.status')?.textContent).toContain('58');
+
+    fixture.componentInstance.onBusy(true);
+    fixture.detectChanges();
+
+    expect(element.querySelector('.status')).toBeNull();
+  });
+
   it('selects a project on its own, so the first visit has something to ask about', () => {
     expect(build().componentInstance.store.currentId()).toBe('w-billing');
   });

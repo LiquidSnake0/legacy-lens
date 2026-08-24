@@ -1,4 +1,4 @@
-@if (job(); as run) {
+@if (worthShowing() && job(); as run) {
   <section class="indexing" [class.failed]="run.state === 'failed'">
     @if (run.state === 'cloning') {
       <p class="line">
@@ -50,7 +50,7 @@
         Stopped after {{ run.filesDone }} of {{ run.filesTotal }} files.
         What was indexed is kept, and starting again picks up from there.
       </p>
-    } @else if (run.chunksIndexed > 0) {
+    } @else if (announce() && run.chunksIndexed > 0) {
       <p class="line">
         <span class="dot done" aria-hidden="true"></span>
         Indexed {{ run.chunksIndexed }} chunks from {{ run.filesDone }} files.

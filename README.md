@@ -6,7 +6,7 @@ Point it at a repository. It reads the source, indexes it, and answers questions
 in plain language with a citation for every claim: file and line numbers you can
 open and check.
 
-![Legacy Lens answering a question about its own source, with citations](docs/screenshot.png)
+![Legacy Lens answering a question about its own source: the project it is reading, the model answering, and every claim traced to the lines it came from, one of them opened](docs/screenshot.png)
 
 *Answering a question about its own source. Every claim carries the file and lines
 it came from, with the retrieval score beside it.*
@@ -191,6 +191,12 @@ reused from a service or a desktop client. Nothing about the file layout says
 so; nothing about the build complains. It surfaces the day someone tries.
 
 ### Where the code will hurt
+
+![The risk ranking in the browser: files ordered by how much trouble they are likely to cause, each marked as tested or not](docs/overview.png)
+
+This half needs no model and no index. It reads the directory and git history
+and answers in milliseconds, which is why the interface shows it while
+embedding is still running.
 
 ```bash
 curl -X POST localhost:8080/api/risk \
@@ -512,6 +518,8 @@ repositories take a `token`, which is used for that fetch and then removed from
 the clone's git config. Only http and https are accepted.
 
 ### Indexing without waiting for it
+
+![Indexing in progress: files done, chunks so far, the file being read and an estimate, with a stop button](docs/indexing.png)
 
 `POST /api/ingest` blocks until the index is built, which is what a script
 wants. A person usually does not: embedding runs at roughly two chunks a second

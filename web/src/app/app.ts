@@ -83,6 +83,19 @@ export class App implements OnInit {
     this.store.refresh();
   }
 
+  /**
+   * While a run is going the header says nothing about how much is indexed.
+   *
+   * The stored count is from the last time the list loaded and the panel below
+   * reports what the run has written since. Showing both is two numbers for
+   * one fact, and the panel is the one that is current.
+   */
+  readonly indexing = signal(false);
+
+  onBusy(running: boolean): void {
+    this.indexing.set(running);
+  }
+
   onModel(choice: ModelChoice): void {
     this.model.set(choice);
   }

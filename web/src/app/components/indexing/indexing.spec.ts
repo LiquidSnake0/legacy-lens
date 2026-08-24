@@ -116,6 +116,36 @@ describe('Indexing', () => {
     expect(finished).toEqual([]);
   });
 
+  it('does not repeat a run that finished before anyone arrived', () => {
+    // Its summary says what the picker already says, and a run from three days
+    // ago is not news.
+    const fixture = build();
+    answer({ ...running, state: 'done', running: false, filesDone: 40 });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.indexing')).toBeNull();
+  });
+
+  it('confirms a run that finished while somebody was watching', () => {
+    const fixture = build();
+    answer(running);
+    vi.advanceTimersByTime(2000);
+    answer({ ...running, state: 'done', running: false, filesDone: 40 });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Indexed');
+  });
+
+  it('reports a run that died before anyone arrived', () => {
+    // The opposite call from a finished one: arriving at a project whose
+    // indexing failed is exactly when you need to be told.
+    const fixture = build();
+    answer({ ...running, state: 'failed', running: false, error: 'Ollama is not running.' });
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Indexing failed');
+  });
+
   it('switches to the project it is given', () => {
     const fixture = build();
     answer(running);

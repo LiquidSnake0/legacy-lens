@@ -15,7 +15,10 @@
     <p class="note">
       Files that are complicated, change often and have no test, ranked
       {{ risk.ranked }} deep. Read from the code and from git history: no model
-      and no index, which is why it is here before indexing has finished.
+      and no index, which is why it is here before indexing has finished. The
+      bar is the rank; the number beside it is the file's cyclomatic
+      complexity, which is one of the things that rank is made of and not the
+      same as it.
       @if (risk.generatedFilesExcluded) {
         {{ risk.generatedFilesExcluded }}
         {{ risk.generatedFilesExcluded === 1 ? 'generated file was' : 'generated files were' }}

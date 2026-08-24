@@ -12,6 +12,7 @@
         {{ failure }}
       </p>
     } @else if (store.current(); as current) {
+      @if (!indexing()) {
       <p class="status">
         <span class="dot" [class.empty]="current.chunks === 0"></span>
         @if (current.chunks === 0) {
@@ -20,13 +21,18 @@
           {{ current.chunks }} chunks indexed for {{ current.name }}
         }
       </p>
+      }
     }
   </header>
 
   <lens-projects (added)="onAdded($event)" />
 
   @if (store.current(); as current) {
-    <lens-indexing [workspace]="current.id" (finished)="onIndexed($event)" />
+    <lens-indexing
+      [workspace]="current.id"
+      (finished)="onIndexed($event)"
+      (busy)="onBusy($event)"
+    />
 
     <lens-model-choice (chosen)="onModel($event)" />
 

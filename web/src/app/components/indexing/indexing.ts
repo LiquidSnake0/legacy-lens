@@ -25,8 +25,27 @@ export class Indexing {
   /** Raised when a run finishes, so the page can refresh its chunk counts. */
   readonly finished = output<IngestionJob>();
 
+  /**
+   * Whether a run is going, so the page can stop showing a chunk count.
+   *
+   * The count on the picker comes from the last time the list was loaded, and
+   * the panel below reports what this run has written. While both are on
+   * screen they disagree, which is two numbers for one fact.
+   */
+  readonly busy = output<boolean>();
+
   readonly job = signal<IngestionJob | null>(null);
   readonly failure = signal<string | null>(null);
+
+  /**
+   * Whether a finished run is worth reporting.
+   *
+   * A run that completed three days ago is not news, and its summary repeats
+   * the chunk count already on the picker. A run that finished while somebody
+   * was watching is worth confirming. Failures are shown either way: arriving
+   * at a project whose indexing died is exactly when you need to be told.
+   */
+  readonly announce = signal(false);
 
   private timer: ReturnType<typeof setTimeout> | null = null;
   private watching: string | null = null;
@@ -50,11 +69,28 @@ export class Indexing {
 
       this.watching = workspace;
       this.wasRunning = false;
+      this.announce.set(false);
       this.job.set(null);
       this.failure.set(null);
       this.poll();
     });
   }
+
+  /**
+   * Whether there is anything to say at all.
+   *
+   * Without this the panel renders as an empty band for a project indexed
+   * days ago: a box with a border and nothing in it.
+   */
+  readonly worthShowing = computed(() => {
+    const job = this.job();
+    if (!job) return false;
+
+    return job.running
+      || job.state === 'failed'
+      || job.state === 'cancelled'
+      || (this.announce() && job.chunksIndexed > 0);
+  });
 
   /** Asks the API to stop. What was embedded already stays indexed. */
   cancel(): void {
@@ -79,6 +115,8 @@ export class Indexing {
         this.job.set(job);
         this.failure.set(null);
 
+        this.busy.emit(job?.running === true);
+
         if (job?.running) {
           this.wasRunning = true;
           // Two seconds: fast enough that the file being worked on looks live,
@@ -89,6 +127,7 @@ export class Indexing {
 
         if (this.wasRunning && job) {
           this.wasRunning = false;
+          this.announce.set(true);
           this.finished.emit(job);
         }
       },

@@ -95,6 +95,14 @@ describe('Overview', () => {
     expect(app.width(rules)).toBe(50);
   });
 
+  it('says the bar and the number are not the same measure', () => {
+    // A file with a cyclomatic complexity of 0 can still rank high, on churn
+    // alone. Side by side with no explanation, that reads as a bug.
+    const element = build().nativeElement as HTMLElement;
+
+    expect(element.querySelector('.note')?.textContent).toContain('not the same as it');
+  });
+
   it('marks an untested file, because that is what changes what you do next', () => {
     const element = build().nativeElement as HTMLElement;
 
