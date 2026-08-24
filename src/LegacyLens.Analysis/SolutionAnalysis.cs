@@ -40,12 +40,31 @@ public class SolutionAnalysis
     /// Generated proxies declare hundreds of types nobody wrote, and test
     /// classes clutter a diagram of the design without belonging to it.
     /// </summary>
-    public TypeMap Types(string rootPath)
+    public TypeMap Types(string rootPath) => new TypeGraph().Build(Sources(rootPath));
+
+    /// <summary>
+    /// Where the code can be cut, over the same files as <see cref="Types"/>.
+    ///
+    /// Needs both the sources and the map: the map says which types already sit
+    /// behind an interface, and the sources say what their methods reach for
+    /// that nobody passed in.
+    /// </summary>
+    public SeamSurvey Seams(string rootPath)
+    {
+        var sources = Sources(rootPath).ToList();
+        return new Seams().Find(sources, new TypeGraph().Build(sources));
+    }
+
+    /// <summary>
+    /// The files worth reading, filtered once so every analysis over source
+    /// agrees on what the solution contains.
+    /// </summary>
+    private static IEnumerable<(string Path, string Source)> Sources(string rootPath)
     {
         if (!Directory.Exists(rootPath))
             throw new DirectoryNotFoundException($"No such directory: {rootPath}");
 
-        var sources = SourceFiles(rootPath)
+        return SourceFiles(rootPath)
             .Select(path =>
             {
                 try { return (Path: path, Source: File.ReadAllText(path)); }
@@ -57,8 +76,6 @@ public class SolutionAnalysis
             .Where(f => f.Source.Length > 0)
             .Where(f => !CodeMetrics.LooksGenerated(f.Path, f.Source, false))
             .Where(f => !CodeMetrics.LooksLikeTest(f.Path, false));
-
-        return new TypeGraph().Build(sources);
     }
 
     /// <summary>

@@ -707,7 +707,7 @@ scan has to parse what it claims to measure.
 
 ---
 
-## M10. Seams
+## M10. Seams ✅
 
 *Where the code can be cut, and where it cannot.*
 
@@ -723,10 +723,38 @@ M8 already answers *what does this do*. M9 answers *what converts
 mechanically*. Neither answers *where can I cut*, and without that the two
 cannot be composed into a migration a person actually performs.
 
-### Counted on Orchard
+### Measured on Orchard
 
-Read with a lexical scan, no model involved. The tool does not compute these
-yet; this is the specification.
+`POST /api/seams`. Source only, no compilation, so it answers on a solution that
+does not build. Generated files and tests are excluded, as everywhere else.
+
+| | |
+|---|---|
+| Types judged | **3,380** |
+| Substitutable today | **1,169** |
+| Substitutable after extracting an interface | **1,909** |
+| Not without a rewrite | **302** |
+
+What closes a seam, by how many types it holds shut:
+
+| | |
+|---|---|
+| `File` | **40** |
+| `Guid.NewGuid` | **23** |
+| `Directory` | **17** |
+| `new StreamReader` | **15** |
+| `DateTime.UtcNow` | **12** |
+| `HttpContext.Current` | **12** |
+
+The refusal reads as a sentence, because that is what gets acted on:
+*CodeGenerationCommands reaches File, Directory, Guid.NewGuid and DateTime.Now
+directly. Those calls have to be passed in before anything can replace them.*
+
+An earlier count of the same shapes appears below. It was taken with a lexical
+scan over every `.cs` in the tree, tests and generated code included, and gave
+3,798 types. The two are not in conflict; the smaller number is the one worth
+having, and the difference is a reminder that a count means nothing without the
+filter that produced it.
 
 | | |
 |---|---|

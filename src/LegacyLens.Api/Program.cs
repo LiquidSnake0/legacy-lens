@@ -194,6 +194,45 @@ app.MapPost("/api/report", (ReportRequest request) =>
 // How much of a modernisation is mechanical, and what no automation will do.
 // Reads project files only: no compilation, no restore, no call to nuget.org,
 // so it answers on a solution that does not build.
+// Where a strangler fig could put the new implementation beside the old, and
+// where it could not. Reads source only: no compilation, so it answers on a
+// solution that does not build.
+app.MapPost("/api/seams", (SeamsRequest request) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Path))
+        return Results.BadRequest(new { error = "A path is required." });
+
+    try
+    {
+        var survey = new SolutionAnalysis().Seams(request.Path);
+
+        return Results.Ok(new
+        {
+            types = new
+            {
+                total = survey.Total,
+                substitutable = survey.Substitutable,
+                afterExtraction = survey.AfterExtraction,
+                notWithoutRewrite = survey.NotWithoutRewrite,
+            },
+            // What holds the most types shut. Four names accounting for half an
+            // estate is a different plan from forty accounting for one each.
+            closedBy = survey.ClosedBy.Take(request.Top).Select(c => new { c.Name, c.Types }),
+            // The refusals, worst first. Listing what can be cut is easy; this
+            // is the half that changes what someone decides.
+            refused = survey.Types
+                .Where(t => t.Verdict == SeamVerdict.NotWithoutRewrite)
+                .OrderByDescending(t => t.AmbientUses)
+                .Take(request.Top)
+                .Select(t => new { t.Name, t.Path, t.Reason, ambients = t.Ambients }),
+        });
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 app.MapPost("/api/modernise", (ModerniseRequest request) =>
 {
     if (string.IsNullOrWhiteSpace(request.Path))

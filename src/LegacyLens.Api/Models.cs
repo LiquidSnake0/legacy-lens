@@ -57,6 +57,9 @@ public record DiagramRequest(string Path, string? Namespace = null, string? Type
 
 public record ModerniseRequest(string Path, int TopUnknown = 15);
 
+/// <summary>Where the code can be cut, and what closes the cut.</summary>
+public record SeamsRequest(string Path, int Top = 20);
+
 /// <summary>
 /// A request for the assessment document.
 ///
