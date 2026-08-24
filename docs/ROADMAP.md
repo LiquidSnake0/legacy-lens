@@ -525,8 +525,10 @@ as a commit the tool makes on its own.
 
 ### How much of it is mechanical, measured
 
-Counted on Orchard by reading project files, no model involved. The tool does
-not compute this yet; this is the specification for what it should.
+Counted on Orchard by reading project files, no model involved. The tool
+computes this now: `Modernisation.Survey` produces every figure below, and the
+report has carried them since M6. The line that used to sit here, saying the
+tool did not compute it yet, outlived the code by several commits.
 
 | | |
 |---|---|
@@ -595,6 +597,35 @@ automation, they are what makes commanding it possible at all.
 layer that decides *which* conversions to propose, and says plainly when the
 answer is "this does not port", is the part that takes real time. Nothing here
 ships before the surface a person commands it from.
+
+### First conversion, measured on Orchard
+
+`packages.config` to `PackageReference`, emitted as a patch and never applied.
+Ten of the sixteen unblocked projects are candidates; the other six declare no
+packages, so there is nothing to convert.
+
+| | |
+|---|---|
+| Patches produced | **10** |
+| Accepted by `git apply --check` | **10** |
+| Project files still valid XML after applying | **10** |
+| `packages.config` removed | **10** |
+
+Two defects survived a careful reading of the output and were caught only by
+handing the patch to git, which is the argument for the test that does exactly
+that on every run:
+
+**A file that does not end with a newline needs `\ No newline at end of file`.**
+Orchard's project files are written that way. Without the marker every patch
+was rejected at its last hunk.
+
+**A byte order mark has to survive being read.** `File.ReadAllText` detects and
+strips one, so the first line of the patch was three bytes short of the first
+line on disk, and `packages.config` deletions were rejected.
+
+Neither is visible in a diff a person reads. Both are fatal. The suite now runs
+`git apply --check` against a generated patch rather than asserting on its
+text.
 
 ---
 
