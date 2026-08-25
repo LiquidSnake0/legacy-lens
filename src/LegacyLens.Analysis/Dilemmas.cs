@@ -211,44 +211,7 @@ public class Dilemmas
         }
     }
 
-    /// <summary>
-    /// Where to look for a file that travels beside the program.
-    ///
-    /// The executable's own folder first, then the base directory. They are the
-    /// same thing for an ordinary build and they are not for a single-file one,
-    /// where the base directory is a temporary extraction folder and the
-    /// catalogue somebody dropped next to the executable is nowhere near it.
-    ///
-    /// Found by running the desktop build: the catalogues were beside the
-    /// binary, the binary looked in a temp folder, and every package came back
-    /// with no candidate at all.
-    /// </summary>
-    private static IEnumerable<string> Beside(string name)
-    {
-        var roots = new List<string>();
-
-        if (Path.GetDirectoryName(Environment.ProcessPath) is { Length: > 0 } beside)
-            roots.Add(beside);
-
-        roots.Add(AppContext.BaseDirectory);
-
-        foreach (var root in roots)
-        {
-            yield return Path.Combine(root, name);
-            yield return Path.Combine(root, "data", name);
-        }
-
-        // Then upwards, for a checkout where the data folder sits at the top and
-        // the build output several levels below it.
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        for (var up = 0; up < 6 && directory is not null; up++)
-        {
-            yield return Path.Combine(directory.FullName, "data", name);
-            directory = directory.Parent;
-        }
-    }
-
-    private static string? Default() => Beside("dilemmas.json").FirstOrDefault(File.Exists);
+    private static string? Default() => Catalogues.Find("dilemmas.json");
 
     private sealed record Entry(
         [property: JsonPropertyName("name")] string? Name,
