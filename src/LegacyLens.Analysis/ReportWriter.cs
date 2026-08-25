@@ -558,6 +558,7 @@ public class ReportWriter
             }
 
             Asked(report, best);
+            Facing(report, surface.Package, best);
 
             if (best.Blocked)
             {
@@ -615,6 +616,52 @@ public class ReportWriter
           + $"have at all. That leaves {Assessor.Count(reading.Left, "type")} still to "
           + "decide."));
         report.AppendLine();
+    }
+
+    /// <summary>
+    /// The questions the unknown column comes to, rather than the list of names
+    /// it is made of.
+    ///
+    /// **The unit of decision is the feature.** On nopCommerce, forty-four types
+    /// modern .NET does not have come to six questions, and twenty-one of the
+    /// forty-four are third-party names the syntax attributed to the wrong
+    /// package. Printing forty-four rows would hand somebody a list of things
+    /// to look up; printing six hands them the decisions.
+    ///
+    /// The options are never a recommendation. Which one is right depends on
+    /// how many people, how much time, and whether the old and the new have to
+    /// run side by side, none of which is in the code.
+    /// </summary>
+    private static void Facing(StringBuilder report, string package, Coverage coverage)
+    {
+        var questions = Features.Load().Ask(package, [.. coverage.Unknown, .. coverage.Unavailable]);
+
+        if (questions.Count == 0) return;
+
+        report.AppendLine(Wrap(
+            $"Those names come to {Assessor.Count(questions.Count, "question")}. What follows is "
+          + "what each one was for, what replaced it, and what there is to choose between. None "
+          + "of the options is a recommendation: which one is right depends on how many people, "
+          + "how much time, and whether the old and the new have to run side by side, and none "
+          + "of that is in the code."));
+        report.AppendLine();
+
+        foreach (var question in questions)
+        {
+            report.AppendLine(Wrap(
+                $"**{question.Feature.Name}.** {Assessor.Count(question.Uses, "call")} through "
+              + string.Join(", ", question.Through.Take(6).Select(t => $"`{t.Name}`"))
+              + (question.Through.Count > 6 ? $", and {question.Through.Count - 6} more." : ".")));
+            report.AppendLine();
+
+            report.AppendLine(Wrap($"{question.Feature.Was} {question.Feature.Now}"));
+            report.AppendLine();
+
+            foreach (var option in question.Feature.Options)
+                report.AppendLine(Wrap($"- {option}"));
+
+            report.AppendLine();
+        }
     }
 
     /// <summary>Packages given a section of their own. A report is read, not scrolled.</summary>

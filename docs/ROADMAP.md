@@ -2519,6 +2519,86 @@ producing fifty-one rows where there are four questions.
 
 ---
 
+## M27. Six questions instead of forty-four ✅
+
+*M26 measured that the unit of decision is the feature. This is the consequence.*
+
+After M26, nopCommerce 3.90 had forty-four types modern .NET does not have,
+over 130 calls. Forty-four rows is a list of things to look up. It is not
+forty-four decisions:
+
+| | types | calls |
+|---|---|---|
+| the request context | 7 | 46 |
+| pipeline internals | 4 | 5 |
+| model binding extensibility | 3 | 5 |
+| bundling and minification | 3 | 3 |
+| display modes | 2 | 4 |
+| areas | 2 | 2 |
+| **third-party names the syntax attributed here** | **21** | **53** |
+
+`ScriptBundle`, `StyleBundle`, `CssRewriteUrlTransform` and `IItemTransform`
+are one question about bundling. `HttpContextBase`, `HttpRequestBase`,
+`RequestContext` and `HttpPostedFileBase` are one question about the request
+context.
+
+**Six questions.** On Orchard the same catalogue gives four.
+
+### What a question carries
+
+`data/features.json` records, per feature: what the old framework did, what the
+new one does or that it does not, and **what there is to choose between**. The
+report prints them in place of the list of names, with the calls that reach each
+one.
+
+**The options are never a recommendation.** Which one is right depends on how
+many people, how much time, and whether the old and the new have to run side by
+side. None of that is in the code, and a tool that recommended one would be
+pretending it knew. A feature with a single option fails a test here, because
+one option is a recommendation wearing a list.
+
+The request context, for instance, is not one answer:
+
+> Move the code onto the new types directly. Shortest where the class already
+> receives the context as an argument.
+>
+> Put an interface of your own in front of what you actually use, and implement
+> it over the new types. Longest, and the only option that lets the old and the
+> new code run side by side.
+>
+> Push the context out of the class entirely and pass the values it reads. Turns
+> a migration into a design change, which is sometimes the right trade and never
+> a small one.
+
+### A type no feature covers is left out
+
+Not given a feature of its own. The gap is the point: twenty-one of the
+forty-four are third-party names the syntax attributed to the wrong package,
+which is the approximation this repository has always declared, and inventing a
+feature for `SqlConnection` would bury it.
+
+### Where the arc stands
+
+The objective was to move work out of the pile a person has to think about. On
+nopCommerce's `Microsoft.AspNet.Mvc`, of 4,324 calls the runtime forces:
+
+| | |
+|---|---|
+| a counterpart is recorded | 77% |
+| deleted, the feature went away | 14% |
+| no replacement recorded | 2.5% |
+| still unknown | 6.3% |
+
+And the 6.3% is now **six questions with their options**, of which about a third
+by call is not this package's work at all.
+
+What this does not claim: that a recorded counterpart makes the edit mechanical.
+`Controller` keeps its name in both worlds and the hosting model changed
+underneath it. That is still the largest untouched thing here, and it is where
+the next real gain is.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

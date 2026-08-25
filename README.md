@@ -884,6 +884,39 @@ decisions:
 One sentence covers 596 calls and thirty sentences cover ninety-six. The unit of
 decision is the feature, not the type.
 
+### And what is left comes to questions, not to names
+
+Forty-four types modern .NET does not have is a list to look up. It is not
+forty-four decisions. `ScriptBundle`, `StyleBundle`, `CssRewriteUrlTransform`
+and `IItemTransform` are one question about bundling; `HttpContextBase`,
+`HttpRequestBase`, `RequestContext` and `HttpPostedFileBase` are one question
+about the request context.
+
+On nopCommerce 3.90 the forty-four come to **six questions**, and on Orchard to
+four. Each carries what the old framework did, what the new one does or that it
+does not, and what there is to choose between:
+
+> **The request context.** 46 calls through `HttpContextBase`,
+> `HttpPostedFileBase`, `RequestContext`, and four more.
+>
+> - Move the code onto the new types directly. Shortest where the class already
+>   receives the context as an argument.
+> - Put an interface of your own in front of what you actually use. Longest, and
+>   the only option that lets the old and the new code run side by side.
+> - Push the context out of the class entirely and pass the values it reads.
+>   Turns a migration into a design change, which is sometimes the right trade
+>   and never a small one.
+
+**The options are never a recommendation.** Which one is right depends on how
+many people, how much time, and whether the old and the new have to run side by
+side, and none of that is in the code. A feature with a single option fails a
+test here, because one option is a recommendation wearing a list.
+
+A type no feature covers is left out rather than given one of its own: on
+nopCommerce twenty-one of the forty-four are third-party names the syntax
+attributed to the wrong package, and inventing a feature for `SqlConnection`
+would bury that.
+
 ### And whether it still does the same thing
 
 Compiling proves the code is valid. It says nothing about what the code *does*,
