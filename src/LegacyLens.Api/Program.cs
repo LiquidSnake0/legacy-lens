@@ -50,6 +50,15 @@ if (args is ["hindsight", .. var hindsightArguments])
     return;
 }
 
+// One level below hindsight: not whether a dependency moved, but whether the
+// type-by-type correspondences somebody wrote down are the ones a team
+// actually used, and what they used that nobody has written down.
+if (args is ["correspondences", .. var correspondenceArguments])
+{
+    Environment.ExitCode = Correspond.Run(correspondenceArguments);
+    return;
+}
+
 // The mechanical conversions, as a patch. A command as well as a route,
 // because what comes out is meant to be redirected to a file and handed to
 // `git apply` by a person who read it first. Nothing here writes to the tree.
