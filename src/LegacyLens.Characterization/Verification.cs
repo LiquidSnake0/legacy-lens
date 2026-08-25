@@ -14,7 +14,17 @@ public record Verification(
     IReadOnlyList<string> Passed,
     IReadOnlyDictionary<string, string> Failed)
 {
-    public bool Clean => Compiled && Failed.Count == 0;
+    /// <summary>
+    /// Compiled, nothing failed, and something actually ran.
+    ///
+    /// The third clause is not decoration. Without it a verification that
+    /// executed no tests at all reports itself clean, which is the strongest
+    /// thing this record can say, on the strength of having done nothing. It
+    /// was found by a caller that had a generated file and no list of the cases
+    /// inside it: the suite compiled, zero methods were invoked, and the result
+    /// read as a suite that passed.
+    /// </summary>
+    public bool Clean => Compiled && Failed.Count == 0 && Passed.Count > 0;
 }
 
 /// <summary>
@@ -134,12 +144,19 @@ public class Verifier
     /// A real xUnit host would launch a process and discover tests; this needs
     /// neither. The generated methods are public, take no arguments, and fail
     /// by throwing, which is the entire contract being relied on.
+    ///
+    /// Naming the cases narrows the run to them, which is what the generator
+    /// wants: it knows which cases it wrote and can attribute a failure back to
+    /// the observation that produced it. Naming none runs everything in the
+    /// file, which is what a caller holding only the generated source wants.
+    /// Naming none used to mean running nothing and calling the silence a pass.
     /// </summary>
     private static Verification Run(Assembly compiled, GeneratedSuite suite)
     {
         var passed = new List<string>();
         var failed = new Dictionary<string, string>();
         var expected = suite.Cases.Select(c => c.TestName).ToHashSet(StringComparer.Ordinal);
+        var everything = expected.Count == 0;
 
         foreach (var type in compiled.GetTypes())
         {
@@ -148,7 +165,8 @@ public class Verifier
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance
                                                  | BindingFlags.DeclaredOnly))
             {
-                if (method.GetParameters().Length > 0 || !expected.Contains(method.Name)) continue;
+                if (method.GetParameters().Length > 0) continue;
+                if (!everything && !expected.Contains(method.Name)) continue;
 
                 try
                 {

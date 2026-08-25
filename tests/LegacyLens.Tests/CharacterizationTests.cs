@@ -54,6 +54,14 @@ public class CharacterizationTests
             Assert.True(verification.Compiled,
                 $"{file.FileName}: {string.Join("; ", verification.CompilerErrors)}");
             Assert.Empty(verification.Failed);
+
+            // Without this the assertion above is unfalsifiable, and it was.
+            // Verify runs the cases it was named and this caller names none, so
+            // it compiled the file, invoked nothing, found no failures and
+            // reported a suite that passed. Naming none now means running
+            // everything, and this is the line that says so.
+            Assert.NotEmpty(verification.Passed);
+            Assert.True(verification.Clean);
         }
     }
 
