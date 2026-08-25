@@ -1026,6 +1026,32 @@ for declarations, so a solution's own attributes went out as the package's. On
 Orchard that put this README's headline figure six per cent too high, 3,877
 where it should have said 3,634. Every test passed, because there was no test.
 
+### And how much of it the tool actually does
+
+Marking the advice is one thing. Marking the work is another: run the conversions
+on the old tree and hold the result against what the team committed.
+
+On **nopCommerce 3.90**, the answer used to be three project files out of
+thirty-one, where the team converted all twenty-six of theirs. The reasons it
+refused turned out to be generated code: empty `BeforeBuild` targets Visual
+Studio writes into every pre-SDK project, imports pointing into the
+packages folder that PackageReference replaces, and a rule that refused the
+format change to any project that could not port, which are two unrelated
+questions. The team settled that one by putting all twenty-six projects into the
+SDK format and leaving them on `net461` with EF6.
+
+**Three of thirty-one became twenty-nine of thirty-one**, and `git apply --check`
+accepts the patch against the real tree. The two it still refuses are the two web
+applications, for reasons that are real, and those are exactly the two projects
+where a person should be deciding.
+
+**On the ceiling.** By weight of that codebase, project files and config are 3.9
+per cent of the lines, Razor views are 20 per cent and came through half a per
+cent apart, and C# source is 76 per cent. So "almost everything automated" is
+the wrong shape to aim at: the ceiling is what is mechanical, and mechanical is
+not most of the lines. Everything mechanical done, and everything else named and
+priced as a short list, is both honest and more useful.
+
 ### What it cannot decide for you
 
 Some of what decides a migration is not in the repository. How many machines

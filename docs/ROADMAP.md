@@ -2109,6 +2109,88 @@ importing two packages cannot be split between them by syntax alone.
 
 ---
 
+## M21. How much of it the tool can actually do ✅
+
+*Comparing what the tool **produces** to what the team produced, which is a
+different question from comparing what it says.*
+
+M18 to M20 marked the tool's advice. This one marks its work. On nopCommerce
+3.90 the answer was **3 project files out of 31**, where the team converted all
+twenty-six of theirs. Twelve per cent of the mechanical work that was available.
+
+### The reasons it refused were generated code
+
+Twenty-eight projects were turned down. Three rules had been written as though
+every case were the hard case:
+
+**A project that cannot port was refused the format change.** Those are two
+different questions: the SDK format is about the file, porting is about the
+packages. The team settled it by doing exactly that, putting all twenty-six
+projects into the SDK format and leaving them on `net461` with EF6.
+`Nop.Web` was among the twenty-eight this tool called blocked, and in 4.00 it is
+SDK format on .NET Framework. The fact is kept and demoted to a caveat: the work
+is done, and the note says what it does not fix.
+
+**Empty build targets counted as build logic.** Visual Studio writes an empty
+`BeforeBuild` and `AfterBuild` into every pre-SDK project ever made. Of
+nopCommerce 3.90's 94 targets, **61 were empty or commented out**. A target with
+no steps has no steps to lose; one with a task in it still refuses, because
+dropping build logic silently is the one thing this conversion must never do.
+
+**Imports out of the packages folder counted as bespoke.** The package brought
+its own targets and the project file was edited to point into the restore
+folder. PackageReference brings them in on its own. That was **26 of the 30**
+non-standard imports, every one of them the same file. The guard NuGet writes
+for them goes with them.
+
+### Measured
+
+| | before | after |
+|---|---|---|
+| nopCommerce 3.90, projects converted | 3 of 31 | **29 of 31** |
+| what the team converted | | 26 |
+
+`git apply --check` accepts the twenty-nine-project patch against the real tree.
+
+**The two it still refuses are `Nop.Web` and `Nop.Admin`**, the two web
+applications, and for reasons that are real: genuinely custom build targets, a
+project flavour, and the `Microsoft.WebApplication.targets` imports. Those are
+the two projects where the hosting model changes, which is exactly the work a
+person should be doing.
+
+### And the report was saying something else
+
+It counted a project convertible only when nothing it referenced was a dead end,
+while the conversion had stopped caring: a report saying three sat above a
+command offering twenty-nine. On Orchard it ran the other way, sixteen promised
+against thirteen the conversion accepts. Both are now one question with one
+answer, which is the rule M17 exists for and which had already been broken again.
+
+### How far this can go, since that is the objective
+
+Measured on nopCommerce, by weight of the artefact:
+
+| | 3.90 | 4.00 | share |
+|---|---|---|---|
+| project files and config | 12,932 lines | 1,671 | **3.9%** |
+| Razor views | 67,008 | 66,673 | 20% |
+| C# source | 252,270 | 260,319 | 76% |
+
+Two things follow. The **Razor views came through nearly untouched**, half a per
+cent apart: a fifth of the product needed almost no work at all. And the
+mechanical project plumbing, now at ninety-four per cent of projects, is four
+per cent of the lines.
+
+So a target of "ninety-nine per cent automated" is the wrong shape, and aiming
+at it produces a dishonest tool. **The ceiling is what is mechanical, and
+mechanical is not most of the lines.** The honest objective is different and
+better: everything mechanical done, everything else named, priced and handed
+over as a short list. A decision-maker facing twenty questions that each carry a
+measured cost and a recommendation is under far less load than one facing three
+with nothing attached. The load is the uncertainty per decision, not the count.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
