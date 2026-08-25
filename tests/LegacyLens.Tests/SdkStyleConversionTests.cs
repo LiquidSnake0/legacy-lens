@@ -118,13 +118,79 @@ public class SdkStyleConversionTests : IDisposable
     }
 
     [Fact]
-    public void A_project_with_no_path_forward_is_refused_before_its_format_is_touched()
+    public void A_project_with_no_path_forward_is_converted_anyway_and_told_so()
     {
+        // This test used to assert the opposite, and a real migration refuted
+        // it. Whether a project can take the SDK format is a question about the
+        // file; whether it can port is a question about its packages. They are
+        // independent, and the nopCommerce team settled it: they put all
+        // twenty-six of their projects into the SDK format and left them on
+        // .NET Framework with EF6. `Nop.Web` was among the twenty-eight this
+        // tool called blocked, and in 4.00 it is SDK format on net461.
+        //
+        // So the fact is kept and demoted: the work is done, and the caveat
+        // says what it does not fix.
         var verdict = new SdkStyleConversion()
             .Propose(Project("Sample", Clean, ["Microsoft.AspNet.Mvc"]), _root);
 
+        Assert.True(verdict.Convertible);
+        Assert.NotNull(verdict.Proposal);
+        Assert.Contains(verdict.Proposal.Caveats,
+            c => c.Contains("not the future of the project"));
+    }
+
+    [Fact]
+    public void An_empty_build_target_has_no_steps_to_lose()
+    {
+        // Visual Studio writes an empty BeforeBuild and AfterBuild into every
+        // pre-SDK project ever made. Counted as custom build logic they refused
+        // the conversion on almost everything: 61 of nopCommerce 3.90's 94
+        // targets were empty or commented out, and 26 of its 31 projects were
+        // turned down over them.
+        var body = Clean
+                 + "\n  <Target Name=\"BeforeBuild\" />"
+                 + "\n  <Target Name=\"AfterBuild\"><!-- nothing --></Target>";
+
+        Assert.True(new SdkStyleConversion().Propose(Project("Sample", body), _root).Convertible);
+    }
+
+    [Fact]
+    public void But_a_target_that_does_something_still_refuses()
+    {
+        // The rule is about steps, not about names. A target with a task in it
+        // is build logic, and dropping it silently is the one thing this
+        // conversion must never do.
+        var body = Clean
+                 + "\n  <Target Name=\"AfterBuild\"><Copy SourceFiles=\"a\" DestinationFolder=\"b\" /></Target>";
+
+        var verdict = new SdkStyleConversion().Propose(Project("Sample", body), _root);
+
         Assert.False(verdict.Convertible);
-        Assert.Contains(verdict.Blockers, b => b.Contains("would not make it port"));
+        Assert.Contains(verdict.Blockers, b => b.Contains("build steps would be silently lost"));
+    }
+
+    [Fact]
+    public void An_import_out_of_the_packages_folder_is_a_packages_config_artefact()
+    {
+        // The package brought its own build targets and the project file was
+        // edited to point into the restore folder. PackageReference brings them
+        // in on its own. On nopCommerce 3.90 that was 26 of the 30 non-standard
+        // imports, every one of them the same file.
+        var body = Clean
+                 + "\n  <Import Project=\"..\\..\\packages\\Microsoft.Bcl.Build.1.0.21\\build\\Microsoft.Bcl.Build.targets\" />";
+
+        Assert.True(new SdkStyleConversion().Propose(Project("Sample", body), _root).Convertible);
+    }
+
+    [Fact]
+    public void The_guard_NuGet_writes_for_those_imports_goes_with_them()
+    {
+        var body = Clean
+                 + "\n  <Target Name=\"EnsureNuGetPackageBuildImports\" BeforeTargets=\"PrepareForBuild\">"
+                 + "\n    <Error Text=\"missing\" />"
+                 + "\n  </Target>";
+
+        Assert.True(new SdkStyleConversion().Propose(Project("Sample", body), _root).Convertible);
     }
 
     [Theory]
