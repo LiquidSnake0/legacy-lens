@@ -15,8 +15,8 @@
 # pattern and runs in minutes:
 #
 #   ./mutate.sh 'Features.cs'
-#   ./mutate.sh 'Owners.cs'
-#   ./mutate.sh '**/*.cs'            # the long one
+#   ./mutate.sh '**/*.cs' LegacyLens.Characterization    # a whole project
+#   ./mutate.sh '**/*.cs'                                # the long one
 #
 # Read the survivors, not the score. A surviving mutant is either a test
 # nobody wrote or a change that makes no difference, and telling those two
@@ -24,6 +24,7 @@
 set -euo pipefail
 
 MOTIF="${1:-**/*.cs}"
+PROJET="${2:-LegacyLens.Analysis}"
 RACINE="$(cd "$(dirname "$0")" && pwd)"
 
 dotnet tool restore >/dev/null
@@ -31,7 +32,7 @@ dotnet tool restore >/dev/null
 cd "$RACINE/tests/LegacyLens.Tests"
 
 dotnet dotnet-stryker \
-  --project LegacyLens.Analysis.csproj \
+  --project "$PROJET.csproj" \
   --mutate "$MOTIF" \
   --reporter progress \
   --reporter json
