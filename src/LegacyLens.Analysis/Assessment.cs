@@ -191,7 +191,7 @@ public class Assessor
             findings,
             risk,
             modernisation,
-            Order(map, findings, risk, modernisation),
+            Order(map, findings, risk, modernisation, rootPath),
             Limits(map, findings, risk, modernisation),
             started.ElapsedMilliseconds,
             dependencies);
@@ -252,7 +252,8 @@ public class Assessor
         SolutionMap map,
         IReadOnlyList<Finding> findings,
         RiskReport risk,
-        ModernisationSurvey survey)
+        ModernisationSurvey survey,
+        string rootPath)
     {
         var steps = new List<RepairStep>();
 
@@ -302,17 +303,27 @@ public class Assessor
                        .ToList()));
         }
 
-        var convertible = survey.Projects.Where(p => p.ConvertibleAsIs).ToList();
+        // Asked of the conversion itself rather than answered again here. The
+        // two disagreed: this counted a project convertible only when nothing
+        // it referenced was a dead end, while the conversion had stopped caring
+        // about that, so a report saying three sat above a command offering
+        // twenty-nine. One question, one answer, which is the rule M17 exists
+        // for.
+        var convertible = new SdkStyleConversion().Judge(survey, rootPath)
+            .Where(verdict => verdict.Convertible)
+            .ToList();
+
         if (convertible.Count > 0)
         {
             steps.Add(new RepairStep(
                 RepairKind.Mechanical,
-                "Convert the project files that nothing holds back",
-                "Nothing these projects reference stands in the way; only the file format "
-              + "is old. The conversion is a tool run and a review, and it is worth doing "
-              + "first because it shrinks what everything after this has to work through.",
+                "Convert the project files that can take the modern format",
+                "Only the file format is old, and the conversion is a tool run and a review. "
+              + "It is worth doing first because it shrinks what everything after this has to "
+              + "work through. Some of these still depend on packages with no path forward: "
+              + "that is a separate problem and the format change does not pretend to fix it.",
                 Count(convertible.Count, "project"),
-                convertible.Take(10).Select(p => p.Name).ToList()));
+                convertible.Take(10).Select(v => v.Project).ToList()));
         }
 
         var divergent = survey.Packages.Where(p => p.Divergent).ToList();
