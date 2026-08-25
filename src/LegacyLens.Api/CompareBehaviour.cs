@@ -12,23 +12,69 @@ namespace LegacyLens.Api;
 /// The command needs no setting turned on. Someone typing it into their own
 /// terminal, against two paths they chose, has already made the decision that
 /// the server cannot make on their behalf.
+///
+/// It is also the far end of <see cref="Detached"/>. A server that compares
+/// behaviour runs this exact command in a process of its own and reads what it
+/// printed, which is why <c>--json</c> exists: the same run, written for a
+/// program rather than for a person. One implementation, two readers. A second
+/// entry point that recomputed any of this would be a second answer waiting to
+/// disagree with the first.
 /// </summary>
 internal static class CompareBehaviour
 {
-    /// <summary>equivalence &lt;before.cs&gt; &lt;after.cs&gt;</summary>
-    public static void Run(string beforePath, string afterPath)
-    {
-        foreach (var path in new[] { beforePath, afterPath })
-        {
-            if (File.Exists(path)) continue;
+    /// <summary>Print the report as data instead of as a page.</summary>
+    public const string Machine = "--json";
 
-            Console.Error.WriteLine($"No such file: {Path.GetFullPath(path)}");
-            return;
+    /// <summary>equivalence [--json] &lt;before.cs&gt; &lt;after.cs&gt;</summary>
+    public static int Run(string[] arguments)
+    {
+        var machine = arguments.Contains(Machine, StringComparer.Ordinal);
+        var paths = arguments.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+
+        if (paths.Length < 2)
+        {
+            Console.Error.WriteLine("Usage: equivalence [--json] <before.cs> <after.cs>");
+            return 2;
+        }
+
+        var (beforePath, afterPath) = (paths[0], paths[1]);
+
+        var missing = new[] { beforePath, afterPath }.FirstOrDefault(path => !File.Exists(path));
+
+        if (missing is not null)
+        {
+            var why = $"Nothing was checked: no such file: {Path.GetFullPath(missing)}.";
+
+            // Even a usage mistake has to come back as a report when a program
+            // is reading. A caller that gets a bare message on one path and a
+            // report on the other has to parse both to find out which it got.
+            if (machine) Console.Out.Write(Wire.Write(Nothing(why)));
+            else Console.Error.WriteLine($"No such file: {Path.GetFullPath(missing)}");
+
+            return 2;
         }
 
         var report = new Equivalence().Compare(
             File.ReadAllText(beforePath), File.ReadAllText(afterPath));
 
+        if (machine)
+        {
+            // Nothing else on this stream. The parent reads all of it and hands
+            // it to a parser, and one stray line of courtesy would be the whole
+            // difference between a report and an unreadable one.
+            Console.Out.Write(Wire.Write(report));
+            return 0;
+        }
+
+        Print(report, beforePath, afterPath);
+        return 0;
+    }
+
+    private static EquivalenceReport Nothing(string why) =>
+        new(false, [], [], [], [], 0, why);
+
+    private static void Print(EquivalenceReport report, string beforePath, string afterPath)
+    {
         Console.WriteLine();
         Console.WriteLine($"  {Path.GetFileName(beforePath)} -> {Path.GetFileName(afterPath)}");
         Console.WriteLine();

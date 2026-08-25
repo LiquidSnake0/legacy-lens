@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json.Serialization;
 
 namespace LegacyLens.Characterization;
 
@@ -16,6 +17,7 @@ public record Compared(
     /// <summary>Something true about the pair that is not a divergence, such as a changed return type.</summary>
     string? Note = null)
 {
+    [JsonIgnore]
     public bool Matched => Divergences.Count == 0;
 }
 
@@ -32,10 +34,25 @@ public record EquivalenceReport(
     IReadOnlyList<string> AfterErrors,
     IReadOnlyList<Compared> Methods,
     IReadOnlyList<Skipped> Skipped,
-    long ElapsedMs)
+    long ElapsedMs,
+
+    /// <summary>
+    /// Why there is no report, when the reason is neither a compilation error
+    /// nor anything the comparison could observe about the code.
+    ///
+    /// A comparison that runs in a process of its own can end in ways it cannot
+    /// watch itself end: killed on its deadline, dead on a stack overflow,
+    /// never started, handed a path that is not there. None of those are a
+    /// compilation error and none of them are a behaviour difference, and
+    /// reporting them as either would be a lie about somebody's rewrite. So
+    /// they are their own answer, and <see cref="Claim"/> reads it first.
+    /// </summary>
+    string? Interrupted = null)
 {
+    [JsonIgnore]
     public IReadOnlyList<Compared> Moved => Methods.Where(m => !m.Matched).ToList();
 
+    [JsonIgnore]
     public int Cases => Methods.Sum(m => m.Cases);
 
     /// <summary>
@@ -45,6 +62,7 @@ public record EquivalenceReport(
     /// file whose work happens through a framework, and reporting it as a pass
     /// would be the worst lie this tool could tell.
     /// </summary>
+    [JsonIgnore]
     public bool Verified => Ran && Methods.Count > 0 && Moved.Count == 0;
 
     /// <summary>
@@ -56,6 +74,7 @@ public record EquivalenceReport(
     /// methods. The unit that decides whether this technique reaches somebody's
     /// code is the method.
     /// </summary>
+    [JsonIgnore]
     public IReadOnlyList<(SkipReason Reason, int Count)> Refusals =>
         Skipped.GroupBy(s => s.Reason)
                .Select(g => (g.Key, g.Select(s => s.Member).Distinct(StringComparer.Ordinal).Count()))
@@ -63,6 +82,7 @@ public record EquivalenceReport(
                .ToList();
 
     /// <summary>How many methods were passed over, however many calls said so.</summary>
+    [JsonIgnore]
     public int PassedOver =>
         Skipped.Select(s => s.Member).Distinct(StringComparer.Ordinal).Count();
 
@@ -72,10 +92,13 @@ public record EquivalenceReport(
     /// Written here rather than left to each caller so there is one place where
     /// the claim can be checked against what the run actually did.
     /// </summary>
+    [JsonIgnore]
     public string Claim
     {
         get
         {
+            if (Interrupted is not null) return Interrupted;
+
             if (!Ran)
             {
                 return BeforeErrors.Count > 0

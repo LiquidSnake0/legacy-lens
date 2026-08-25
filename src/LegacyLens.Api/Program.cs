@@ -31,9 +31,13 @@ if (args is ["characterize", var assemblyPath, ..])
 // rewrite still does the same thing. A command here, and a route only where the
 // operator allowed running code: someone typing this against two paths they
 // chose has already made the decision a server cannot make for them.
-if (args is ["equivalence", var originalPath, var rewrittenPath, ..])
+//
+// This is also the far end of the route. The server does not compare behaviour
+// in its own process; it runs this command in a child and reads what it
+// printed, which is what `--json` is for.
+if (args is ["equivalence", .. var equivalenceArguments])
 {
-    CompareBehaviour.Run(originalPath, rewrittenPath);
+    Environment.ExitCode = CompareBehaviour.Run(equivalenceArguments);
     return;
 }
 
@@ -1104,6 +1108,12 @@ object Shape(Dilemma dilemma, IReadOnlyList<Answered> answers)
 // moved". It reads two files from disk rather than taking source in the body,
 // which keeps it the same shape as everything else here, and it runs only where
 // the operator allowed running code.
+//
+// The comparison itself happens in a child process. Running it here would mean
+// a stack overflow in somebody's legacy code takes the service down, and a
+// method that never returns leaves a thread behind for as long as the service
+// lives. Neither is catchable in process. See `Detached` for what that bounds
+// and, more importantly, for what it does not.
 app.MapPost("/api/equivalence", (EquivalenceRequest request, Execution execution) =>
 {
     if (!execution.Allowed)
@@ -1119,8 +1129,7 @@ app.MapPost("/api/equivalence", (EquivalenceRequest request, Execution execution
 
     try
     {
-        var report = new Equivalence().Compare(
-            File.ReadAllText(request.Before), File.ReadAllText(request.After));
+        var report = new Detached().Compare(request.Before, request.After);
 
         return Results.Ok(new
         {
