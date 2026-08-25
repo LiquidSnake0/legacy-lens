@@ -106,11 +106,24 @@ public class PackagesConfigConversionTests : IDisposable
     }
 
     [Fact]
-    public void Declines_a_project_that_is_blocked()
+    public void Converts_a_blocked_project_anyway_and_says_what_it_does_not_fix()
     {
+        // This asserted the opposite, silently, with a bare `return null` and
+        // no reason given. A package with no path forward still has to be
+        // declared, and declaring it the modern way costs nothing.
+        //
+        // The consequence was not academic. The SDK conversion drops the
+        // hint-path references and tells the reader to convert packages first;
+        // on nopCommerce 3.90 that could not be done for twenty-six of the
+        // twenty-nine projects it had just offered, so the output was a project
+        // file that would not restore. The two have to compose.
         var project = Project("Sample") with { DeadEnds = ["Microsoft.AspNet.Mvc"] };
 
-        Assert.Null(new PackagesConfigConversion().Propose(project, _root));
+        var proposal = new PackagesConfigConversion().Propose(project, _root);
+
+        Assert.NotNull(proposal);
+        Assert.Contains(proposal.Caveats,
+            c => c.Contains("not whether they have a future"));
     }
 
     [Fact]

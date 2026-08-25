@@ -49,7 +49,6 @@ public class PackagesConfigConversion
     public ConversionProposal? Propose(ProjectModernisation project, string rootPath)
     {
         if (project.Packages != PackageDeclaration.PackagesConfig) return null;
-        if (project.Blocked) return null;
 
         var configPath = Path.Combine(Path.GetDirectoryName(project.Path)!, "packages.config");
         if (!File.Exists(configPath)) return null;
@@ -68,6 +67,23 @@ public class PackagesConfigConversion
 
         var before = ReadVerbatim(project.Path);
         var caveats = new List<string>();
+
+        // A package with no path to modern .NET still has to be declared, and
+        // declaring it the modern way costs nothing. Refusing here was the same
+        // category error the SDK conversion made, with a worse consequence:
+        // that conversion drops the hint-path references and tells the reader
+        // to convert packages first, and on nopCommerce 3.90 it could not be
+        // done for twenty-six of the twenty-nine projects it had just offered.
+        // The two have to compose or the output is a project file that will not
+        // restore.
+        if (project.Blocked)
+        {
+            caveats.Add(
+                "Still depends on packages with no path to modern .NET: " +
+                string.Join(", ", project.DeadEnds) +
+                ". This changes how they are declared and not whether they have a future.");
+        }
+
         var after = Rewrite(before, packages, caveats);
 
         var patch = new StringBuilder();

@@ -233,5 +233,9 @@ public static class Conversions
         Console.Out.WriteLine(
             "One at a time on purpose: packages and sdk both rewrite the project file, "
             + "so a patch carrying both cannot apply.");
+        Console.Out.WriteLine(
+            "Run packages before sdk. The SDK conversion drops references pointing into the "
+            + "packages folder, and PackageReference is what puts them back: applied the other "
+            + "way round, the project file comes out without its packages.");
     }
 }
