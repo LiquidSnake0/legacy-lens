@@ -44,6 +44,18 @@ public class Characterizer
     public int CasesPerMethod { get; init; } = 4;
 
     /// <summary>
+    /// Whether the boundaries written into the code are tried alongside the
+    /// invented ones.
+    ///
+    /// On, because a suite that never tries the number the code turns on pins
+    /// the easy half of the behaviour and reads as though it pinned all of it.
+    /// A switch rather than a constant because the two settings are what the
+    /// measurement compared, and a claim about what this catches is only worth
+    /// making while the run that did not do it can still be produced.
+    /// </summary>
+    public bool UsesTheCodesOwnValues { get; init; } = true;
+
+    /// <summary>
     /// Methods attempted in one run. A cap rather than a completeness claim:
     /// exceeded, it is reported rather than silently applied.
     /// </summary>
@@ -94,7 +106,7 @@ public class Characterizer
                 }
             }
 
-            foreach (var arguments in Values.Cases(parameters, CasesPerMethod))
+            foreach (var arguments in Values.Cases(parameters, CasesPerMethod, Mentioned(target)))
             {
                 calls++;
                 var (observation, reason) = observer.Observe(target.Method, instance, arguments);
@@ -122,6 +134,25 @@ public class Characterizer
             considered,
             calls,
             started.ElapsedMilliseconds);
+    }
+
+    /// <summary>
+    /// The values this method's own type mentions, or nothing.
+    ///
+    /// Read from the compiled type rather than from source, because a run is
+    /// handed an assembly and the source it came from may not be on this
+    /// machine. See <see cref="Literals.In"/>.
+    /// </summary>
+    private Func<Type, IReadOnlyList<object?>>? Mentioned(Target target)
+    {
+        if (!UsesTheCodesOwnValues) return null;
+
+        var declaring = target.Method.DeclaringType;
+        if (declaring is null) return null;
+
+        var known = Literals.In(declaring);
+
+        return type => known.TryGetValue(type, out var values) ? values : [];
     }
 
     /// <summary>

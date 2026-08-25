@@ -24,6 +24,24 @@ internal static class Characterize
         var outputDirectory = Option(options, "--out");
         var typeName = Option(options, "--type");
 
+        // How many cases each method gets, and the one number here that costs
+        // somebody something. Measured by mutation on a class with four
+        // boundaries: four cases catch the ones the code names, ten catch all
+        // four mutants and more than double the file. That is a trade for
+        // whoever reads and commits the file rather than one to make for them,
+        // so it is an option with the cheaper end as the default.
+        var asked = Option(options, "--cases");
+        var budget = Number(options, "--cases");
+
+        // Asked for and not understood is refused rather than ignored. Falling
+        // back to the default would produce a smaller file than the person
+        // requested, with nothing anywhere saying it had.
+        if (asked is not null && budget is not (> 0))
+        {
+            Console.Error.WriteLine("--cases has to be a positive whole number.");
+            return;
+        }
+
         var full = Path.GetFullPath(assemblyPath);
 
         if (!File.Exists(full))
@@ -56,6 +74,7 @@ internal static class Characterize
 
         var run = new Characterizer
         {
+            CasesPerMethod = budget ?? new Characterizer().CasesPerMethod,
             Types = typeName is null
                 ? null
                 : type => string.Equals(type.Name, typeName, StringComparison.OrdinalIgnoreCase)
@@ -85,6 +104,10 @@ internal static class Characterize
             Console.WriteLine($"wrote {path}");
         }
     }
+
+    /// <summary>The value after a named option as a number, or null.</summary>
+    private static int? Number(string[] options, string name) =>
+        int.TryParse(Option(options, name), out var value) ? value : null;
 
     /// <summary>
     /// The value after a named option, or null. Deliberately minimal: a command
