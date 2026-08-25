@@ -17,7 +17,7 @@ public enum Standing
 public record UnlistedType(ApiUse Use, Standing Standing, string? Where);
 
 /// <summary>What a whole unknown column turned out to be.</summary>
-public record UnlistedReading(IReadOnlyList<UnlistedType> Types)
+public record UnlistedReading(IReadOnlyList<UnlistedType> Types, bool Applicable = true)
 {
     public IReadOnlyList<UnlistedType> Of(Standing standing) =>
         Types.Where(t => t.Standing == standing).ToList();
@@ -68,6 +68,19 @@ public class Unlisted
     /// </summary>
     public UnlistedReading Read(IEnumerable<ApiUse> unknown, string successorPackage)
     {
+        // Only worth asking where the successor is part of the framework.
+        // log4net's answer is Serilog, which is a package: every type of every
+        // predecessor comes back absent from the framework, which is literally
+        // true and tells nobody anything. Saying so beats printing 22 types
+        // under "the framework does not have at all" and letting a reader
+        // conclude they are gone.
+        // A named successor the runtime does not carry, and only that. An empty
+        // one means the answer is deletion, and there the question still stands:
+        // a name that survives somewhere is a trap and a name that does not is
+        // gone, whether or not anything succeeds the package.
+        if (successorPackage.Length > 0 && !FrameworkTypes.Carries(successorPackage))
+            return new UnlistedReading([], Applicable: false);
+
         var read = new List<UnlistedType>();
 
         foreach (var use in unknown)

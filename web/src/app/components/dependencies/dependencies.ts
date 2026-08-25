@@ -147,9 +147,14 @@ export class Dependencies {
       return `${candidate.percent}% of the calls, and the catalogue has an answer for the rest.`;
     }
 
+    const tail = candidate.unlisted.applicable
+      ? `and the framework accounts for enough of them to leave `
+        + `${candidate.unlisted.left} still to decide.`
+      : `and this successor is a package rather than part of the framework, so `
+        + `nothing here can narrow that down.`;
+
     return `${candidate.percent}% of the calls. ${candidate.unknownCount} type(s) over `
-      + `${candidate.usesUnknown} call(s) are not in the catalogue, and the framework `
-      + `accounts for enough of them to leave ${candidate.unlisted.left} still to decide.`;
+      + `${candidate.usesUnknown} call(s) are not in the catalogue, ${tail}`;
   }
 
   /**

@@ -74,6 +74,19 @@ public static class FrameworkTypes
             .ToList();
     }
 
+    /// <summary>
+    /// Whether the framework carries this namespace family at all.
+    ///
+    /// The question that decides whether asking it about a successor means
+    /// anything. `Microsoft.AspNetCore.Mvc` is part of the framework and can be
+    /// asked; `Serilog` is a package, and every type of every predecessor comes
+    /// back absent from it, which is literally true and tells nobody anything.
+    /// </summary>
+    public static bool Carries(string namespacePrefix) =>
+        namespacePrefix.Length > 0
+        && ByName.Values.Any(places => places.Any(
+            full => full.StartsWith(namespacePrefix + ".", StringComparison.Ordinal)));
+
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> Read()
     {
         var references = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty)

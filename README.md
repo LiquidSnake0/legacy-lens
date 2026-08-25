@@ -772,6 +772,10 @@ pair is the hardest part of an ASP.NET migration rather than a rename. Reported
 as a correspondence it would send somebody into the worst of the work believing
 it was done, so it is labelled and never counted as settled.
 
+It only answers where the answer means something. `log4net`'s successor is
+Serilog, which is a package rather than part of the framework, so the runtime has
+nothing to say about it and says that instead of reporting every type as absent.
+
 **None of it is written back into the catalogue**, and a test says so. The
 generated part stays visibly apart from the written part, or the distinction
 that makes the catalogue worth trusting dissolves into it.
@@ -1061,10 +1065,10 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 521 tests, no network, ~10 s
+dotnet test                                   # 524 tests, no network, ~9 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 153 tests, no network, ~5 s
+cd web && npm test                            # 154 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -1078,8 +1082,8 @@ Working, in halves that need different things of the machine.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 521 unit tests covering
-every layer, plus 153 in the browser, no network and no model in either, and the
+**Question answering** needs an index and a local model. 524 unit tests covering
+every layer, plus 154 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

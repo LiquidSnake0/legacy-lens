@@ -47,6 +47,7 @@ describe('Dependencies', () => {
             usesUnavailable: 5,
             usesUnknown: 1277,
             unlisted: {
+              applicable: true,
               inSuccessor: { types: [{ name: 'TagBuilder', uses: 51, where: 'Microsoft.AspNetCore.Mvc.Rendering.TagBuilder' }], count: 17, uses: 136 },
               elsewhere: { types: [{ name: 'HttpContext', uses: 8, where: 'Microsoft.AspNetCore.Http.HttpContext' }], count: 15, uses: 182 },
               gone: { types: [{ name: 'HttpUnauthorizedResult', uses: 408, where: null }], count: 118, uses: 959 },
@@ -321,5 +322,40 @@ describe('Dependencies', () => {
 
     expect(caveat).not.toBeNull();
     expect(caveat?.textContent).not.toContain('it was not run');
+  });
+
+  it('says nothing rather than everything when the successor is a package', () => {
+    // log4net's answer is Serilog, which nothing in the runtime carries, so
+    // every type of every predecessor comes back absent from the framework.
+    // Literally true, and a reader concludes twenty-two types are gone when
+    // what happened is that the question could not be asked.
+    const packaged = {
+      ...report,
+      packages: [{
+        ...report.packages[0],
+        candidates: [{
+          ...report.packages[0].candidates[0],
+          candidate: 'Serilog',
+          unlisted: {
+            applicable: false,
+            inSuccessor: { types: [], count: 0, uses: 0 },
+            elsewhere: { types: [], count: 0, uses: 0 },
+            gone: { types: [], count: 0, uses: 0 },
+            left: 0,
+          },
+        }],
+      }],
+    };
+
+    const fixture = build('/repos/orchard', packaged);
+    fixture.componentInstance.toggle(packaged.packages[0]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent ?? '';
+
+    expect(element.querySelector('.standing')).toBeNull();
+    expect(text).toContain('is a package rather than part of the framework');
+    expect(text).toContain('nothing here can narrow that down');
   });
 });

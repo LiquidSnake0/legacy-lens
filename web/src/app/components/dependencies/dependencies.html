@@ -67,7 +67,16 @@
                         somebody signed; this is what the target runtime answers
                         when asked whether a name still exists.
                       -->
-                      @if (candidate.unknownCount) {
+                      @if (candidate.unknownCount && !candidate.unlisted.applicable) {
+                        <p class="admission">
+                          {{ candidate.candidate }} is a package rather than part of
+                          the framework, so the runtime cannot be asked what became
+                          of the {{ candidate.unknownCount }} type(s) the catalogue
+                          does not cover. Nothing here is evidence either way.
+                        </p>
+                      }
+
+                      @if (candidate.unknownCount && candidate.unlisted.applicable) {
                         <h4 class="framework">What the framework says about the rest</h4>
 
                         <ul class="standing">

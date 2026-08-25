@@ -122,4 +122,38 @@ public class UnlistedTests
         Assert.Empty(reading.Types);
         Assert.Equal(0, reading.Left);
     }
+
+    [Fact]
+    public void A_successor_that_is_a_package_rather_than_the_framework_is_not_asked()
+    {
+        // The defect this closes. log4net's answer is Serilog, which nothing in
+        // the runtime carries, so every type of every predecessor came back
+        // under "the framework does not have at all". Literally true, and a
+        // reader concludes that twenty-two types are gone when what happened is
+        // that the question could not be asked.
+        var reading = Read("Serilog", Use("ILog"), Use("LogManager"));
+
+        Assert.False(reading.Applicable);
+        Assert.Empty(reading.Types);
+        Assert.Equal(0, reading.Left);
+    }
+
+    [Fact]
+    public void A_successor_the_framework_carries_is_asked_as_before()
+    {
+        var reading = Read("Microsoft.AspNetCore.Mvc", Use("TagBuilder"));
+
+        Assert.True(reading.Applicable);
+        Assert.Single(reading.Of(Standing.InSuccessor));
+    }
+
+    [Fact]
+    public void The_framework_knows_which_of_the_two_it_carries()
+    {
+        Assert.True(FrameworkTypes.Carries("Microsoft.AspNetCore.Mvc"));
+        Assert.True(FrameworkTypes.Carries("System.Text.Json"));
+        Assert.False(FrameworkTypes.Carries("Serilog"));
+        Assert.False(FrameworkTypes.Carries("Autofac"));
+        Assert.False(FrameworkTypes.Carries(string.Empty));
+    }
 }

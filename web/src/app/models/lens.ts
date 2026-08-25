@@ -193,6 +193,14 @@ export interface UnlistedGroup {
  * never reach here: the surface stops attributing those to the package.
  */
 export interface Unlisted {
+  /**
+   * False when the successor is a package rather than part of the framework.
+   *
+   * log4net's answer is Serilog, which nothing in the runtime carries, so every
+   * type of every predecessor comes back absent. Literally true, and it tells
+   * nobody anything.
+   */
+  applicable: boolean;
   inSuccessor: UnlistedGroup;
   elsewhere: UnlistedGroup;
   gone: UnlistedGroup;

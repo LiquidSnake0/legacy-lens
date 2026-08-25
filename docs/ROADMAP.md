@@ -1558,6 +1558,16 @@ rather than a rename. A first version of this looked for the name anywhere under
 `RouteData` resolving to Blazor's. Reported as correspondences they would send
 somebody into the worst of the work believing it was done.
 
+**And it only answers where the answer means something.** `log4net`'s successor
+is Serilog, which nothing in the runtime carries, so every type of every
+predecessor came back under "the framework does not have at all". Literally
+true, and a reader concludes that twenty-two types are gone when what happened
+is that the question could not be asked. A successor the framework does not
+carry is now said to be a package rather than reported as an absence. Of the
+five candidates Orchard's packages have, four are answerable and Serilog is not,
+and `Microsoft.Extensions.Logging` beside it is, which is the pair that makes
+the distinction worth drawing.
+
 **Nothing is written back into the catalogue**, and a test asserts it. The
 generated part has to stay visibly apart from the written part, or the
 distinction that makes the catalogue worth trusting dissolves into it.

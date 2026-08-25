@@ -1176,6 +1176,10 @@ object Unlisted(Coverage coverage)
 
     return new
     {
+        // False when the successor is a package rather than part of the
+        // framework. Then nothing here can be asked, and saying so beats
+        // printing every type under "the framework does not have at all".
+        reading.Applicable,
         inSuccessor = Group(Standing.InSuccessor),
         elsewhere = Group(Standing.Elsewhere),
         gone = Group(Standing.Gone),
