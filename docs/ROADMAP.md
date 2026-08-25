@@ -1593,22 +1593,72 @@ the property that makes this usable on inherited code. It stays in
 
 ---
 
-## M14. Something to hand to somebody
+## M14. Something to hand to somebody ✅
 
-*Planned.*
+*The same program, in one file, with nothing to install.*
 
 Today this is a web service, which is right for a team and wrong for the first
-conversation. A single binary that opens a window, indexes a folder and answers
-questions is what somebody can be handed at the end of a meeting, and it removes
-the sentence that ends most of those meetings: *where would it run?*
+conversation. A single binary that opens a window and reads a folder removes the
+sentence that ends most of those meetings: *where would it run?*
 
-Windows first, because that is where the code being modernised lives. It needs
-code signing, or the first thing the prospect sees is their own machine telling
-them not to trust it, and it needs the local model bundled or fetched on first
-run, which is gigabytes either way.
+`./desktop.sh` builds it, `./desktop.sh win-x64` builds the Windows one, and
+what comes out is 57 MB: the executable, the interface beside it, and the two
+catalogues. No runtime, no web server, no database to install. Double-clicked,
+it picks a port nobody is on, opens the reader's own browser and prints the
+address in case it cannot.
 
-None of that is analysis work. It is the difference between a project and a
-product, and it is worth naming so it does not arrive as a surprise.
+**There is no second implementation of anything.** It is the same executable the
+container runs, published self-contained with the built interface beside it and
+serving both from one port. Which is also the acceptance test: pointed at
+Orchard, the binary answers 3,877 uses, 28 types carrying four fifths, 71 per
+cent covered and 129 left to decide, which is what the server answers to the
+digit.
+
+---
+
+### The model is not in it, and that is the honest half
+
+A local model is gigabytes and cannot be handed over on a memory stick. What
+runs without one is most of this tool: the map, the diagrams, the risk ranking,
+the mechanical conversions, the usage surface, the framework reading, the
+decisions it cannot make for you, and the assessment. Questions and answers need
+Ollama, and the program says so at startup rather than failing at the first
+click.
+
+### What single-file publishing broke, and how it was found
+
+Three things, and none of them by a test. The binary was pointed at Orchard and
+its answers compared with the server's.
+
+**The framework reading was dead.** A self-contained single file embeds its
+assemblies, so `TRUSTED_PLATFORM_ASSEMBLIES` had nothing to open and the
+framework's own surface came back empty. The tool did not fail: it silently
+reported its pre-M13 numbers, 4,379 uses where the server said 3,877, with no
+error anywhere. **The same program giving different answers depending on how it
+was built is worse than one that refuses to run**, so the surface now says it
+could not read the framework instead of counting as though it had looked. The
+packaging fix is `IncludeAllContentForSelfExtract`, which puts the assemblies
+back on disk.
+
+**The catalogues were not found.** They were beside the executable and the
+program looked in `AppContext.BaseDirectory`, which in a single-file build is a
+temporary extraction folder nowhere near it. Every package came back with no
+candidate at all. Both catalogues now look beside the executable first.
+
+**Characterization cannot work there at all.** Compiling a generated test needs
+xunit and the subject as files a compiler can open, and there are none. It says
+so rather than emitting a compilation with no references and reporting the
+result as a test that failed.
+
+### What is still missing
+
+**Code signing.** Unsigned, the first thing a prospect sees is their own machine
+telling them not to trust it, which is worse than no demonstration. A
+certificate is a purchase and an identity check, not a build step, and nothing
+here can substitute for it.
+
+**A first-run experience for the model.** Today it says Ollama is absent. It
+could offer to fetch it.
 
 ---
 

@@ -41,6 +41,14 @@ public class Verifier
     /// the set of assemblies needed to compile "hello world" on modern .NET is
     /// long, version-specific, and not worth guessing.
     /// </summary>
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+        "SingleFile", "IL3000",
+        Justification =
+            "Deliberate, and checked at runtime rather than silenced. Compiling a "
+          + "generated test needs xunit and the subject as files a compiler can open, "
+          + "and a single-file publish embeds them, so Location is empty and there is "
+          + "no path to give. Verify below reports that instead of producing a "
+          + "compilation with no references and calling the result a failing test.")]
     private static IEnumerable<MetadataReference> References(Assembly subject)
     {
         var platform = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? "")
@@ -60,8 +68,30 @@ public class Verifier
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path));
     }
 
+    /// <summary>
+    /// Whether this build can compile anything at all.
+    ///
+    /// A single-file publish embeds its assemblies, so there is no path on disk
+    /// to hand a compiler. Everything else in this tool works there; this one
+    /// capability cannot, and saying so beats emitting a compilation with no
+    /// references and reporting the result as a test that failed.
+    /// </summary>
+    [System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(
+        "SingleFile", "IL3000",
+        Justification = "Asking the question the analyser is warning about, on purpose.")]
+    public static bool Possible => typeof(Xunit.FactAttribute).Assembly.Location.Length > 0;
+
     public Verification Verify(GeneratedSuite suite, Assembly subject)
     {
+        if (!Possible)
+        {
+            return new Verification(false,
+                ["This build has its assemblies embedded in a single file, so there is no "
+                 + "path on disk to compile the generated test against. Run the framework-"
+                 + "dependent build for characterization."],
+                [], new Dictionary<string, string>());
+        }
+
         var compilation = CSharpCompilation.Create(
             $"Characterization_{Guid.NewGuid():N}",
             [CSharpSyntaxTree.ParseText(suite.Source)],

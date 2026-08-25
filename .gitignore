@@ -31,3 +31,10 @@ repos/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Built by the desktop publish and thrown away after it. The interface's source
+# lives in web/; this is where its output is put so one executable can carry it.
+src/LegacyLens.Api/wwwroot/
+
+# La version en un fichier : 57 Mo par cible, reconstruits par ./desktop.sh.
+build/

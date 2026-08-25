@@ -948,6 +948,39 @@ sources:
 Answers are kept against the project they belong to and nowhere else. Deleting
 the project takes them with it.
 
+## One file, nothing to install
+
+The web service above is right for a team and wrong for the first conversation,
+where the question that ends the meeting is *where would it run?*
+
+```bash
+./desktop.sh              # this machine
+./desktop.sh win-x64      # Windows, where the code being modernised lives
+```
+
+What comes out is 57 MB: the executable, the interface beside it, and the two
+catalogues. No runtime, no web server, no database. Double-click it and it picks
+a port nobody is on, opens your browser and prints the address in case it
+cannot.
+
+It is the same executable the container runs, published self-contained with the
+interface beside it. Which is also how it is checked: pointed at Orchard, the
+binary answers 3,877 uses, 28 types carrying four fifths, 71% covered and 129
+left to decide, digit for digit what the server answers.
+
+**The model is not in it.** A local model is gigabytes and does not travel on a
+memory stick. Everything that needs no model still works: the map, the diagrams,
+the risk ranking, the conversions, what holds a codebase back, the decisions it
+cannot make for you, and the assessment. Questions and answers need Ollama, and
+the program says so at startup rather than failing at the first click.
+
+**It is not signed.** Unsigned, the first thing somebody sees on Windows is
+their own machine telling them not to trust it, which is worse than no
+demonstration at all. A certificate is a purchase and an identity check rather
+than a build step.
+
+---
+
 ## Deploying it
 
 **Read this part before putting it on a public address.** The API has no
@@ -1067,7 +1100,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 525 tests, no network, ~9 s
+dotnet test                                   # 526 tests, no network, ~9 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 154 tests, no network, ~5 s
@@ -1084,7 +1117,7 @@ Working, in halves that need different things of the machine.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 525 unit tests covering
+**Question answering** needs an index and a local model. 526 unit tests covering
 every layer, plus 154 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 

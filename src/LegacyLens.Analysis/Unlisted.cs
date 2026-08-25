@@ -78,6 +78,9 @@ public class Unlisted
         // one means the answer is deletion, and there the question still stands:
         // a name that survives somewhere is a trap and a name that does not is
         // gone, whether or not anything succeeds the package.
+        // Nothing to read at all, which a single-file build does to it.
+        if (!FrameworkTypes.Readable) return new UnlistedReading([], Applicable: false);
+
         if (successorPackage.Length > 0 && !FrameworkTypes.Carries(successorPackage))
             return new UnlistedReading([], Applicable: false);
 

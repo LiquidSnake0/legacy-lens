@@ -156,4 +156,22 @@ public class UnlistedTests
         Assert.False(FrameworkTypes.Carries("Autofac"));
         Assert.False(FrameworkTypes.Carries(string.Empty));
     }
+
+    [Fact]
+    public void A_build_that_cannot_read_the_framework_says_so_rather_than_answering()
+    {
+        // Found by running the desktop build. A single-file publish embeds its
+        // assemblies, the framework's own surface came back empty, and the
+        // usage surface silently went back to its pre-M13 numbers: 4,379 uses
+        // where the server said 3,877, with no error anywhere.
+        //
+        // The same program has to give the same answer however it was built, or
+        // say that it could not look. This test pins the property from the one
+        // side a unit test can reach; the packaging side is checked by running
+        // the binary and comparing it against the server, which is what found it.
+        Assert.True(FrameworkTypes.Readable,
+            "this build can read the framework, so the reading must be applicable");
+
+        Assert.True(Read("Microsoft.AspNetCore.Mvc", Use("TagBuilder")).Applicable);
+    }
 }

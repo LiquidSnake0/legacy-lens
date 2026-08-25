@@ -319,6 +319,15 @@ public class ApiSurface
                 + "counted: telling Assert.That from services.Add needs resolved symbols.");
         }
 
+        if (!FrameworkTypes.Readable)
+        {
+            notes.Add(
+                "The target framework's own surface could not be read in this build, so "
+                + "names it still supplies are counted here as though they were this "
+                + "package's. The figure is therefore higher than the same codebase would "
+                + "give from a build that can read it.");
+        }
+
         if (supplied.Count > 0)
         {
             notes.Add(

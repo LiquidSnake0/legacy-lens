@@ -21,3 +21,8 @@ repos/
 *.db-shm
 *.db-wal
 .env
+
+# The interface, when a desktop build has just put it beside the API. The
+# container serves it from its own nginx, and a copy inside the API image would
+# be a second one nobody asked for.
+src/LegacyLens.Api/wwwroot/

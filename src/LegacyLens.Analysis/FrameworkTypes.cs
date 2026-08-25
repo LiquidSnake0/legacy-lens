@@ -75,6 +75,21 @@ public static class FrameworkTypes
     }
 
     /// <summary>
+    /// Whether the framework's own surface could be read at all.
+    ///
+    /// False where the assemblies are not files this process can open, which is
+    /// what a single-file publish does to them. Everything downstream then has
+    /// to say it could not look, rather than answering as though it had looked
+    /// and found nothing: that is the difference between a tool that reports
+    /// less and a tool that reports differently depending on how it was built.
+    ///
+    /// Found by running the desktop build. The usage surface silently went back
+    /// to its pre-M13 numbers, 4,379 uses where the server said 3,877, with no
+    /// error anywhere.
+    /// </summary>
+    public static bool Readable => ByName.Count > 0;
+
+    /// <summary>
     /// Whether the framework carries this namespace family at all.
     ///
     /// The question that decides whether asking it about a successor means

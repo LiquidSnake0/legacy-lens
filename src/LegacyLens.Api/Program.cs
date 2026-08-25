@@ -165,6 +165,13 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
+// Double-clicked rather than deployed: pick a free port before the host is
+// built, so the address printed below is the address it listens on.
+var desktop = Desktop.Wanted(builder.Configuration, builder.Environment.ContentRootPath);
+var desktopUrl = desktop ? $"http://127.0.0.1:{Desktop.FreePort()}" : null;
+
+if (desktopUrl is not null) builder.WebHost.UseUrls(desktopUrl);
+
 var app = builder.Build();
 
 // The schema is brought forward once, before any request can read a table
@@ -174,6 +181,21 @@ var app = builder.Build();
 _ = new Workspaces(app.Services.GetRequiredService<IVectorStore>().Connection);
 
 app.UseCors();
+
+// The built interface, when it travels with the executable. Absent in the
+// container image, where nginx serves it from its own: this is what makes the
+// single file a program somebody can be handed rather than a service somebody
+// has to stand up.
+if (Directory.Exists(Path.Combine(app.Environment.ContentRootPath, "wwwroot")))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+
+    // Anything that is not a file and not the API is the single page itself.
+    // Without this, a reload on any route the browser has in its address bar
+    // answers 404, which reads as the program being broken.
+    app.MapFallbackToFile("index.html");
+}
 
 // Workspaces and the ledger run their statements on the store's connection
 // directly, so they take the same gate the store takes for its own. Never call
@@ -1209,4 +1231,35 @@ IResult ModelUnreachable(HttpRequestException exception) => Results.Json(
     },
     statusCode: StatusCodes.Status503ServiceUnavailable);
 
+if (desktopUrl is not null)
+{
+    // Told after the host is listening, so the browser does not race the port.
+    app.Lifetime.ApplicationStarted.Register(() =>
+    {
+        Desktop.ReportModel(ModelReachable(ollamaUrl), ollamaUrl);
+        Desktop.Open(desktopUrl);
+    });
+}
+
 app.Run();
+
+/// <summary>
+/// Whether anything answers where a model should be.
+///
+/// One short request at startup rather than a failure at the first question.
+/// Somebody handed this at the end of a meeting has ten minutes, and losing
+/// them to an error on the one screen that needed a download is how a
+/// demonstration ends.
+/// </summary>
+static bool ModelReachable(string url)
+{
+    try
+    {
+        using var probe = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        return probe.GetAsync($"{url}/api/tags").GetAwaiter().GetResult().IsSuccessStatusCode;
+    }
+    catch (Exception exception) when (exception is not OutOfMemoryException)
+    {
+        return false;
+    }
+}
