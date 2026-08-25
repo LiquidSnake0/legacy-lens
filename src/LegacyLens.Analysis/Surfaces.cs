@@ -14,8 +14,10 @@ namespace LegacyLens.Analysis;
 /// **4,379** for the same directory: five hundred apart, thirteen per cent, and
 /// the larger number is the one M13 was built to stop reporting, because it
 /// counts types the framework still supplies as a dead package's work. The
-/// README publishes 3,877, so the command contradicted the project's own
-/// measurement.
+/// README published 3,877 at the time, so the command contradicted the
+/// project's own measurement. Both figures moved together when M20 corrected
+/// how a solution's own attributes are recognised; the divergence is what this
+/// class exists for, not the absolute number.
 ///
 /// The lesson M14 wrote down applies here without a word changed: **the same
 /// program giving different answers depending on how it was asked is worse than

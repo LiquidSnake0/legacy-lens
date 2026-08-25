@@ -367,9 +367,9 @@ is meant to be written to a file, converted to PDF or pasted into a ticket.
 **It carries what the codebase actually uses of the packages with no future.**
 Counting how many projects reference a package cannot separate an afternoon of
 find-and-replace from a rewrite, and how much of it is used, by how few types,
-with how much already answered, can. On Orchard the document says 3,877 uses of
-198 types across 365 files, 28 types carrying four fifths of it, a successor
-covering 71 per cent, and 129 types still to decide once the framework has been
+with how much already answered, can. On Orchard the document says 3,634 uses of
+190 types across 365 files, 24 types carrying four fifths of it, a successor
+covering 76 per cent, and 121 types still to decide once the framework has been
 asked about the ones nobody catalogued. That reading is a second walk over every
 source file, which took the assessment from 4.8 to 8.2 seconds on Orchard.
 
@@ -754,8 +754,8 @@ It reads what the codebase uses of each catalogued package, how concentrated
 that usage is, and scores the candidate replacements against it. No model is
 involved.
 
-On Orchard, for the package that blocks 73 of its 89 projects: 3,877 calls
-across 365 files, of which **28 types carry four fifths**. That is the number
+On Orchard, for the package that blocks 73 of its 89 projects: 3,634 calls
+across 365 files, of which **24 types carry four fifths**. That is the number
 that turns "73 projects blocked" into a catalogue somebody can write.
 
 A name the target framework still supplies under `System.*`, and that the
@@ -994,6 +994,38 @@ That is also the honest shape of what this tool offers. **It can tell you with
 certainty what you have no choice about, and price it. What you have a choice
 about is yours.**
 
+### And whether the correspondences themselves are right
+
+One level below the package question. When the catalogue says `ActionResult`
+becomes `IActionResult`, is that what a team wrote?
+
+```bash
+dotnet run --project src/LegacyLens.Api -- correspondences /repos/before /repos/after
+```
+
+Across the same four migrations, counting only correspondences the old code
+actually used: **137 of 195 turned up in the finished code**. A counterpart that
+does not appear is not a wrong entry, because the team may never have needed it,
+so the two are reported apart and the second is never called an error.
+
+The other half is what the catalogue is missing: **110 names** the old code
+used, nobody wrote down, and the successor has under the same name. `TagBuilder`,
+`ViewContext`, `ModelBindingContext`, `HelperResult`. Types that kept their name
+and changed namespace, which is transcription rather than judgement, and
+transcription is what leaves a hundred types in the column nobody has looked at.
+
+Candidates for a person to sign, never entries written back by a machine. A name
+surviving into an unrelated namespace is a trap, which is why only the
+successor's own namespace is looked in.
+
+**Going down a level found a defect in the level above.** The candidate list
+came back full of nopCommerce's own attributes. C# declares
+`FormValueRequiredAttribute` and every use is written `[FormValueRequired]`; the
+reader recorded uses under the short spelling on purpose and never did the same
+for declarations, so a solution's own attributes went out as the package's. On
+Orchard that put this README's headline figure six per cent too high, 3,877
+where it should have said 3,634. Every test passed, because there was no test.
+
 ### What it cannot decide for you
 
 Some of what decides a migration is not in the repository. How many machines
@@ -1065,7 +1097,7 @@ cannot.
 
 It is the same executable the container runs, published self-contained with the
 interface beside it. Which is also how it is checked: pointed at Orchard, the
-binary answers 3,877 uses, 28 types carrying four fifths, 71% covered and 129
+binary answers 3,634 uses, 24 types carrying four fifths, 76% covered and 121
 left to decide, digit for digit what the server answers.
 
 **The model is not in it.** A local model is gigabytes and does not travel on a

@@ -10,7 +10,9 @@ namespace LegacyLens.Tests;
 /// abstaining. On Orchard that is 3,877 uses of `Microsoft.AspNet.Mvc` against
 /// 4,379: thirteen per cent apart, with the larger number counting types the
 /// framework still supplies as a dead package's work, which is exactly what M13
-/// was built to stop reporting. The README publishes 3,877.
+/// was built to stop reporting. Both figures moved together when M20 corrected
+/// how a solution's own attributes are recognised; what mattered was that they
+/// disagreed at all.
 ///
 /// M14 wrote the rule this breaks: the same program giving different answers
 /// depending on how it was asked is worse than one that refuses to answer.

@@ -1122,13 +1122,17 @@ Measured on Orchard, for the package that holds 73 of its 89 projects:
 
 | | |
 |---|---|
-| Uses of `Microsoft.AspNet.Mvc` | **3,877** |
-| Distinct types | **198** |
+| Uses of `Microsoft.AspNet.Mvc` | **3,634** |
+| Distinct types | **190** |
 | Files importing it | **365** |
-| **Types carrying four fifths of it** | **28** |
-| Files carrying four fifths of it | **135** |
+| **Types carrying four fifths of it** | **24** |
+| Files carrying four fifths of it | **134** |
 
-**Twenty-eight.** That is the number this milestone exists to produce. "73
+*These are the figures after M20 corrected how a solution's own attributes are
+recognised. When this milestone shipped they read 3,877 uses of 198 types with
+28 carrying four fifths.*
+
+**Twenty-four.** That is the number this milestone exists to produce. "73
 projects blocked" is a wall; "28 type correspondences cover eighty per cent of
 the work" is a catalogue somebody can write in an afternoon. The two sentences
 describe the same codebase.
@@ -1610,9 +1614,10 @@ address in case it cannot.
 **There is no second implementation of anything.** It is the same executable the
 container runs, published self-contained with the built interface beside it and
 serving both from one port. Which is also the acceptance test: pointed at
-Orchard, the binary answers 3,877 uses, 28 types carrying four fifths, 71 per
-cent covered and 129 left to decide, which is what the server answers to the
-digit.
+Orchard, the binary answers 3,634 uses, 24 types carrying four fifths, 76 per
+cent covered and 121 left to decide, which is what the server answers to the
+digit. Those are the figures as they stand after M20; the property being checked
+is that the two agree, and they still do.
 
 ---
 
@@ -1827,7 +1832,7 @@ command   Microsoft.AspNet.Mvc: 4379 use(s) of 267 type(s), across 365 file(s)
 
 Thirteen per cent apart, and the larger one is the number M13 was built to stop
 reporting, because it counts types the framework still supplies as a dead
-package's work. This README publishes 3,877, so the command contradicted the
+package's work. The README published 3,877 at the time, so the command contradicted the
 project's own measurement.
 
 The rule M14 wrote down applies without a word changed: **the same program
@@ -1849,17 +1854,17 @@ So the reading is in the assessment, and the document has a section for it. On
 Orchard:
 
 ```
-3,877 uses of 198 types, across 365 files. 28 types and 135 files carry four
+3,634 uses of 190 types, across 365 files. 24 types and 134 files carry four
 fifths of it.
 
-Microsoft.AspNetCore.Mvc covers 71% of those calls. 146 types, 1,127 calls,
+Microsoft.AspNetCore.Mvc covers 76% of those calls. 138 types, 884 calls,
 are not in the catalogue at all: unknown, which is not the same as fine.
 
 Asked of the framework itself rather than of the catalogue: 17 types of that
 column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a
 lead worth checking. 15 types exist somewhere unrelated, which is a trap
-rather than an answer. 114 types the framework does not have at all. That
-leaves 129 types still to decide.
+rather than an answer. 106 types the framework does not have at all. That
+leaves 121 types still to decide.
 ```
 
 Those are the figures M14's acceptance test used, now in the artefact rather
@@ -2032,6 +2037,75 @@ harder afterwards. Nothing measured falls in between.
 time. It is in `Catalogues` now, one copy, which matters because getting it
 wrong is silent: a single-file publish extracts to a temporary folder, and that
 is how M14 shipped a binary where every package came back with no candidate.
+
+---
+
+## M20. One level down, and what was found there ✅
+
+*The package question was: does this dependency move. This one is: when the
+catalogue says `ActionResult` becomes `IActionResult`, is that what a team
+wrote?*
+
+`correspondences <before> <after>` reads both trees and holds every recorded
+correspondence the old code exercised against what turns up in the new one.
+
+### Going a level down found a defect in the level above
+
+The candidate list came back full of nopCommerce's own attributes:
+`FormValueRequired`, `PublicAntiForgery`, `AdminAntiForgery`. A solution's own
+code, counted as ASP.NET MVC.
+
+C# declares `FormValueRequiredAttribute` and every use of it is written
+`[FormValueRequired]`. The reader already knew this and recorded uses under the
+short spelling on purpose. **The declaration side was never given the same
+treatment**, so the declared name never matched the used one and a solution's
+own attributes went out as the package's.
+
+| | before | after |
+|---|---|---|
+| nopCommerce 3.90, `Microsoft.AspNet.Mvc` | 4,860 uses | 4,443 |
+| Orchard, `Microsoft.AspNet.Mvc` | 3,877 uses of 198 types | **3,634 of 190** |
+| Orchard, types carrying four fifths | 28 | **24** |
+| Orchard, covered by the successor | 71% | **76%** |
+| Orchard, still to decide | 129 | **121** |
+
+Six per cent on the figure this repository has published since M13. **Every test
+passed.** There was no test: the reader's own comment described the two
+spellings and only half the rule was implemented, and nothing anywhere compared
+a name against a real migration until now. The published numbers above are
+corrected in place; where an older section used them to tell the story of a
+different defect they are left as they were, marked.
+
+### What the catalogue got right
+
+Across the four pairs, counting only correspondences the old code actually used:
+
+| | confirmed | recorded | candidates found |
+|---|---|---|---|
+| nopCommerce | 22 | 35 | 21 |
+| Umbraco | 33 | 47 | 27 |
+| Smartstore | 46 | 59 | 34 |
+| Orchard | 36 | 54 | 28 |
+| | **137** | **195** | **110** |
+
+**A counterpart that does not turn up is not a wrong entry.** The team may
+simply never have needed it, and nothing here can tell the two apart. So the
+two are reported apart and the second is never called an error.
+
+### And what it is missing
+
+**110 names** the old code used, the catalogue does not mention, and the
+successor has under the same name. `TagBuilder`, `ViewContext`,
+`ModelBindingContext`, `HelperResult`, `ActionDescriptor`: types that kept their
+name and changed namespace, which is transcription rather than judgement, and
+transcription is what leaves a hundred types sitting in the column nobody has
+looked at.
+
+They are **candidates for a person to sign, never entries written back by a
+machine.** A name surviving into an unrelated namespace is the trap M13 exists
+to catch, which is why only the successor's own namespace is looked in. They
+also carry the attribution approximation the README has always declared: a file
+importing two packages cannot be split between them by syntax alone.
 
 ---
 

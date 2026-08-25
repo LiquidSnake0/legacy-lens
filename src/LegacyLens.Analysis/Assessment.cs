@@ -81,8 +81,8 @@ public record Assessment(
     /// What the codebase uses of the packages whose future is in question.
     ///
     /// The report used to say "78 packages nobody has classified" and stop,
-    /// while the tool already knew that one of them accounts for 3,877 uses of
-    /// 198 types across 365 files and that a successor covers 63 per cent of
+    /// while the tool already knew that one of them accounts for 3,634 uses of
+    /// 190 types across 365 files and that a successor covers three quarters of
     /// them. That number is the one that separates an afternoon from a
     /// rewrite, and it was reachable only by running a second command.
     ///
