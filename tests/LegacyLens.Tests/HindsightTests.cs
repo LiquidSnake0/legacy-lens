@@ -42,6 +42,36 @@ public class HindsightTests : IDisposable
 
     private IReadOnlyList<Reckoning> Compare() => new Hindsight().Compare(_before, _after);
 
+    /// <summary>
+    /// The same comparison against a catalogue that only knows what is named
+    /// here.
+    ///
+    /// Needed because the shipped catalogue now has an opinion about every
+    /// package the surface can see, so silence cannot be reached by picking one
+    /// it forgot. Injecting the judgement is also the honest way to test what
+    /// happens without it, rather than relying on a gap that a later commit
+    /// would close.
+    /// </summary>
+    private IReadOnlyList<Reckoning> ComparedKnowing(params (string Package, bool Strands)[] known)
+    {
+        var path = Path.Combine(_work, $"stranded-{Guid.NewGuid():N}.json");
+
+        File.WriteAllText(path, "{" + string.Join(",", known.Select(entry =>
+            $$"""
+              "{{entry.Package}}": { "strands": {{entry.Strands.ToString().ToLowerInvariant()}},
+                                     "why": "written by a test" }
+              """)) + "}");
+
+        var strandings = Strandings.Load(path);
+
+        // A fixture that will not parse is reported as an empty catalogue,
+        // which is right for the tool and useless for a test: everything would
+        // come back unjudged and the assertion would pass for the wrong reason.
+        Assert.Equal(known.Length, strandings.Count);
+
+        return new Hindsight(strandings: strandings).Compare(_before, _after);
+    }
+
     private Reckoning Of(string package) => Compare().Single(r => r.Package == package);
 
     private const string UsesMvc = """
@@ -141,8 +171,11 @@ public class HindsightTests : IDisposable
     }
 
     [Fact]
-    public void A_high_coverage_that_was_taken_up_counts_as_agreement()
+    public void A_package_that_cannot_stay_is_expected_to_be_gone()
     {
+        // The prediction, and the only one marked. `System.Web.Mvc` is built on
+        // something ASP.NET Core does not have, so staying is not one of the
+        // options and the coverage number has no bearing on it.
         Write(_before, "Home.cs", UsesMvc);
         Write(_after, "Home.cs", """
             using Microsoft.AspNetCore.Mvc;
@@ -155,47 +188,100 @@ public class HindsightTests : IDisposable
 
         var reckoning = Of("Microsoft.AspNet.Mvc");
 
-        Assert.True(reckoning.Coverage >= Hindsight.Substitutable);
+        Assert.True(reckoning.Strands);
+        Assert.False(reckoning.Expected);
+        Assert.False(reckoning.StillThere);
         Assert.True(reckoning.Agreed);
     }
 
     [Fact]
-    public void A_low_coverage_that_was_kept_also_counts_as_agreement()
+    public void A_package_that_runs_on_the_target_is_expected_to_stay()
     {
-        // Both halves of the claim are claims. Saying "this one is a rewrite,
-        // they will not do it" is worth as much as the other, and a score that
-        // only counted the ports would be measuring enthusiasm.
+        // The other half, and it is a claim of equal weight. Newtonsoft ships a
+        // modern build, so nothing forces the move and a team keeps what works.
         Write(_before, "Store.cs", UsesNewtonsoft);
         Write(_after, "Store.cs", UsesNewtonsoft);
 
         var reckoning = Of("Newtonsoft.Json");
 
-        Assert.True(reckoning.Coverage < Hindsight.Substitutable);
+        Assert.False(reckoning.Strands);
+        Assert.True(reckoning.Expected);
+        Assert.True(reckoning.StillThere);
         Assert.True(reckoning.Agreed);
     }
 
     [Fact]
-    public void A_package_the_catalogue_says_nothing_about_is_never_scored()
+    public void A_migration_in_progress_is_read_by_weight_and_not_by_presence()
+    {
+        // Both packages being present says nothing on its own. A stranded one
+        // on its way out leaves a shrinking remainder; a library somebody kept
+        // and added to does not shrink. Measured on real pairs: Umbraco's MVC
+        // went from 1,106 uses to 18, and Smartstore's Newtonsoft went from
+        // 1,045 to 1,572 with two files on the successor.
+        // Ten files down to one, which is the order of magnitude a real port
+        // leaves behind: Umbraco's MVC went from 1,106 uses to 18.
+        foreach (var index in Enumerable.Range(0, 10))
+            Write(_before, $"Controller{index}.cs", UsesMvc.Replace("HomeController", $"C{index}"));
+
+        Write(_after, "Left.cs", UsesMvc);
+        Write(_after, "New.cs", """
+            using Microsoft.AspNetCore.Mvc;
+
+            public class NewController : Controller
+            {
+                public IActionResult Index() => View();
+            }
+            """);
+
+        var reckoning = Of("Microsoft.AspNet.Mvc");
+
+        Assert.Equal(Fate.Straddling, reckoning.Became);
+        Assert.False(reckoning.StillThere);
+    }
+
+    [Fact]
+    public void And_a_library_that_grew_alongside_the_successor_is_still_there()
+    {
+        Write(_before, "Store.cs", UsesNewtonsoft);
+        Write(_after, "Store.cs", UsesNewtonsoft);
+        Write(_after, "More.cs", UsesNewtonsoft);
+        Write(_after, "Toe.cs", """
+            using System.Text.Json;
+
+            public class Toe
+            {
+                public JsonSerializerOptions Options() => null;
+            }
+            """);
+
+        var reckoning = Of("Newtonsoft.Json");
+
+        Assert.Equal(Fate.Straddling, reckoning.Became);
+        Assert.True(reckoning.StillThere);
+        Assert.True(reckoning.Agreed);
+    }
+
+    [Fact]
+    public void A_package_nobody_has_judged_is_scored_in_neither_direction()
     {
         // A question that was never asked cannot be right or wrong, and folding
         // silence into the numerator or the denominator is how an agreement
-        // rate becomes meaningless.
-        Write(_before, "Data.cs", """
-            using System.Data.Entity;
+        // rate stops meaning anything.
+        Write(_before, "Home.cs", UsesMvc);
+        Write(_before, "Store.cs", UsesNewtonsoft);
+        Write(_after, "Store.cs", UsesNewtonsoft);
 
-            public class Context : DbContext { }
-            """);
-        Write(_after, "Data.cs", """
-            using System.Data.Entity;
+        var reckonings = ComparedKnowing(("Newtonsoft.Json", false));
+        var unjudged = reckonings.Single(r => r.Package == "Microsoft.AspNet.Mvc");
 
-            public class Context : DbContext { }
-            """);
+        Assert.Null(unjudged.Strands);
+        Assert.Null(unjudged.Expected);
+        Assert.Null(unjudged.Agreed);
 
-        var reckoning = Of("EntityFramework");
+        var marking = Hindsight.Mark(reckonings);
 
-        Assert.Null(reckoning.Proposed);
-        Assert.Null(reckoning.Agreed);
-        Assert.Null(Hindsight.Agreement([reckoning]));
+        Assert.Equal(0, marking.Forced);
+        Assert.Equal(1, marking.Chosen);
     }
 
     [Fact]
@@ -224,7 +310,7 @@ public class HindsightTests : IDisposable
     }
 
     [Fact]
-    public void The_agreement_rate_counts_only_what_was_claimed()
+    public void The_two_halves_of_the_score_are_never_blended()
     {
         Write(_before, "Home.cs", UsesMvc);
         Write(_before, "Store.cs", UsesNewtonsoft);
@@ -248,10 +334,14 @@ public class HindsightTests : IDisposable
             public class Context : DbContext { }
             """);
 
-        var agreement = Hindsight.Agreement(Compare());
+        var marking = Hindsight.Mark(Compare());
 
-        Assert.NotNull(agreement);
-        Assert.Equal(2, agreement.Value.Judged);
-        Assert.Equal(2, agreement.Value.Agreed);
+        // Two rates, never one. What the runtime forces is a prediction; what a
+        // team may do either way is not, and a blended number would be true of
+        // neither.
+        Assert.Equal(1, marking.Forced);
+        Assert.Equal(1, marking.ForcedHeld);
+        Assert.Equal(2, marking.Chosen);
+        Assert.Equal(2, marking.ChosenHeld);
     }
 }

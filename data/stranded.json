@@ -1,0 +1,55 @@
+{
+  "//": "Whether a package has any life at all on modern .NET, which is a different question from what replaces it.",
+  "//1": "Measured, not guessed: three real ports moved every one of these six web packages regardless of how much a successor covered, from 8 per cent to 68, and kept every library that still ships a modern build.",
+  "//2": "A package absent from this file is unknown. Unknown is not the same as fine, and nothing is claimed about it.",
+
+  "Microsoft.AspNet.Mvc": {
+    "strands": true,
+    "why": "System.Web.Mvc is built on System.Web, which ASP.NET Core does not have and never will. Staying is not one of the options."
+  },
+  "Microsoft.AspNet.Razor": {
+    "strands": true,
+    "why": "The old Razor engine lives in System.Web.Razor and goes with System.Web."
+  },
+  "Microsoft.AspNet.WebPages": {
+    "strands": true,
+    "why": "System.Web.WebPages and its helpers are part of the old hosting stack."
+  },
+  "Microsoft.Web.Infrastructure": {
+    "strands": true,
+    "why": "It exists to register modules with the old pipeline. Nothing replaces it because nothing needs to."
+  },
+  "Microsoft.AspNet.WebApi.Core": {
+    "strands": true,
+    "why": "System.Web.Http is the old Web API stack. ASP.NET Core folds Web API and MVC into one framework."
+  },
+  "Microsoft.AspNet.WebApi.WebHost": {
+    "strands": true,
+    "why": "It hosts the old Web API inside IIS through System.Web."
+  },
+  "Owin": {
+    "strands": true,
+    "why": "Katana is the .NET Framework host. ASP.NET Core has its own pipeline and does not run it."
+  },
+
+  "Newtonsoft.Json": {
+    "strands": false,
+    "why": "Ships for netstandard2.0 and runs unchanged on modern .NET. Moving to System.Text.Json is a choice somebody makes, not one the runtime makes for them."
+  },
+  "log4net": {
+    "strands": false,
+    "why": "Ships for netstandard2.0. Moving to Microsoft.Extensions.Logging is a choice."
+  },
+  "Autofac": {
+    "strands": false,
+    "why": "Has supported modern .NET for years and integrates with the built-in container rather than being replaced by it."
+  },
+  "EntityFramework": {
+    "strands": false,
+    "why": "EF6 runs on modern .NET since 6.3. Moving to EF Core is a choice, and an expensive one: the query semantics differ in ways that compile and behave differently."
+  },
+  "NHibernate": {
+    "strands": false,
+    "why": "Ships for netstandard2.0 and runs on modern .NET."
+  }
+}

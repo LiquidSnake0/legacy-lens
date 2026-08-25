@@ -60,9 +60,21 @@ internal static class Reckon
                 $"    before   {reckoning.UsesBefore} use(s) of {reckoning.TypesBefore} "
               + $"type(s), across {reckoning.FilesBefore} file(s)");
 
+            Console.WriteLine(reckoning.Strands switch
+            {
+                true => "    expected gone: it has no life on the target, whatever anyone prefers",
+                false => "    expected to stay: it runs on the target, so moving is a choice",
+                _ => "    expected nothing: nobody recorded whether it can stay",
+            });
+
+            // Printed after the prediction and never as it: this estimates how
+            // much of a move is a substitution rather than a rewrite, which is
+            // a cost. It was marked as a prediction for one milestone and got
+            // four of ten, because it was answering a different question.
             Console.WriteLine(reckoning.Proposed is null
-                ? "    proposed nothing: the catalogue has no candidate for it"
-                : $"    proposed {reckoning.Proposed}, covering {reckoning.Coverage}% of the calls");
+                ? "    no candidate recorded, so nothing about the cost of moving"
+                : $"    {reckoning.Coverage}% of the calls have a recorded counterpart in "
+                + $"{reckoning.Proposed}");
 
             Console.WriteLine($"    became   {reckoning.Claim}");
 
@@ -70,27 +82,35 @@ internal static class Reckon
             // and pipes that have no colour to give it.
             Console.WriteLine(reckoning.Agreed switch
             {
-                true => "    the number pointed the way they went",
-                false => "    THE NUMBER POINTED THE OTHER WAY",
+                true => "    the prediction held",
+                false => "    THE PREDICTION DID NOT HOLD",
                 _ => "    nothing was claimed, so nothing was right or wrong",
             });
 
             Console.WriteLine();
         }
 
-        var agreement = Hindsight.Agreement(reckonings);
+        var marking = Hindsight.Mark(reckonings);
 
-        if (agreement is var (agreed, judged) && agreement is not null)
+        if (!marking.Anything)
         {
-            Console.WriteLine(
-                $"  {agreed} of {judged} claim(s) pointed the way the team went. Above "
-              + $"{Hindsight.Substitutable}% covered is read as a substitution they would make, "
-              + "below it as a rewrite they would not.");
+            Console.WriteLine("  Nobody has recorded whether any of these can stay, so there is "
+                            + "nothing to have been right or wrong about.");
         }
         else
         {
-            Console.WriteLine("  The catalogue claimed nothing about any of these, so there is "
-                            + "no agreement to report.");
+            // Two rates and never one. Across four real migrations the forced
+            // half held fifteen times out of fifteen and the discretionary half
+            // six out of twelve; a single blended number would have hidden the
+            // only thing worth knowing.
+            Console.WriteLine(
+                $"  {marking.ForcedHeld} of {marking.Forced}: what the target leaves no choice "
+              + "about. A package with no life there goes, whatever anyone would have preferred.");
+
+            Console.WriteLine(
+                $"  {marking.ChosenHeld} of {marking.Chosen}: what a team was free to decide "
+              + "either way. This is not a prediction and should not be read as one. A port "
+              + "keeps what still runs; a rewrite keeps nothing.");
         }
 
         Console.WriteLine();

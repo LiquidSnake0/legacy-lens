@@ -1,5 +1,17 @@
 namespace LegacyLens.Analysis;
 
+/// <summary>
+/// How each half of the prediction did, kept apart on purpose.
+///
+/// One half says what the runtime leaves no choice about, and it is a
+/// prediction. The other says what a team is free to do either way, and it is
+/// not. Blending them produces a number that is true of neither.
+/// </summary>
+public record Marking(int ForcedHeld, int Forced, int ChosenHeld, int Chosen)
+{
+    public bool Anything => Forced + Chosen > 0;
+}
+
 /// <summary>What a team did about one dependency, once they had finished.</summary>
 public enum Fate
 {
@@ -30,7 +42,9 @@ public record Reckoning(
     /// <summary>The share of the calls that proposal covers, as the catalogue records it.</summary>
     int Coverage,
     /// <summary>Files in the finished code importing that proposal.</summary>
-    int FilesOnProposed)
+    int FilesOnProposed,
+    /// <summary>Whether anybody recorded that this package cannot stay. Null where nobody did.</summary>
+    bool? Strands = null)
 {
     public Fate Became => (UsesAfter > 0, FilesOnProposed > 0) switch
     {
@@ -41,19 +55,50 @@ public record Reckoning(
     };
 
     /// <summary>
-    /// Whether the catalogue's number pointed the same way the team went.
+    /// Whether the package is still in the finished code.
     ///
-    /// The hypothesis this whole comparison exists to test, stated so it can be
-    /// counted rather than admired: a high coverage means the move is a
-    /// substitution and a team will make it, a low one means it is a rewrite in
-    /// disguise and they will not. Null where the catalogue proposed nothing,
-    /// because a question that was never asked cannot be right or wrong.
+    /// The fact the prediction is marked against. A migration caught in the
+    /// middle is judged by weight rather than by presence: a stranded package
+    /// on its way out leaves a shrinking remainder, and a library somebody kept
+    /// does not shrink. Umbraco's MVC went from 1,106 uses to 18 and is gone in
+    /// every sense that matters; Smartstore's Newtonsoft went from 1,045 to
+    /// 1,572 with two files on the successor, and calling that a move would be
+    /// reading a toe in the water as a decision.
     /// </summary>
-    public bool? Agreed => Proposed is null
-        ? null
-        : Coverage >= Hindsight.Substitutable
-            ? Became is Fate.Ported or Fate.Straddling
-            : Became is Fate.Kept or Fate.Dropped;
+    public bool StillThere => Became switch
+    {
+        Fate.Kept or Fate.Straddling => UsesAfter * Remainder > UsesBefore,
+        _ => false,
+    };
+
+    /// <summary>
+    /// What counts as a remainder rather than a dependency.
+    ///
+    /// A fifth, and the number barely matters, which is the point. Across three
+    /// real ports the packages on their way out were left at 1.6, 2.5 and 11
+    /// per cent of their former usage, and the ones the teams kept were at 78
+    /// per cent or more, several of them well over a hundred because they were
+    /// used harder afterwards. Nothing measured falls between eleven and
+    /// seventy-eight, so anything chosen inside that gap gives the same answer
+    /// and this is not a threshold anybody has to defend to the decimal.
+    /// </summary>
+    private const int Remainder = 5;
+
+    /// <summary>
+    /// Whether it was expected to still be there, or null where nothing was claimed.
+    ///
+    /// A package that cannot exist on the target is expected to be gone. One
+    /// that runs there unchanged is expected to stay, because nothing forces
+    /// the move and teams keep what works. That is the whole prediction, and it
+    /// is deliberately not the coverage number.
+    /// </summary>
+    public bool? Expected => Strands is null ? null : !Strands.Value;
+
+    /// <summary>
+    /// Whether the prediction held. Null where none was made, because a
+    /// question that was never asked cannot be right or wrong.
+    /// </summary>
+    public bool? Agreed => Expected is null ? null : Expected == StillThere;
 
     public string Claim => Became switch
     {
@@ -90,19 +135,17 @@ public record Reckoning(
 /// </summary>
 public sealed class Hindsight
 {
-    /// <summary>
-    /// Above this share of covered calls, a move is a substitution rather than
-    /// a rewrite wearing one.
-    ///
-    /// Not tuned. It is the midpoint, chosen before looking, so that the
-    /// agreement rate below is a measurement and not a curve fitted to the
-    /// answer it was supposed to produce.
-    /// </summary>
-    public const int Substitutable = 50;
-
     private readonly Surfaces _reading;
+    private readonly Strandings _strandings;
 
-    public Hindsight(Surfaces? reading = null) => _reading = reading ?? new Surfaces();
+    public Hindsight(Surfaces? reading = null, Strandings? strandings = null)
+    {
+        _reading = reading ?? new Surfaces();
+        _strandings = strandings ?? Strandings.Load();
+    }
+
+    /// <summary>Where the judgement about what can stay came from.</summary>
+    public string Catalogue => _strandings.Source;
 
     /// <summary>
     /// Every catalogued dependency the old code used, and what became of it.
@@ -147,23 +190,35 @@ public sealed class Hindsight
                     now.TryGetValue(surface.Package, out var after_) ? after_.Uses : 0,
                     name,
                     proposal?.Percent ?? 0,
-                    name is not null && adopted.TryGetValue(name, out var files) ? files : 0);
+                    name is not null && adopted.TryGetValue(name, out var files) ? files : 0,
+                    _strandings.For(surface.Package)?.Strands);
             })
             .OrderByDescending(reckoning => reckoning.UsesBefore)
             .ToList();
     }
 
     /// <summary>
-    /// How often the coverage number pointed the way the team went, over the
-    /// dependencies the catalogue had an opinion about.
+    /// How often each half of the prediction held, and never the two blended.
     ///
-    /// Returns null when it had an opinion about none of them, because a rate
-    /// over nothing is not a rate.
+    /// Measured across four real migrations, twenty-seven predictions: what the
+    /// runtime forces held **fifteen times out of fifteen**, and what a team
+    /// merely could do held six times out of twelve. A single rate of
+    /// twenty-one out of twenty-seven would hide the only thing worth knowing,
+    /// which is that one half is certain and the other is not a prediction at
+    /// all.
+    ///
+    /// The split in the discretionary half is not noise either. In the three
+    /// ports it was six of eight, because a port keeps what still runs. In the
+    /// one rewrite it was none of four, because a rewrite keeps nothing: new
+    /// code picks new libraries.
     /// </summary>
-    public static (int Agreed, int Judged)? Agreement(IReadOnlyList<Reckoning> reckonings)
+    public static Marking Mark(IReadOnlyList<Reckoning> reckonings)
     {
-        var judged = reckonings.Where(r => r.Agreed is not null).ToList();
+        var forced = reckonings.Where(r => r.Strands == true).ToList();
+        var chosen = reckonings.Where(r => r.Strands == false).ToList();
 
-        return judged.Count == 0 ? null : (judged.Count(r => r.Agreed == true), judged.Count);
+        return new Marking(
+            forced.Count(r => r.Agreed == true), forced.Count,
+            chosen.Count(r => r.Agreed == true), chosen.Count);
     }
 }
