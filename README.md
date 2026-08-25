@@ -830,6 +830,9 @@ versions are called with the same values and the results compared.
 dotnet run --project src/LegacyLens.Api -- equivalence Before.cs After.cs
 ```
 
+Add `--json` and it prints the report as data instead of as a page, which is how
+the server asks for it and how a build can read it.
+
 There is a panel for it too, taking the two paths, for the case this reaches
 best: a service somebody rewrote by hand, which still runs on this runtime.
 
@@ -893,6 +896,26 @@ turned on, because somebody typing it against two paths they chose has already
 decided. The HTTP route needs `ALLOW_RUNNING_CODE=true` on the server, and the
 published image does not set it, so a deployment anybody can reach cannot be
 talked into running anything.
+
+**And where it is on, it runs in a process of its own.** A thread that will not
+stop cannot be killed in .NET, and a stack overflow cannot be caught at all. In
+a command both are fine, because the process is about to end anyway. In a server
+the first is a thread burning a core for the lifetime of the service and the
+second is the service. So the route runs the same command in a child and reads
+what it printed: pointed at a file that recurses forever, a running server
+answers *nothing was checked, the process ended with code 134, it said: stack
+overflow* and serves the next request normally.
+
+Only the facts cross back. The claim, the verdict and the refusals are
+recomputed from them on arrival, because a claim sent as text could land beside
+numbers that no longer support it.
+
+This bounds a crash, a hang, the memory, and what the code under test can see of
+the server. It does not bound the filesystem or the network: the child is the
+same user on the same machine. **It is a blast radius, not a sandbox**, which is
+why the setting stays off by default. A real sandbox is a container per
+comparison, and that belongs to whoever runs this against code they did not
+write.
 
 ### What it cannot decide for you
 

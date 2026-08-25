@@ -1662,6 +1662,75 @@ could offer to fetch it.
 
 ---
 
+## M15. A crash that takes nothing with it ✅
+
+*The behaviour comparison, in a process of its own.*
+
+M12 runs the code it was handed inside the process that asked. `Observer` says
+why that is acceptable, and says it as an assumption rather than a claim:
+
+> A thread that will not stop cannot be killed in .NET, so the timeout abandons
+> the wait rather than the work. The process this runs in is a short-lived
+> command, which is what makes that acceptable.
+
+A server is not a short-lived command. Read against a long-running API, the same
+sentence says that every method containing a loop whose exit condition was an
+operator watching a screen leaves a thread behind for the lifetime of the
+service, and that the first stack overflow in somebody's legacy code takes the
+whole thing down. Neither is catchable in process. Both end at a process
+boundary.
+
+So the route runs the command in a child and reads what it printed. There is no
+second implementation: `equivalence --json` is the same run the terminal
+version prints, written for a program rather than for a person.
+
+### What crosses the boundary
+
+Only the facts. What compiled, what was compared, what moved, what was passed
+over. The sentences do not travel: the claim, the verdict and the grouped
+refusals are recomputed on arrival from the facts that arrived, and the derived
+members carry `[JsonIgnore]` to say so where a reader will look. A claim sent as
+text could land beside numbers that no longer support it, and the one sentence
+in this tool that must never be wrong is the one that says nothing moved.
+
+### Measured
+
+Against a running server with `ALLOW_RUNNING_CODE=true`, on a file whose method
+recurses forever:
+
+```
+ran      : false
+verified : false
+claim    : Nothing was checked: the process running the comparison ended with
+           code 134, which is what a stack overflow in the code under test looks
+           like from here. It said: Stack overflow.
+```
+
+The next request was served normally. In process, the same file dumps core.
+
+The tests were checked by putting the comparison back in process, and four of
+them fail: the one that measures whether the abandoned call is still running,
+the deadline, the missing path, and the crash, which does not fail so much as
+end the test host where it stands. That last one is the milestone stated as
+plainly as it can be: with the boundary removed, the thing running the tests
+dies of the code under test.
+
+### What this bounds, and what it does not
+
+It bounds a crash, a hang, the memory, and what the code under test can see of
+the process that asked. It does not bound the filesystem, the network, or
+anything else the operating system gives every process this user runs. **It is a
+blast radius, not a sandbox**, and `ALLOW_RUNNING_CODE` stays off by default for
+exactly the reason it always did. The child is handed none of this tool's own
+settings and runs from a temporary directory, which is hygiene rather than
+containment and is described as such.
+
+A real sandbox is a container or a virtual machine per comparison. That is a
+deployment decision, it costs seconds per call, and it belongs to whoever runs
+this against code they did not write.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

@@ -62,20 +62,7 @@ straightforward and turns a full re-run into seconds.
 
 ---
 
-## 7. Comparing behaviour out of process
-
-The behaviour check runs the code it was handed, inside the API process, and is
-off unless the operator sets `ALLOW_RUNNING_CODE`. That setting is the honest
-boundary and not a sandbox: with it on, a file that is run can do whatever the
-API can.
-
-A short-lived child process would bound it properly, with its own timeout, no
-shared state and a crash that takes nothing with it. It costs a serialisation
-format for the report and a second entry point, which is why it is here and not
-in M12. Anyone running this against code they did not write should keep the
-setting off and use the command instead.
-
-## 8. Reading the code's own values into the characterization tests
+## 7. Reading the code's own values into the characterization tests
 
 M12 offers a file's own constants back to it as arguments, and it finds
 boundaries the invented values never reach. The characterization net generates
@@ -86,25 +73,26 @@ commit, so every extra case costs a reader rather than a few milliseconds. Worth
 measuring what it catches before deciding how many cases a generated file should
 carry.
 
-## 9. Attributing a type to the package it actually came from
+## 8. Attributing a type to the package it actually came from, exactly
 
 The usage surface counts a type as a package's when it appears in a type
 position in a file that imports that package. That is cheap, needs no
 compilation, and works on a solution that does not build, which is why it is
-what it is. It is also noisy in both directions.
+what it is.
 
-Measured while building the framework reading: of the 219 types the catalogue
-never mentions for `Microsoft.AspNet.Mvc` on Orchard, 69 are base library types
-the file merely used, and the most-used name in the "exists nowhere" column is
-`Test`, which is NUnit's attribute. Both statements the reading makes about them
-are true, the framework really does still have `TextWriter` and really does not
-have `Test`, but neither type was ever ASP.NET MVC's.
+**The cheap half of this shipped with M13.** Names the framework still supplies
+itself are no longer attributed to a dead package, and a test framework's own
+attributes are not either. That was measured on Orchard: of the 219 types the
+catalogue never mentioned for `Microsoft.AspNet.Mvc`, 69 were base library types
+the file merely used, and the most-used name in the "exists nowhere" column was
+`Test`, which is NUnit's attribute.
 
-Fixing it properly needs resolved symbols, which means compiling, which is the
-property that makes this usable on inherited code. A cheaper approximation is to
-subtract the names another catalogued package or a known test framework
-accounts for. Worth measuring what that removes before deciding it is worth the
-second list.
+What is left is the exact answer, and it is not a cheaper version of the same
+thing. Deciding that a type came from one package rather than another needs
+resolved symbols, which needs the solution to compile, which is the one property
+that makes this usable on inherited code at all. So this stays written down
+rather than planned: taking it would trade the tool's reach for its precision,
+and the reach is the point.
 
 ## Known approximations
 
