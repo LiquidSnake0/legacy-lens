@@ -67,6 +67,16 @@ describe('BehaviourPanel', () => {
     expect(element.querySelectorAll('.same li')).toHaveLength(2);
   });
 
+  it('takes the verdict from the report rather than working it out again', () => {
+    // The rule that a run comparing nothing has verified nothing lives on the
+    // server, where it is tested. A second copy here would agree until the day
+    // it did not, and this is the one place where disagreeing means showing a
+    // pass that was never earned.
+    const contradictory: Behaviour = { ...compared, verified: false, moved: 0 };
+
+    expect(build(contradictory).componentInstance.verdict()).toBe('moved');
+  });
+
   it('never says nothing moved when nothing was compared', () => {
     // The most important assertion in this file. Zero methods compared and zero
     // methods moved are the same numbers and opposite answers.

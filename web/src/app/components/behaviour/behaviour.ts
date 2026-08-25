@@ -42,13 +42,20 @@ export class BehaviourPanel {
    * Three states rather than two, because "nothing was compared" is a real
    * answer and folding it into either of the others is the one mistake this
    * panel cannot make.
+   *
+   * `verified` is taken from the report rather than worked out again from the
+   * counts beside it. The rule that a run comparing nothing has verified
+   * nothing lives on the server, where it is tested; a second copy here would
+   * agree until the day it did not, and this is the one place where the two
+   * disagreeing means showing a pass that was never earned.
    */
   readonly verdict = computed<'verified' | 'moved' | 'unchecked'>(() => {
     const report = this.report();
 
-    if (!report || !report.ran || report.methods.length === 0) return 'unchecked';
+    if (!report) return 'unchecked';
+    if (report.verified) return 'verified';
 
-    return report.moved > 0 ? 'moved' : 'verified';
+    return report.ran && report.methods.length > 0 ? 'moved' : 'unchecked';
   });
 
   readonly headline = computed(() => {

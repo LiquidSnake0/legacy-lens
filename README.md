@@ -1002,7 +1002,7 @@ claim this project is built to avoid.
 dotnet test                                   # 497 tests, no network, ~5 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 142 tests, no network, ~5 s
+cd web && npm test                            # 143 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -1017,7 +1017,7 @@ Working, in two halves.
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
 **Question answering** needs an index and a local model. 497 unit tests covering
-every layer, plus 142 in the browser, no network and no model in either, and the
+every layer, plus 143 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no
