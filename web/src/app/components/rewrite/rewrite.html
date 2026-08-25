@@ -1,0 +1,37 @@
+<section class="rewrite">
+  <h2>Did your rewrite change anything?</h2>
+
+  <p class="note">
+    Two versions of one file, called with the same values, compared. The same
+    check that runs under a projection, without needing one: there the original
+    imports a framework this runtime does not have, so the answer is almost
+    always that nothing could be checked. A service you rewrote by hand still
+    runs here, and that is where this bites.
+  </p>
+
+  <form [formGroup]="form" (ngSubmit)="compare()">
+    <label>
+      <span>The original</span>
+      <input type="text" formControlName="before" placeholder="/repos/app/Services/Pricing.cs" />
+    </label>
+
+    <label>
+      <span>The rewrite</span>
+      <input type="text" formControlName="after" placeholder="/repos/app.modern/Services/Pricing.cs" />
+    </label>
+
+    <button type="submit" [disabled]="form.invalid || running()">
+      {{ running() ? 'Calling both' : 'Compare them' }}
+    </button>
+  </form>
+
+  @if (asked()) {
+    <lens-behaviour [report]="report()" [refusal]="refusal()" />
+  }
+
+  <p class="note closing">
+    Nothing is written. Both files are read, compiled in memory and called; the
+    values are the ones the tool invents plus the ones your code mentions, and
+    what could not be compared is listed rather than left out.
+  </p>
+</section>

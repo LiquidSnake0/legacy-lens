@@ -786,6 +786,9 @@ versions are called with the same values and the results compared.
 dotnet run --project src/LegacyLens.Api -- equivalence Before.cs After.cs
 ```
 
+There is a panel for it too, taking the two paths, for the case this reaches
+best: a service somebody rewrote by hand, which still runs on this runtime.
+
 The same values, not equivalent ones: one set of arguments is built and handed
 to both, so a difference is the code's and not the input's. Each call goes
 through the same observer as the characterization tests, which runs it twice and
@@ -1023,7 +1026,7 @@ claim this project is built to avoid.
 dotnet test                                   # 511 tests, no network, ~13 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 144 tests, no network, ~5 s
+cd web && npm test                            # 151 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -1038,7 +1041,7 @@ Working, in halves that need different things of the machine.
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
 **Question answering** needs an index and a local model. 511 unit tests covering
-every layer, plus 144 in the browser, no network and no model in either, and the
+every layer, plus 151 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

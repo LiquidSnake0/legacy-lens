@@ -75,17 +75,6 @@ format for the report and a second entry point, which is why it is here and not
 in M12. Anyone running this against code they did not write should keep the
 setting off and use the command instead.
 
-## 8. Checking a rewrite somebody wrote by hand
-
-The behaviour check is useful without any model at all: two paths, the same
-values, and a verdict. That is the case where it bites hardest, because a
-hand-written rewrite of a service is exactly the code that still runs here.
-
-Today it is a command and a route, and the browser only reaches it under a
-projection, where the original usually does not compile and the answer is
-*not checked*. A panel taking two paths would put the useful case in front of
-the people who need it.
-
 ## 9. Reading the code's own values into the characterization tests
 
 M12 offers a file's own constants back to it as arguments, and it finds

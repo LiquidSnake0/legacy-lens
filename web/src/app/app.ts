@@ -9,6 +9,7 @@ import { Dependencies } from './components/dependencies/dependencies';
 import { Indexing } from './components/indexing/indexing';
 import { ModelChoiceComponent } from './components/model-choice/model-choice';
 import { Overview } from './components/overview/overview';
+import { Rewrite } from './components/rewrite/rewrite';
 import { Projects } from './components/projects/projects';
 import { LensService } from './services/lens';
 import { WorkspaceStore } from './services/workspace-store';
@@ -18,7 +19,7 @@ import { Citation, IngestionJob, ModelChoice, Workspace } from './models/lens';
   selector: 'app-root',
   imports: [
     ReactiveFormsModule, AnswerText, Citations, Conversions, Decisions, Dependencies,
-    Indexing, ModelChoiceComponent, Overview, Projects,
+    Indexing, ModelChoiceComponent, Overview, Projects, Rewrite,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',

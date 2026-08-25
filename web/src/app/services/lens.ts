@@ -5,7 +5,7 @@ import { Observable, catchError, throwError } from 'rxjs';
 import {
   AskResponse, Health, ApiError, Excerpt, Workspace, IngestionJob,
   ModelChoice, ModelOptions, RiskReport, ConversionKind, ConversionOutcome,
-  SurfaceReport, Projection, Landed, DiagnoseReport, DiagnosisState,
+  SurfaceReport, Projection, Landed, DiagnoseReport, DiagnosisState, Behaviour,
 } from '../models/lens';
 
 /**
@@ -265,6 +265,21 @@ export class LensService {
     return this.http
       .post<DiagnosisState>(`${this.baseUrl}/diagnose/answer`,
         { dilemma, question, answer, workspace })
+      .pipe(catchError(this.explain));
+  }
+
+  /**
+   * Two files, called with the same values, to see whether one still does what
+   * the other did.
+   *
+   * Paths rather than source. Everything else here reads from disk, and a call
+   * that accepts a body of code and runs it is a different kind of thing
+   * entirely. Refused with 403 unless the server was told it may run code, and
+   * the refusal explains itself.
+   */
+  equivalence(before: string, after: string): Observable<{ behaviour: Behaviour }> {
+    return this.http
+      .post<{ behaviour: Behaviour }>(`${this.baseUrl}/equivalence`, { before, after })
       .pipe(catchError(this.explain));
   }
 
