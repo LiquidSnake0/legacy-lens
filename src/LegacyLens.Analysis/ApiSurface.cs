@@ -192,9 +192,10 @@ public class ApiSurface
     ///
     /// <paramref name="claimed"/> answers, per package, which names the
     /// catalogue records as its own. Passing null keeps the exclusion off,
-    /// which is the conservative way round and a different answer: on Orchard
-    /// it is 4,379 uses of `Microsoft.AspNet.Mvc` against 3,877 with the
-    /// catalogue applied.
+    /// which is the conservative way round and a different answer: measured on
+    /// Orchard it was 4,379 uses of `Microsoft.AspNet.Mvc` against 3,877 with
+    /// the catalogue applied. Both figures have moved together since, and the
+    /// gap is the point rather than either number.
     ///
     /// So it has no default. It had one, and the command took it while the
     /// route did not, which is how the same program came to answer the same
@@ -247,6 +248,48 @@ public class ApiSurface
                     import => import.Equals(prefix, StringComparison.Ordinal)
                            || import.StartsWith(prefix + ".", StringComparison.Ordinal))),
                 StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// The type names used in files importing anything under each of these
+    /// namespaces.
+    ///
+    /// Asked of the modern side of a migration, to find out what a team
+    /// actually wrote where the old code had something else. Names the solution
+    /// declares itself are excluded, exactly as the surface excludes them:
+    /// a class of their own called `Controller` is not evidence about anything.
+    ///
+    /// Presence and not counts. The question downstream is whether a recorded
+    /// counterpart turns up at all, and a name that appears once appeared.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlySet<string>> NamesUnder(
+        string rootPath, IReadOnlyCollection<string> namespacePrefixes)
+    {
+        var parsed = Read(rootPath);
+        var local = parsed.SelectMany(file => file.Declared).ToHashSet(StringComparer.Ordinal);
+
+        var found = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
+
+        foreach (var prefix in namespacePrefixes.Distinct(StringComparer.Ordinal))
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var file in parsed)
+            {
+                var imports = file.Imports.Any(
+                    import => import.Equals(prefix, StringComparison.Ordinal)
+                           || import.StartsWith(prefix + ".", StringComparison.Ordinal));
+
+                if (!imports) continue;
+
+                foreach (var name in file.TypeNames)
+                    if (!local.Contains(name)) names.Add(name);
+            }
+
+            found[prefix] = names;
+        }
+
+        return found;
     }
 
     /// <summary>
@@ -476,6 +519,14 @@ public class ApiSurface
     ///
     /// Generic parameters too. `T` is declared by the method it sits on and
     /// belongs to nobody.
+    ///
+    /// And an attribute answers to two names. C# declares
+    /// `FormValueRequiredAttribute` and every use of it is written
+    /// `[FormValueRequired]`, so comparing the two spellings literally means a
+    /// solution's own attributes are never recognised as its own. Measured on
+    /// nopCommerce 3.90, which has five of them: 279 uses of nopCommerce's own
+    /// code were being counted as uses of ASP.NET MVC. Found by going a level
+    /// down and asking which type names a real migration had actually kept.
     /// </summary>
     private static List<string> Declarations(SyntaxNode root)
     {
@@ -488,6 +539,15 @@ public class ApiSurface
 
         declared.AddRange(root.DescendantNodes().OfType<TypeParameterSyntax>()
             .Select(p => p.Identifier.Text));
+
+        // The short spelling of every attribute declared here. One direction
+        // only: a class called `Foo` does not entitle anybody to exclude uses
+        // of some other assembly's `FooAttribute`.
+        declared.AddRange(declared
+            .Where(name => name.EndsWith("Attribute", StringComparison.Ordinal)
+                        && name.Length > "Attribute".Length)
+            .Select(name => name[..^"Attribute".Length])
+            .ToList());
 
         return declared;
     }

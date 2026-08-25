@@ -71,6 +71,14 @@ will find them anyway.
 - **The over-fetch multiplier in `Retriever` is currently free.** The store
   scores every chunk regardless. It is there for a store that does not exist yet.
 
+- **An attribute answers to one name, not two.** A use written `[Bind]` and one
+  written `[BindAttribute]` are recorded under the same short spelling, because
+  that is how C# is written and the reader cannot tell them apart without
+  resolving symbols. A solution declaring a plain class called `Bind` therefore
+  also masks an external `BindAttribute`. Deliberate: the alternative loses
+  every attribute a solution declares itself, which was measured at 279 uses on
+  nopCommerce alone.
+
 ## Observed, not yet fixed
 
 - **A 1.5B model follows the "say you do not know" rule badly.** On a question

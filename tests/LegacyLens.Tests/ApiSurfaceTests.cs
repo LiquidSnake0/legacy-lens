@@ -505,6 +505,44 @@ public class ApiSurfaceTests : IDisposable
     }
 
     [Fact]
+    public void A_solution_s_own_attribute_is_recognised_by_the_name_it_is_written_with()
+    {
+        // The reader already knew an attribute answers to two names: a use
+        // written `[FormValueRequired]` is recorded under the short spelling on
+        // purpose, because that is how C# is written. The declaration side was
+        // never given the same treatment, so `FormValueRequiredAttribute` sat
+        // in the declared set and never matched the use, and a solution's own
+        // attributes went out as the package's.
+        //
+        // Measured on nopCommerce 3.90, which declares five of them: 279 uses
+        // of nopCommerce's own code were counted as ASP.NET MVC. On Orchard the
+        // same defect put the published figure 243 uses too high, 3,877 where
+        // it should have said 3,634. Nothing failed; there was no test.
+        Write("Own.cs", """
+            using System.Web.Mvc;
+
+            public class FormValueRequiredAttribute : ActionMethodSelectorAttribute
+            {
+            }
+            """);
+
+        Write("Controller.cs", """
+            using System.Web.Mvc;
+
+            public class HomeController : Controller
+            {
+                [FormValueRequired("save")]
+                public ActionResult Save() => View();
+            }
+            """);
+
+        var surface = Mvc();
+
+        Assert.DoesNotContain("FormValueRequired", surface.Types.Select(t => t.Name));
+        Assert.Contains("Controller", surface.Types.Select(t => t.Name));
+    }
+
+    [Fact]
     public void A_test_framework_s_attributes_are_never_the_package_s_api()
     {
         // Measured on Orchard: [Test] was the tenth most used "type of
