@@ -41,19 +41,20 @@ internal sealed class Sandbox : IDisposable
     /// Taken from the runtime's own list rather than assembled by hand: the set
     /// needed to compile the simplest file on modern .NET is long,
     /// version-specific, and not worth guessing at.
+    ///
+    /// Built once. It is around two hundred files, it cannot change while the
+    /// process runs, and every comparison compiles twice: reading and mapping
+    /// them per call was four hundred file operations to answer a question
+    /// whose answer was already known.
     /// </summary>
-    private static IReadOnlyList<MetadataReference> References()
-    {
-        var platform = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty)
+    private static readonly Lazy<IReadOnlyList<MetadataReference>> Platform = new(() =>
+        (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
-
-        return platform
+            .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
-            .ToList();
-    }
+            .ToList());
 
     public static Sandbox Compile(string source, string label)
     {
@@ -62,7 +63,7 @@ internal sealed class Sandbox : IDisposable
         var compilation = CSharpCompilation.Create(
             name,
             [CSharpSyntaxTree.ParseText(source)],
-            References(),
+            Platform.Value,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         using var image = new MemoryStream();

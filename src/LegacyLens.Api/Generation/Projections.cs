@@ -22,7 +22,15 @@ public record ProjectionResult(
     /// server is allowed to call them at all. Null means it was not run, and
     /// the reason is in the notes.
     /// </summary>
-    EquivalenceReport? Behaviour = null)
+    EquivalenceReport? Behaviour = null,
+    /// <summary>
+    /// Why there is no behaviour report, when there is none.
+    ///
+    /// Carried as its own field rather than left for a reader to recognise
+    /// among the notes. A caller matching on the wording is a caller that
+    /// silently stops working the day the wording improves.
+    /// </summary>
+    string? BehaviourRefusal = null)
 {
     /// <summary>
     /// Everything this projection is allowed to say, with both checks counted.
@@ -201,7 +209,8 @@ public class Projections
                 var behaviour = Behaviour(before, after, notes);
 
                 return new ProjectionResult(
-                    path, package, before, after, verdict, attempt, given, notes, behaviour);
+                    path, package, before, after, verdict, attempt, given, notes, behaviour,
+                    behaviour is null ? _execution.Refusal : null);
             }
 
             _log.LogInformation(

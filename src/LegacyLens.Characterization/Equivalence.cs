@@ -47,12 +47,24 @@ public record EquivalenceReport(
     /// </summary>
     public bool Verified => Ran && Methods.Count > 0 && Moved.Count == 0;
 
-    /// <summary>Why the run refused what it refused, largest group first.</summary>
+    /// <summary>
+    /// Why the run refused what it refused, largest group first.
+    ///
+    /// Counted in methods and not in entries. A refusal is recorded per call,
+    /// so one method that disagrees with itself contributes fourteen of them,
+    /// and a reader seeing "14 two identical calls disagreed" reads fourteen
+    /// methods. The unit that decides whether this technique reaches somebody's
+    /// code is the method.
+    /// </summary>
     public IReadOnlyList<(SkipReason Reason, int Count)> Refusals =>
         Skipped.GroupBy(s => s.Reason)
-               .Select(g => (g.Key, g.Count()))
+               .Select(g => (g.Key, g.Select(s => s.Member).Distinct(StringComparer.Ordinal).Count()))
                .OrderByDescending(entry => entry.Item2)
                .ToList();
+
+    /// <summary>How many methods were passed over, however many calls said so.</summary>
+    public int PassedOver =>
+        Skipped.Select(s => s.Member).Distinct(StringComparer.Ordinal).Count();
 
     /// <summary>
     /// Exactly what was established, in one sentence, and never more than that.
@@ -74,7 +86,7 @@ public record EquivalenceReport(
 
             if (Methods.Count == 0)
             {
-                return $"Nothing was compared. {Skipped.Count} method(s) were passed over, and "
+                return $"Nothing was compared. {PassedOver} method(s) were passed over, and "
                      + "the reasons are listed: this file's behaviour is not reachable by calling "
                      + "it with invented values.";
             }
@@ -141,6 +153,18 @@ public class Equivalence
     /// </summary>
     public int MethodLimit { get; init; } = 200;
 
+    /// <summary>
+    /// How long a whole comparison is given.
+    ///
+    /// The per-call timeout does not bound this on its own. Two hundred methods
+    /// at fourteen cases is four calls each, and every one of them may spend
+    /// its full two seconds before being abandoned, which is hours. A run that
+    /// hits this stops where it is and says how much it did not reach, because
+    /// a partial answer with its own limits printed beside it is worth more
+    /// than a request that never returns.
+    /// </summary>
+    public TimeSpan Budget { get; init; } = TimeSpan.FromMinutes(2);
+
     /// <summary>Divergent calls kept per method. Enough to diagnose, not to scroll.</summary>
     private const int ShownPerMethod = 5;
 
@@ -172,13 +196,22 @@ public class Equivalence
         var observer = new Observer { Timeout = Timeout };
         var compared = new List<Compared>();
 
+        var attempted = 0;
+
         foreach (var target in targets.Take(MethodLimit))
         {
+            if (started.Elapsed > Budget) break;
+
+            attempted++;
+
             var outcome = CompareOne(target, counterparts, observer, mentioned, refused);
             if (outcome is not null) compared.Add(outcome);
         }
 
-        foreach (var beyond in targets.Skip(MethodLimit))
+        // Everything not reached, whether the cap stopped it or the clock did.
+        // Counted rather than dropped: the number of methods compared must
+        // never read as the number of methods there were.
+        foreach (var beyond in targets.Skip(attempted))
             refused.Add(new Skipped(beyond.Display, SkipReason.BeyondTheLimit));
 
         return new EquivalenceReport(

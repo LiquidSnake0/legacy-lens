@@ -222,6 +222,8 @@ export interface Projection {
    * whether nothing moved or nothing was tried.
    */
   behaviour: Behaviour | null;
+  /** Why there is none, when there is none. */
+  behaviourRefusal: string | null;
 }
 
 /** One call that did not do the same thing in both versions. */

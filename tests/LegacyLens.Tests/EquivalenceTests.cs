@@ -365,6 +365,57 @@ public class EquivalenceTests
         Assert.Empty(report.Methods);
         Assert.False(report.Verified);
         Assert.Contains(report.Skipped, s => s.Reason == SkipReason.NothingLeftToCompare);
+
+        // One method, however many of its calls said so. A refusal is recorded
+        // per call, and counting entries made a file with a single unsteady
+        // method announce that fourteen methods were passed over.
+        Assert.Equal(1, report.PassedOver);
+        Assert.Contains("1 method(s) were passed over", report.Claim);
+        Assert.All(report.Refusals, r => Assert.Equal(1, r.Count));
+    }
+
+    [Fact]
+    public void A_method_past_the_limit_is_counted_rather_than_forgotten()
+    {
+        // The number of methods compared must never read as the number of
+        // methods there were.
+        var source = """
+            public class Many
+            {
+                public int A(int n) => n;
+                public int B(int n) => n;
+                public int C(int n) => n;
+            }
+            """;
+
+        var report = new Equivalence { MethodLimit = 1 }.Compare(source, source);
+
+        Assert.Single(report.Methods);
+        Assert.Equal(2, report.Skipped.Count(s => s.Reason == SkipReason.BeyondTheLimit));
+    }
+
+    [Fact]
+    public void A_run_that_runs_out_of_time_stops_and_says_what_it_did_not_reach()
+    {
+        // The per-call timeout does not bound a whole run: two hundred methods
+        // at fourteen cases each, every call spending its full two seconds
+        // before being abandoned, is hours. A partial answer with its own
+        // limits printed beside it beats a request that never returns.
+        var source = """
+            public class Many
+            {
+                public int A(int n) => n;
+                public int B(int n) => n;
+                public int C(int n) => n;
+            }
+            """;
+
+        var report = new Equivalence { Budget = TimeSpan.Zero }.Compare(source, source);
+
+        Assert.True(report.Ran);
+        Assert.Empty(report.Methods);
+        Assert.False(report.Verified);
+        Assert.Equal(3, report.Skipped.Count(s => s.Reason == SkipReason.BeyondTheLimit));
     }
 
     [Fact]

@@ -432,6 +432,17 @@ app.MapPost("/api/workspaces", async (
         });
     }
 
+    // A folder that is not there is a typo, and saying so now beats a project
+    // that is created happily and then fails on every question asked of it with
+    // an error naming a path nobody remembers typing. Only when there is no
+    // repository to fetch: that flow fills the path in once the clone lands.
+    if (string.IsNullOrWhiteSpace(request.RepositoryUrl)
+        && !string.IsNullOrWhiteSpace(request.RootPath)
+        && !Directory.Exists(request.RootPath))
+    {
+        return Results.BadRequest(new { error = $"No such directory: {request.RootPath}." });
+    }
+
     var created = await WithConnection(store, () =>
         new Workspaces(store.Connection).Create(request.Name, request.RootPath ?? string.Empty));
 
@@ -673,10 +684,11 @@ app.MapPost("/api/project", async (
             result.Attempts,
             result.Given,
             result.Notes,
-            // Null unless this server was told it may run code. The reason is
-            // in the notes either way, so a reader is never left wondering
-            // whether nothing moved or nothing was tried.
+            // Null unless this server was told it may run code, and then the
+            // refusal beside it says why. Both, so a reader is never left
+            // wondering whether nothing moved or nothing was tried.
             behaviour = Behaviour(result.Behaviour),
+            behaviourRefusal = result.BehaviourRefusal,
         });
     }
     catch (HttpRequestException ex)

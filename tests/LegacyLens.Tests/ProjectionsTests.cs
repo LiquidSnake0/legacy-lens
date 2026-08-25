@@ -233,6 +233,11 @@ public class ProjectionsTests : IDisposable
 
         Assert.Null(result.Behaviour);
         Assert.Contains(result.Notes, n => n.Contains("does not run code it was handed"));
+
+        // As its own field as well, so a caller does not have to recognise the
+        // refusal by its wording among the notes.
+        Assert.NotNull(result.BehaviourRefusal);
+        Assert.Contains("ALLOW_RUNNING_CODE", result.BehaviourRefusal);
     }
 
     [Fact]
@@ -244,6 +249,7 @@ public class ProjectionsTests : IDisposable
         var result = await With(running: true, source).ProjectAsync(path, "Microsoft.AspNet.Mvc");
 
         Assert.NotNull(result.Behaviour);
+        Assert.Null(result.BehaviourRefusal);
         Assert.True(result.Behaviour!.Verified);
         Assert.Contains(result.Notes, n => n.Contains("returned the same thing in both versions"));
 

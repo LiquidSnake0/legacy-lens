@@ -245,8 +245,9 @@ describe('Dependencies', () => {
       unimported: [],
       attempts: 1,
       given: ['ActionResult becomes IActionResult'],
-      notes: ['This server does not run code it was handed.'],
+      notes: [],
       behaviour: null,
+      behaviourRefusal: 'This server does not run code it was handed.',
     };
   }
 
