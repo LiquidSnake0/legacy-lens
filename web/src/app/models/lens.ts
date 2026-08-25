@@ -214,6 +214,61 @@ export interface Projection {
   attempts: number;
   given: string[];
   notes: string[];
+  /**
+   * What both versions did when called with the same values.
+   *
+   * Null when the server was not allowed to run code, which is the default.
+   * The reason is in `notes` either way, so a reader is never left wondering
+   * whether nothing moved or nothing was tried.
+   */
+  behaviour: Behaviour | null;
+}
+
+/** One call that did not do the same thing in both versions. */
+export interface Divergence {
+  arguments: string;
+  before: string;
+  after: string;
+}
+
+/** One method, called the same way in both versions. */
+export interface ComparedMethod {
+  type: string;
+  method: string;
+  signature: string;
+  cases: number;
+  matched: boolean;
+  /** Something true about the pair that is not a divergence, such as a changed return type. */
+  note: string | null;
+  divergences: Divergence[];
+}
+
+/** Why a method was passed over, and how many were. */
+export interface Refusal {
+  reason: string;
+  count: number;
+  explanation: string;
+}
+
+/**
+ * What was compared, what moved, and what was never looked at.
+ *
+ * The third of those is the one that has to be read. A report saying eleven
+ * methods matched, with nothing about the forty passed over, is the sentence
+ * that gets a rewrite signed off.
+ */
+export interface Behaviour {
+  ran: boolean;
+  /** True only when something was compared and none of it moved. */
+  verified: boolean;
+  claim: string;
+  cases: number;
+  moved: number;
+  methods: ComparedMethod[];
+  refusals: Refusal[];
+  beforeErrors: string[];
+  afterErrors: string[];
+  elapsedMs: number;
 }
 
 /** What the API answers with when the model cannot be reached. */

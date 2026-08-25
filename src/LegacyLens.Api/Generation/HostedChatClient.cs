@@ -106,12 +106,17 @@ public class HostedChatClient : IChatClient
 
         var body = await response.Content.ReadAsStringAsync(ct);
 
-        throw new InvalidOperationException((int)response.StatusCode switch
+        var (what, todo) = (int)response.StatusCode switch
         {
-            401 or 403 => "The hosted provider rejected the API key.",
-            429 => "The hosted provider is rate limiting this key.",
-            _ => $"The hosted provider returned {(int)response.StatusCode}. {body}",
-        });
+            401 or 403 => ("The hosted provider rejected the API key.",
+                "Check the key, and that it is allowed to use this model."),
+            429 => ("The hosted provider is rate limiting this key.",
+                "Wait, or use the local model instead."),
+            _ => ($"The hosted provider returned {(int)response.StatusCode}. {body}",
+                "The provider's own message is above."),
+        };
+
+        throw new ModelRefused(what, todo);
     }
 
     private record CompletionResponse(

@@ -1,0 +1,77 @@
+<section class="behaviour" [class.moved]="verdict() === 'moved'">
+  <h4>Does it still do the same thing?</h4>
+
+  @if (report(); as found) {
+    <p class="headline">{{ headline() }}</p>
+    <p class="claim">{{ found.claim }}</p>
+
+    @if (found.beforeErrors.length || found.afterErrors.length) {
+      <ul class="errors">
+        @for (error of found.beforeErrors.concat(found.afterErrors).slice(0, 5); track $index) {
+          <li><code>{{ error }}</code></li>
+        }
+      </ul>
+    }
+
+    @if (moved().length) {
+      <h5>What changed</h5>
+      @for (method of moved(); track method.type + method.signature) {
+        <div class="method">
+          <p class="which">
+            <code>{{ method.type }}.{{ method.signature }}</code>
+            <span class="calls">{{ method.cases }} call(s)</span>
+          </p>
+
+          @if (method.note) {
+            <p class="note">{{ method.note }}</p>
+          }
+
+          <ul class="calls-list">
+            @for (call of method.divergences; track call.arguments) {
+              <li>
+                <code class="args">({{ call.arguments }})</code>
+                <span class="was">was <code>{{ call.before }}</code></span>
+                <span class="now">now <code>{{ call.after }}</code></span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    }
+
+    @if (matched().length) {
+      <h5>What did not</h5>
+      <ul class="same">
+        @for (method of matched(); track method.type + method.signature) {
+          <li>
+            <code>{{ method.type }}.{{ method.signature }}</code>
+            <span class="calls">{{ method.cases }} call(s)</span>
+            @if (method.note) {
+              <span class="note">{{ method.note }}</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+
+    <!--
+      Beside the result and never behind a toggle. This is the half that decides
+      what the rest means: eleven methods matched says nothing until you know
+      how many were never called at all.
+    -->
+    @if (found.refusals.length) {
+      <h5>Passed over</h5>
+      <ul class="refusals">
+        @for (refusal of found.refusals; track refusal.reason) {
+          <li>
+            <span class="count">{{ refusal.count }}</span>
+            <span class="why">{{ refusal.explanation }}</span>
+          </li>
+        }
+      </ul>
+    }
+  } @else {
+    <p class="headline">{{ headline() }}</p>
+    <p class="claim">{{ refusal() || 'Behaviour was not checked.' }}</p>
+  }
+</section>

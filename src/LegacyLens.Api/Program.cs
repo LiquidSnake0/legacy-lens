@@ -218,6 +218,10 @@ app.MapPost("/api/ingest", async (
     {
         return ModelUnreachable(ex);
     }
+    catch (ModelRefused refusal)
+    {
+        return ModelSaidNo(refusal);
+    }
 });
 
 // Indexing, started and left to run.
@@ -303,6 +307,10 @@ app.MapPost("/api/ask", async (
     catch (HttpRequestException ex)
     {
         return ModelUnreachable(ex);
+    }
+    catch (ModelRefused refusal)
+    {
+        return ModelSaidNo(refusal);
     }
 });
 
@@ -674,6 +682,10 @@ app.MapPost("/api/project", async (
     catch (HttpRequestException ex)
     {
         return ModelUnreachable(ex);
+    }
+    catch (ModelRefused refusal)
+    {
+        return ModelSaidNo(refusal);
     }
     catch (ArgumentException ex)
     {
@@ -1110,6 +1122,14 @@ object? Behaviour(EquivalenceReport? report)
 
 // Ollama being down is the single most likely thing to go wrong, and a bare 500
 // with an empty body sends the reader looking in the wrong place.
+// A model that answered with a refusal rather than not answering at all. The
+// clients already build the sentence that tells somebody what to do; until this
+// existed nothing caught it, and a missing model or a rejected key came back as
+// a bare 500 with a stack trace.
+IResult ModelSaidNo(ModelRefused refusal) => Results.Json(
+    new { error = refusal.Message, hint = refusal.Hint },
+    statusCode: StatusCodes.Status502BadGateway);
+
 IResult ModelUnreachable(HttpRequestException exception) => Results.Json(
     new
     {

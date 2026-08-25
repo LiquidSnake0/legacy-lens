@@ -155,10 +155,19 @@
                       </div>
                     </div>
 
+                    <!--
+                      The behaviour check sits under the diff rather than above
+                      it. A reader who has not seen the two versions has no use
+                      for a verdict on them.
+                    -->
+                    <lens-behaviour
+                      [report]="done.behaviour"
+                      [refusal]="behaviourRefusal(done)"
+                    />
+
                     <p class="caveat">
                       Nothing was written to your tree. This compiled against
-                      {{ done.target }}; it was not run, so nothing here says it
-                      behaves the same.
+                      {{ done.target }}.
                     </p>
                   </div>
                 }

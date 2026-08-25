@@ -1,5 +1,6 @@
 import { Component, DestroyRef, computed, effect, inject, input, signal } from '@angular/core';
 
+import { BehaviourPanel } from '../behaviour/behaviour';
 import { LensService } from '../../services/lens';
 import {
   Candidate, ModelChoice, PackageSurface, Projection, SurfaceReport,
@@ -19,6 +20,7 @@ import {
  */
 @Component({
   selector: 'lens-dependencies',
+  imports: [BehaviourPanel],
   templateUrl: './dependencies.html',
   styleUrl: './dependencies.scss',
 })
@@ -153,5 +155,15 @@ export class Dependencies {
 
   lines(text: string): string[] {
     return text.replace(/\n$/, '').split('\n');
+  }
+
+  /**
+   * Why there is no behaviour report, taken from the notes the API sent.
+   *
+   * The server explains its own refusal, so the wording lives in one place and
+   * the browser does not keep a second copy that can drift from it.
+   */
+  behaviourRefusal(projection: Projection): string | null {
+    return projection.notes.find(note => note.includes('does not run code')) ?? null;
   }
 }

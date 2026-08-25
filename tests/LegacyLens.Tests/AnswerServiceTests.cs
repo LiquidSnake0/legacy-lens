@@ -90,6 +90,27 @@ public class AnswerServiceTests
     }
 
     [Fact]
+    public async Task A_model_that_refuses_says_what_to_do_about_it()
+    {
+        // Found by running a projection on a machine where the default model
+        // had not been pulled. Both chat clients build a sentence naming the
+        // fix, and until this test nothing carried it anywhere: a stream has
+        // one line to report a failure in, so the hint has to travel inside the
+        // message or it never arrives.
+        var events = await Collect(Service(
+            found: [Hit("a.cs", 0.9f)],
+            tokens: ["Pricing is "],
+            streamFailsAfter: new ModelRefused(
+                "Ollama returned 404 for qwen2.5-coder:3b.",
+                "The most likely cause is that the model is not pulled.")));
+
+        var failure = Assert.IsType<AnswerEvent.Failed>(events[^1]);
+
+        Assert.Contains("404", failure.Message);
+        Assert.Contains("not pulled", failure.Message);
+    }
+
+    [Fact]
     public async Task How_a_chunk_was_found_reaches_the_citation()
     {
         // A chunk found by text alone has no meaningful cosine score. The UI

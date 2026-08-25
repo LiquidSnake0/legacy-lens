@@ -47,9 +47,10 @@ public class OllamaChatClient : IChatClient
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException(
-                $"Ollama returned {(int)response.StatusCode}. " +
-                $"Is the model pulled? `ollama pull {_model}`. Body: {body}");
+            throw new ModelRefused(
+                $"Ollama returned {(int)response.StatusCode} for {_model}. {body}",
+                $"The most likely cause is that the model is not pulled: `ollama pull {_model}`, "
+                + "or `docker compose exec ollama ollama pull " + _model + "`.");
         }
 
         var payload = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>(ct);
@@ -78,9 +79,10 @@ public class OllamaChatClient : IChatClient
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException(
-                $"Ollama returned {(int)response.StatusCode}. " +
-                $"Is the model pulled? `ollama pull {_model}`. Body: {body}");
+            throw new ModelRefused(
+                $"Ollama returned {(int)response.StatusCode} for {_model}. {body}",
+                $"The most likely cause is that the model is not pulled: `ollama pull {_model}`, "
+                + "or `docker compose exec ollama ollama pull " + _model + "`.");
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);

@@ -199,7 +199,10 @@ describe('Dependencies', () => {
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Nothing was written to your tree');
-    expect(text).toContain('it was not run');
+
+    // The blanket "it was not run" used to live here. It is now a measurement
+    // rather than a disclaimer, so the panel below says what was checked.
+    expect(text).toContain('Does it still do the same thing?');
   });
 
   it('drops what is on screen when the project changes', () => {
@@ -242,7 +245,41 @@ describe('Dependencies', () => {
       unimported: [],
       attempts: 1,
       given: ['ActionResult becomes IActionResult'],
-      notes: [],
+      notes: ['This server does not run code it was handed.'],
+      behaviour: null,
     };
   }
+
+  it('says behaviour was not checked rather than leaving the question open', () => {
+    // The default on any server: comparing two versions means calling both,
+    // and a projection is code a model wrote. Silence here would read as a
+    // pass, which is the one thing this panel must never look like.
+    const fixture = build();
+    const surface = report.packages[0];
+    fixture.componentInstance.toggle(surface);
+    fixture.componentInstance.project(surface, '/repos/orchard/A.cs');
+    http.expectOne((r) => r.url.endsWith('/project')).flush(projection());
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+
+    expect(element.querySelector('lens-behaviour .headline')?.textContent).toContain('Not checked');
+    expect(element.querySelector('lens-behaviour .claim')?.textContent).toContain('does not run code');
+  });
+
+  it('drops the old blanket caveat once behaviour can actually be checked', () => {
+    // It used to say "it was not run, so nothing here says it behaves the
+    // same" under every projection. That sentence is now sometimes false.
+    const fixture = build();
+    const surface = report.packages[0];
+    fixture.componentInstance.toggle(surface);
+    fixture.componentInstance.project(surface, '/repos/orchard/A.cs');
+    http.expectOne((r) => r.url.endsWith('/project')).flush(projection());
+    fixture.detectChanges();
+
+    const caveat = (fixture.nativeElement as HTMLElement).querySelector('.caveat');
+
+    expect(caveat).not.toBeNull();
+    expect(caveat?.textContent).not.toContain('it was not run');
+  });
 });

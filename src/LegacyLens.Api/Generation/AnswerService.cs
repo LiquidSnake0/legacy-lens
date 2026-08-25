@@ -79,7 +79,7 @@ public class AnswerService
         catch (Exception exception)
             when (exception is HttpRequestException or InvalidOperationException or ArgumentException)
         {
-            failure = exception.Message;
+            failure = Explain(exception);
         }
 
         if (failure is not null)
@@ -116,7 +116,7 @@ public class AnswerService
                 catch (Exception exception) when (exception is HttpRequestException
                                                             or InvalidOperationException)
                 {
-                    failure = exception.Message;
+                    failure = Explain(exception);
                 }
 
                 if (failure is not null) break;
@@ -134,6 +134,16 @@ public class AnswerService
             ? new AnswerEvent.Failed(failure)
             : new AnswerEvent.Done();
     }
+
+    /// <summary>
+    /// The failure with what to do about it, when the model said why.
+    ///
+    /// A stream has one line to report a failure in, so the hint has to travel
+    /// inside the message or it never arrives at all.
+    /// </summary>
+    private static string Explain(Exception exception) => exception is ModelRefused refused
+        ? $"{refused.Message} {refused.Hint}"
+        : exception.Message;
 
     private const string NothingFound =
         "Nothing in the indexed code appears to relate to that question. "
