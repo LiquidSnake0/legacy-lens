@@ -33,7 +33,17 @@ public enum HistoryStatus
 public record HistoryReport(
     HistoryStatus Status,
     IReadOnlyDictionary<string, FileChurn> Churn,
-    string? Explanation = null);
+    string? Explanation = null,
+    /// <summary>
+    /// Which stretch of history the churn was counted over, in words.
+    ///
+    /// Reported because it is not always the one that was asked for: a
+    /// repository that has stopped changing has almost nothing inside a recent
+    /// window, and reading only that window ranks its tail rather than its
+    /// life. A reader comparing two reports has to be able to see which was
+    /// used.
+    /// </summary>
+    string? Window = null);
 
 /// <summary>
 /// Reads change history by shelling out to git.
@@ -78,19 +88,90 @@ public class GitHistory
         // One commit per record, each followed by the files it touched. The
         // separator is a character that cannot appear in a name or a date.
         //
-        // The trailing pathspec limits the log to this directory: on a large
-        // estate analysed one project at a time, reading the whole repository's
-        // history for each is work thrown away.
-        var log = Run(repositoryPath, "log",
-            $"--since={Months} months ago",
+        var recent = Log(repositoryPath, $"--since={Months} months ago") ?? string.Empty;
+
+        // Whether that window describes this repository or only its tail.
+        //
+        // A sliding window is calibrated for code that is alive, and legacy
+        // code has stopped changing by definition. Measured on Orchard: 11,873
+        // commits, of which 119 fall inside two years. The ranking that came
+        // out put a test-support file at the top of the danger list, while the
+        // same ranking over the full history named the core of the CMS, which
+        // is what anyone who worked on it would say. One file in common out of
+        // six.
+        //
+        // So the window is used when the repository was alive during it, and
+        // the whole history when it was not. Adapting to the repository rather
+        // than moving an arbitrary line, which would only be wrong somewhere
+        // else.
+        var inWindow = Commits(recent);
+        var overall = Total(repositoryPath);
+
+        if (overall > 0 && inWindow < overall * LivelyShare)
+        {
+            var everything = Log(repositoryPath, null) ?? string.Empty;
+
+            return new HistoryReport(
+                HistoryStatus.Available,
+                Parse(everything, prefix),
+                $"Only {inWindow} of this directory's {overall} commits fall in the last "
+                + $"{Months} months, so the whole history was read instead. A window that "
+                + "recent describes a codebase that has stopped changing by its tail.",
+                "the full history");
+        }
+
+        return new HistoryReport(
+            HistoryStatus.Available, Parse(recent, prefix), null, $"the last {Months} months");
+    }
+
+    /// <summary>
+    /// How much of a repository's history has to fall inside the window for it
+    /// to be describing the repository rather than its tail.
+    ///
+    /// A fifth. Chosen to separate a codebase that is worked on from one that
+    /// is archived, which are an order of magnitude apart rather than a few per
+    /// cent: this repository has all of its history inside two years, and
+    /// Orchard has one per cent of its own.
+    /// </summary>
+    private const double LivelyShare = 0.2;
+
+    /// <summary>
+    /// One commit per record, each followed by the files it touched.
+    ///
+    /// The trailing pathspec limits the log to this directory: on a large
+    /// estate analysed one project at a time, reading the whole repository's
+    /// history for each is work thrown away.
+    /// </summary>
+    private string? Log(string repositoryPath, string? since)
+    {
+        var arguments = new List<string> { "log" };
+
+        if (since is not null) arguments.Add(since);
+
+        arguments.AddRange([
             "--pretty=format:%x1f%an%x1f%aI",
             "--name-only",
             "--no-merges",
             "--",
-            ".");
+            ".",
+        ]);
 
-        return new HistoryReport(HistoryStatus.Available, Parse(log ?? string.Empty, prefix));
+        return Run(repositoryPath, arguments.ToArray());
     }
+
+    /// <summary>Commits in a log, counted from its records rather than by asking git twice.</summary>
+    private static int Commits(string log) => log.Count(c => c == UnitSeparator) / 2;
+
+    /// <summary>
+    /// Every commit this directory has, or zero when git will not say.
+    ///
+    /// Zero rather than a guess: without a denominator the comparison cannot be
+    /// made, and the window is then used as asked for rather than second-guessed.
+    /// </summary>
+    private int Total(string repositoryPath) =>
+        int.TryParse(Run(repositoryPath, "rev-list", "--count", "HEAD", "--", ".")?.Trim(), out var count)
+            ? count
+            : 0;
 
     /// <summary>
     /// Byte 0x1F, ASCII's unit separator. Written by git itself via %x1f

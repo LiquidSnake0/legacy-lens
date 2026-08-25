@@ -24,7 +24,15 @@ public record RiskReport(
     IReadOnlyList<RiskEntry> Entries,
     HistoryStatus HistoryStatus,
     string? HistoryNote,
-    int GeneratedFilesExcluded);
+    int GeneratedFilesExcluded,
+    /// <summary>
+    /// Which stretch of history the churn was counted over, in words.
+    ///
+    /// Carried through because it is not always the one that was asked for,
+    /// and two reports of the same codebase are only comparable when the
+    /// reader can see which was used.
+    /// </summary>
+    string? HistoryWindow = null);
 
 /// <summary>
 /// Ranks files by how much trouble they are likely to cause.
@@ -59,7 +67,7 @@ public class RiskRanking
 
         if (candidates.Count == 0)
         {
-            return new RiskReport([], history.Status, history.Explanation, generated);
+            return new RiskReport([], history.Status, history.Explanation, generated, history.Window);
         }
 
         // Ranks rather than raw values. Complexity and commit counts have no
@@ -84,9 +92,22 @@ public class RiskRanking
             // but never touched is not urgent, and touched constantly but
             // trivial is not dangerous. Averaging would let either one alone
             // carry a file to the top.
+            //
+            // Churn is floored rather than allowed to reach zero, and the
+            // reason is the same one Rank already gives for the all-equal
+            // case: a zero factor does not lower a score, it erases it. On an
+            // inherited codebase most files have not been touched in the
+            // window at all, and without the floor every one of them scored
+            // exactly zero however complicated it was.
+            //
+            // Measured on Orchard: the most complex untested file in the whole
+            // solution, 116 branches over 338 lines with no test near it, was
+            // ranked last of 458 because nobody had committed to it in two
+            // years. Floored, churn can still double a score and no longer
+            // deletes one.
             var structural = (complexityRank[metric.Path] * 0.75) + (nestingRank[metric.Path] * 0.25);
             var score = churnRank is not null
-                ? Math.Sqrt(structural * churnRank[metric.Path])
+                ? Math.Sqrt(structural * Floored(churnRank[metric.Path]))
                 : structural;
 
             // Untested multiplies rather than adds: it makes everything else
@@ -109,8 +130,19 @@ public class RiskRanking
         .OrderByDescending(e => e.Score)
         .ToList();
 
-        return new RiskReport(entries, history.Status, history.Explanation, generated);
+        return new RiskReport(entries, history.Status, history.Explanation, generated, history.Window);
     }
+
+    /// <summary>
+    /// How little a file untouched in the window is allowed to be worth.
+    ///
+    /// A quarter, so that the most-changed file scores twice the never-changed
+    /// one with the same structure. Churn is evidence that a file is alive; it
+    /// is not evidence that a quiet one is safe to port.
+    /// </summary>
+    private const double ChurnFloor = 0.25;
+
+    private static double Floored(double rank) => ChurnFloor + ((1 - ChurnFloor) * rank);
 
     private static int Commits(FileMetrics metric, HistoryReport history, string root) =>
         history.Churn.GetValueOrDefault(Relative(metric.Path, root))?.Commits ?? 0;

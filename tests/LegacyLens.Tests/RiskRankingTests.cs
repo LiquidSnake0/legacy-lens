@@ -63,6 +63,44 @@ public class RiskRankingTests
     }
 
     [Fact]
+    public void A_file_nobody_has_touched_is_lowered_rather_than_erased()
+    {
+        // Found by running the ranking over Orchard. The most complex untested
+        // file in the whole solution, 116 branches over 338 lines with no test
+        // near it, came last of 458 with a score of exactly zero, because
+        // nobody had committed to it in two years.
+        //
+        // A zero factor in a geometric mean does not lower a score, it deletes
+        // it, and on inherited code most files have no churn at all. Which is
+        // the same reasoning Rank already applies when every value ties.
+        var report = Rank(
+            [File("Quiet.cs", complexity: 100, nesting: 8),
+             File("Busy.cs", complexity: 1, nesting: 1)],
+            Available(("src/Quiet.cs", 0, 0), ("src/Busy.cs", 50, 3)),
+            "Quiet", "Busy");
+
+        var quiet = report.Entries.Single(e => e.Path == "src/Quiet.cs");
+
+        Assert.True(quiet.Score > 0);
+        Assert.Equal("src/Quiet.cs", report.Entries[0].Path);
+    }
+
+    [Fact]
+    public void Churn_still_separates_two_files_of_the_same_shape()
+    {
+        // The floor lowers, it does not flatten. Two identical files still
+        // rank by how much each one moves.
+        var report = Rank(
+            [File("Hot.cs", complexity: 50, nesting: 4),
+             File("Cold.cs", complexity: 50, nesting: 4)],
+            Available(("src/Hot.cs", 40, 3), ("src/Cold.cs", 0, 0)),
+            "Hot", "Cold");
+
+        Assert.Equal("src/Hot.cs", report.Entries[0].Path);
+        Assert.True(report.Entries[0].Score > report.Entries[1].Score);
+    }
+
+    [Fact]
     public void An_untested_file_outranks_an_identical_tested_one()
     {
         var report = Rank(

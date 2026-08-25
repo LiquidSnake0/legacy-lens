@@ -206,21 +206,36 @@ curl -X POST localhost:8080/api/risk \
 
 Three signals, all already on disk: complexity from Roslyn's parser, change
 frequency from git, test coverage by naming convention. 1,731 files of
-nopCommerce ranked in 1.4 seconds.
+nopCommerce ranked in 1.4 seconds over a two-year window.
+
+Orchard, 458 files ranked in under four seconds:
 
 | Score | File | Why |
 |---|---|---|
-| 1.33 | `Administration/Controllers/ProductController.cs` | 3,800 lines, `PrepareProductModel` at complexity 36, nested 8 deep, untested |
-| 1.33 | `Nop.Services/Catalog/ProductService.cs` | `SearchProducts` at complexity 101, nested 9 deep, untested |
-| 1.27 | `Administration/Controllers/CustomerController.cs` | `Edit` at complexity 56, untested |
+| 1.23 | `Orchard.OutputCache/Filters/OutputCacheFilter.cs` | 705 lines, 82 commits by 24 authors, untested |
+| 1.23 | `Core/Shapes/CoreShapes.cs` | 866 lines, `Pager_Links` at complexity 34, 79 commits by 18 authors, untested |
+| 1.14 | `Orchard.Specs/Bindings/WebAppHosting.cs` | 442 lines, `WhenIFillIn` at complexity 19, nested 6 deep, untested |
 
-A cyclomatic complexity of 101 means covering that method's branches would take
-101 tests. That number is the argument; the score beside it is only a sort key.
+Two of those three are the core of the CMS, and 24 people have touched the first
+one. A cyclomatic complexity of 34 means covering that method's branches would
+take 34 tests. Those numbers are the argument; the score beside them is only a
+sort key.
 
 **The ranking uses the geometric mean of structure and churn**, not the average.
 A file has to score high on both to reach the top: complicated but never touched
 is not urgent, and touched constantly but trivial is not dangerous. Averaging
-would let either one alone carry a file up.
+would let either one alone carry a file up. Churn is floored rather than allowed
+to reach zero, because a zero factor in a geometric mean does not lower a score,
+it deletes one, and on inherited code most files have not been touched at all.
+
+**The history window adapts to the repository.** Change frequency is read over
+the last two years where the repository was alive during them, and over the
+whole history where it was not, and the report says which. A sliding window is
+calibrated for code that is alive, and legacy code has stopped changing by
+definition: on Orchard, 102 of 11,677 commits fall inside two years, and reading
+only those ranked a test-support file at the top of the danger list. Over the
+full history the same ranking names `OutputCacheFilter`, `CoreShapes` and
+`DefaultContentManager`, which is what anyone who worked on Orchard would say.
 
 **Generated code is excluded.** nopCommerce holds a WSDL proxy with 1,944
 methods that topped every chart until it was filtered out, and told the reader
@@ -999,10 +1014,10 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 497 tests, no network, ~5 s
+dotnet test                                   # 503 tests, no network, ~7 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 143 tests, no network, ~5 s
+cd web && npm test                            # 144 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -1016,8 +1031,8 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 497 unit tests covering
-every layer, plus 143 in the browser, no network and no model in either, and the
+**Question answering** needs an index and a local model. 503 unit tests covering
+every layer, plus 144 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

@@ -845,7 +845,14 @@ app.MapPost("/api/risk", (RiskRequest request) =>
 
         return Results.Ok(new
         {
-            history = new { status = report.HistoryStatus.ToString(), note = report.HistoryNote },
+            history = new
+            {
+                status = report.HistoryStatus.ToString(),
+                note = report.HistoryNote,
+                // Which stretch was read. Not always the one asked for: a
+                // repository that has stopped changing is read whole.
+                window = report.HistoryWindow,
+            },
             generatedFilesExcluded = report.GeneratedFilesExcluded,
             ranked = report.Entries.Count,
             entries = report.Entries.Take(request.Top),

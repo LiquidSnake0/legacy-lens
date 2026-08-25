@@ -134,6 +134,23 @@ alive. Widening the default would only move the arbitrary line. The fix is to
 adapt the window to the repository's actual activity, and to say so when the
 window holds too few commits to rank anything.
 
+**Fixed.** The window is used when the repository was alive during it, and the
+whole history when it was not, with the threshold at a fifth of the directory's
+commits: a codebase being worked on and one that is archived are an order of
+magnitude apart rather than a few per cent. This repository has all of its
+history inside two years; Orchard has one per cent of its own. The report says
+which stretch was read, because two reports of the same codebase are only
+comparable when the reader can see that.
+
+The right column above is what comes out now.
+
+**A second cause, found the same way.** Even over the right window, a file with
+no churn scored exactly zero, because a zero factor in a geometric mean does not
+lower a score, it deletes one. The most complex untested file in the whole of
+Orchard, 116 branches over 338 lines, was ranked **last of 458**. Churn is
+floored at a quarter now: it can double a score and no longer erases one, which
+is the same reasoning `Rank` already applied when every value ties.
+
 Still open: coverage is inferred from file names. Knowing what a test actually
 exercises needs resolved symbols, and requiring compilation would give up the
 property that makes this usable on inherited code.

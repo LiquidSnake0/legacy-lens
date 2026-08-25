@@ -104,7 +104,7 @@ export interface RiskEntry {
 }
 
 export interface RiskReport {
-  history: { status: string; note: string | null };
+  history: { status: string; note: string | null; window: string | null };
   generatedFilesExcluded: number;
   ranked: number;
   entries: RiskEntry[];

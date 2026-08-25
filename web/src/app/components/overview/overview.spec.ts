@@ -37,7 +37,7 @@ describe('Overview', () => {
   };
 
   const report: RiskReport = {
-    history: { status: 'Read', note: null },
+    history: { status: 'Read', note: null, window: 'the last 24 months' },
     generatedFilesExcluded: 3,
     ranked: 2,
     entries: [engine, rules],
@@ -143,10 +143,19 @@ describe('Overview', () => {
     expect(app.isOpen(rules)).toBe(true);
   });
 
+  it('says which stretch of history the churn was counted over', () => {
+    // Not always the one asked for: a repository that has stopped changing is
+    // read whole, and two reports of the same codebase are only comparable
+    // when the reader can see which was used.
+    const element = build().nativeElement as HTMLElement;
+
+    expect(element.textContent).toContain('over the last 24 months');
+  });
+
   it('repeats what git could not answer rather than hiding it', () => {
     const element = build('/repos/billing', {
       ...report,
-      history: { status: 'Missing', note: 'Not a git repository, so nothing was ranked on churn.' },
+      history: { status: 'Missing', note: 'Not a git repository, so nothing was ranked on churn.', window: null },
     }).nativeElement as HTMLElement;
 
     expect(element.querySelector('.caveat')?.textContent).toContain('churn');
