@@ -627,6 +627,11 @@ app.MapPost("/api/surface", (SurfaceRequest request) =>
                     unavailable = coverage.Unavailable.Take(10),
                     unknown = coverage.Unknown.Take(10),
                     unknownCount = coverage.Unknown.Count,
+                    // What the target framework says about that unknown column,
+                    // kept in its own block rather than folded into the counts
+                    // above. Read from metadata rather than written by hand, and
+                    // a reader has to be able to see which is which.
+                    unlisted = Unlisted(coverage),
                     coverage.UsesCovered,
                     coverage.UsesUnavailable,
                     coverage.UsesUnknown,
@@ -1136,6 +1141,38 @@ object? Behaviour(EquivalenceReport? report)
         beforeErrors = report.BeforeErrors,
         afterErrors = report.AfterErrors,
         report.ElapsedMs,
+    };
+}
+
+/// <summary>
+/// The unknown column, read against the framework being migrated to.
+///
+/// Four answers and only one of them is a lead. A type the base library still
+/// provides is not work; a type named inside the successor is worth checking; a
+/// type whose name survived somewhere unrelated is a trap and is labelled one;
+/// a name the framework does not have at all is the finding.
+/// </summary>
+object Unlisted(Coverage coverage)
+{
+    var reading = new LegacyLens.Analysis.Unlisted().Read(coverage.Unknown, coverage.Candidate);
+
+    object Group(Standing standing) => new
+    {
+        types = reading.Of(standing).OrderByDescending(t => t.Use.Uses).Take(10)
+            .Select(t => new { t.Use.Name, t.Use.Uses, t.Where }),
+        count = reading.Of(standing).Count,
+        uses = reading.Uses(standing),
+    };
+
+    return new
+    {
+        unchanged = Group(Standing.Unchanged),
+        inSuccessor = Group(Standing.InSuccessor),
+        elsewhere = Group(Standing.Elsewhere),
+        gone = Group(Standing.Gone),
+        // What is actually left to decide, once the noise is out. The number
+        // this whole reading exists to produce.
+        left = reading.Left,
     };
 }
 
