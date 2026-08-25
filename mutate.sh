@@ -31,8 +31,20 @@ dotnet tool restore >/dev/null
 
 cd "$RACINE/tests/LegacyLens.Tests"
 
+# Three test hosts and not seven.
+#
+# The first overnight run died after twenty-one minutes of testing, in a retry
+# loop with the test session dropping its connection. Stryker defaults to one
+# host per core, which is seven here, and each one loads this suite: reading
+# the framework's own surface pulls the metadata of two hundred assemblies into
+# memory, and this machine has 7.6 GB with three already in use.
+#
+# Slower and it finishes, which is the trade every time.
+CONCURRENCE="${STRYKER_CONCURRENCE:-3}"
+
 dotnet dotnet-stryker \
   --project "$PROJET.csproj" \
+  --concurrency "$CONCURRENCE" \
   --mutate "$MOTIF" \
   --reporter progress \
   --reporter json
