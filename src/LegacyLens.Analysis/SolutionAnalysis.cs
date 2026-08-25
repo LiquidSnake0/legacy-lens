@@ -10,9 +10,6 @@ namespace LegacyLens.Analysis;
 /// </summary>
 public class SolutionAnalysis
 {
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     public int MinimumCodeLines { get; init; } = 100;
     public int HistoryMonths { get; init; } = 24;
 
@@ -112,30 +109,6 @@ public class SolutionAnalysis
         return covered;
     }
 
-    private static IEnumerable<string> SourceFiles(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-                foreach (var found in SourceFiles(entry)) yield return found;
-            }
-            else if (Path.GetExtension(entry).Equals(".cs", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
+    private static IEnumerable<string> SourceFiles(string directory) =>
+        SourceTree.CSharpUnder(directory);
 }

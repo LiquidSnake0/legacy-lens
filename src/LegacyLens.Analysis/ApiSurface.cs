@@ -138,9 +138,6 @@ public class ApiSurface
             ["Owin"] = ["Owin", "Microsoft.Owin"],
         };
 
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     /// <summary>
     /// Names C# supplies, which belong to no package and would drown the list.
     /// </summary>
@@ -292,7 +289,7 @@ public class ApiSurface
 
         var parsed = new List<ParsedFile>();
 
-        foreach (var path in Walk(rootPath))
+        foreach (var path in SourceTree.CSharpUnder(rootPath))
         {
             string source;
             try
@@ -465,31 +462,4 @@ public class ApiSurface
         _ => null,
     };
 
-    private static IEnumerable<string> Walk(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-
-                foreach (var found in Walk(entry)) yield return found;
-            }
-            else if (entry.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
 }

@@ -12,9 +12,6 @@ namespace LegacyLens.Analysis;
 /// </summary>
 public class ProjectGraph
 {
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     public SolutionMap Build(string rootPath)
     {
         if (!Directory.Exists(rootPath))
@@ -37,32 +34,9 @@ public class ProjectGraph
         return new SolutionMap(projects, edges, FindCycles(projects, edges));
     }
 
-    private static IEnumerable<string> FindProjectFiles(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-                foreach (var found in FindProjectFiles(entry)) yield return found;
-            }
-            else if (Path.GetExtension(entry).Equals(".csproj", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
+    private static IEnumerable<string> FindProjectFiles(string directory) =>
+        SourceTree.Under(directory,
+            path => Path.GetExtension(path).Equals(".csproj", StringComparison.OrdinalIgnoreCase));
 
     private static ProjectInfo Read(string path)
     {
@@ -193,36 +167,17 @@ public class ProjectGraph
         return (files, lines);
     }
 
-    private static IEnumerable<string> EnumerateSource(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-                foreach (var found in EnumerateSource(entry)) yield return found;
-            }
-            // Designer files are excluded: WinForms and typed datasets generate
-            // thousands of lines nobody wrote and nobody reads, and counting
-            // them makes a small project look like a large one.
-            else if (Path.GetExtension(entry).Equals(".cs", StringComparison.OrdinalIgnoreCase)
-                     && !entry.EndsWith(".Designer.cs", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
+    /// <summary>
+    /// Source that somebody wrote.
+    ///
+    /// Designer files are excluded: WinForms and typed datasets generate
+    /// thousands of lines nobody wrote and nobody reads, and counting them
+    /// makes a small project look like a large one.
+    /// </summary>
+    private static IEnumerable<string> EnumerateSource(string directory) =>
+        SourceTree.Under(directory,
+            path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                 && !path.EndsWith(".Designer.cs", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Cycles in the project graph, found by depth-first search.

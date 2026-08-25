@@ -23,9 +23,6 @@ public record Raised(Dilemma Dilemma, IReadOnlyList<Site> Sites)
 /// </summary>
 public class DilemmaSites
 {
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     /// <summary>How many sites are kept per dilemma. Enough to show, not to scroll.</summary>
     private const int Shown = 12;
 
@@ -46,7 +43,7 @@ public class DilemmaSites
 
         var found = new Dictionary<string, List<Site>>(StringComparer.Ordinal);
 
-        foreach (var path in Walk(rootPath))
+        foreach (var path in SourceTree.CSharpUnder(rootPath))
         {
             foreach (var (site, indexed) in SitesIn(path, wanted.Keys))
             {
@@ -218,32 +215,4 @@ public class DilemmaSites
         name.Ancestors().Any(a => a is UsingDirectiveSyntax)
         || name.Ancestors().OfType<BaseNamespaceDeclarationSyntax>()
             .Any(ns => ns.Name.Span.Contains(name.Span));
-
-    private static IEnumerable<string> Walk(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-
-                foreach (var found in Walk(entry)) yield return found;
-            }
-            else if (entry.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
 }

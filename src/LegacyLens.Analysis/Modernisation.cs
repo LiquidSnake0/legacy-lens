@@ -119,9 +119,6 @@ public record ModernisationSurvey(
 /// </summary>
 public class Modernisation
 {
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     /// <summary>
     /// Packages built on System.Web. Curated by hand, because this is domain
     /// knowledge rather than something the file tells you: nothing in a
@@ -347,31 +344,7 @@ public class Modernisation
         return count;
     }
 
-    private static IEnumerable<string> FindFiles(string directory, string extension)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                var name = Path.GetFileName(entry);
-                if (SkipDirectories.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
-
-                foreach (var found in FindFiles(entry, extension)) yield return found;
-            }
-            else if (entry.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
-            {
-                yield return entry;
-            }
-        }
-    }
+    private static IEnumerable<string> FindFiles(string directory, string extension) =>
+        SourceTree.Under(directory,
+            path => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
 }

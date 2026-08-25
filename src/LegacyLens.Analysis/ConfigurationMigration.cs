@@ -100,9 +100,6 @@ public record ConfigurationSurvey(
 /// </summary>
 public class ConfigurationMigration
 {
-    private static readonly string[] SkipDirectories =
-        [".git", "bin", "obj", "node_modules", "packages", ".vs"];
-
     public ConfigurationSurvey Survey(string rootPath)
     {
         if (!Directory.Exists(rootPath))
@@ -111,7 +108,10 @@ public class ConfigurationMigration
         var files = new List<ConfigurationFile>();
         var reads = new List<ConfigurationRead>();
 
-        foreach (var path in Walk(rootPath))
+        // Every file, not only the C# ones: this reads the settings out of
+        // web.config and app.config as well as the calls that read them, and
+        // narrowing the walk to source found the calls and none of the values.
+        foreach (var path in SourceTree.Under(rootPath, _ => true))
         {
             var name = Path.GetFileName(path);
 
@@ -362,31 +362,4 @@ public class ConfigurationMigration
             ? literal.Token.ValueText
             : null;
 
-    private static IEnumerable<string> Walk(string directory)
-    {
-        IEnumerable<string> entries;
-        try
-        {
-            entries = Directory.EnumerateFileSystemEntries(directory);
-        }
-        catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
-        {
-            yield break;
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Directory.Exists(entry))
-            {
-                if (SkipDirectories.Contains(Path.GetFileName(entry), StringComparer.OrdinalIgnoreCase))
-                    continue;
-
-                foreach (var found in Walk(entry)) yield return found;
-            }
-            else
-            {
-                yield return entry;
-            }
-        }
-    }
 }
