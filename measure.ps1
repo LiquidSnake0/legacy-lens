@@ -7,7 +7,14 @@
 #      `git apply` takes the patches. Nobody has built the result, and
 #      "converted" has meant "has a patch that applies" for want of a machine.
 #
-#   2. On a real .NET Framework estate, what does characterization reach?
+#   2. Is our conversion worth having at all?
+#      `upgrade-assistant` is alive and does this work. It is run here as a
+#      competitor and never as a component: nothing in Legacy Lens calls it,
+#      and if it turns out to do this better the answer is to stop doing it and
+#      say so, not to depend on it. The single file you double-click stays
+#      offline either way.
+#
+#   3. On a real .NET Framework estate, what does characterization reach?
 #      On modern code it examined 402 members and could call 11. Whether that
 #      ratio inverts on Framework code is untested, and half the product's
 #      claim rests on it.
@@ -143,6 +150,49 @@ Step 'Does it restore and build after' {
               { "**It does not build.** That is the finding, and it is worth more than a green tick would have been." })
     }
     finally { Pop-Location }
+}
+
+Step 'What the tool everybody already has would have done' {
+    # A competitor, not a component. Three milestones went into the conversions
+    # while upgrade-assistant was alive and doing the same work, and the honest
+    # way to find out whether that was a mistake is to run both on the same
+    # solution on the same day.
+    #
+    # Run against a fresh copy, because it writes into the tree rather than
+    # printing a patch, and comparing two tools means neither goes first.
+    $theirs = Join-Path $Out 'upgrade-assistant-copy'
+
+    if (Test-Path $theirs) { Remove-Item -Recurse -Force $theirs }
+    Copy-Item -Recurse $Repo $theirs
+
+    & dotnet tool install --global upgrade-assistant 2>&1 | Select-Object -Last 1 | ForEach-Object { Say "    $_" }
+
+    Push-Location $theirs
+    try {
+        $solution = Get-ChildItem -Filter *.sln -Recurse | Select-Object -First 1
+
+        & upgrade-assistant upgrade $solution.FullName --non-interactive --operation Inplace 2>&1 |
+            Select-Object -Last 30 | ForEach-Object { Say "    $_" }
+
+        Say ""
+        Say "Exit code: $LASTEXITCODE"
+    }
+    finally { Pop-Location }
+
+    Say ""
+    Say "### Side by side"
+    Say ""
+
+    $ours   = (Get-ChildItem -Path $Repo   -Recurse -Filter *.csproj | Where-Object { (Get-Content $_ -Raw) -match 'Sdk=' }).Count
+    $theirsCount = (Get-ChildItem -Path $theirs -Recurse -Filter *.csproj | Where-Object { (Get-Content $_ -Raw) -match 'Sdk=' }).Count
+
+    Say "| | project files in the SDK format |"
+    Say "|---|---|"
+    Say "| Legacy Lens | $ours |"
+    Say "| upgrade-assistant | $theirsCount |"
+    Say ""
+    Say "A count is not a verdict. What matters is which of the two produced"
+    Say "something that builds, and the step above answered that for ours."
 }
 
 Step 'What characterization reaches on a real Framework estate' {

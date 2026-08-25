@@ -38,3 +38,4 @@ src/LegacyLens.Api/wwwroot/
 
 # La version en un fichier : 57 Mo par cible, reconstruits par ./desktop.sh.
 build/
+StrykerOutput/

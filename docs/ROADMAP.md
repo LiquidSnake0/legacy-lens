@@ -2804,6 +2804,34 @@ an answer recorded. Silence is no longer possible without a red test.
 
 Every figure this repository publishes was brought current with those.
 
+### Mutation testing by a tool, because doing it by hand was a mistake
+
+Every milestone here ended with a mutation check done by hand: break the thing
+on purpose, run the tests, see which notice. One mutation at a time, where a
+tool tests hundreds. And it has already gone wrong: in M18 the source was
+restored without rebuilding and two measurements were published from the stale
+binary.
+
+`dotnet-stryker` is at 4.16, released last month. It is a **development**
+dependency and never ships: the product does not know it exists. Installed as a
+repo-local tool, driven by `./mutate.sh 'Features.cs'`, because a whole project
+is 4,287 mutants and hours.
+
+**The first run found something a hand mutation could not.** On `Features.cs`:
+thirty mutants, twenty-three killed, **seven survived**. One of the seven was
+removing the line that skips the `//` commentary keys, and no test failed:
+nothing checked that the reasoning written into that hand-edited file is not
+read back as a framework. The same test exists for the stranding catalogue and
+had never been written for this one.
+
+Three tests later the score is **71.88% to 78.12%**. The five that still survive
+are effectively equivalent mutants, and one of them cannot be killed without
+bending the code around it, which is said here rather than fixed by pretending.
+
+Read the survivors and not the score: a surviving mutant is either a test nobody
+wrote or a change that makes no difference, and telling those two apart is the
+part a person has to do.
+
 ### And the script the machine will run
 
 `measure.ps1`. It reports what the tool says before anything is applied, builds
@@ -2811,8 +2839,17 @@ the solution as it stands, applies both conversions in the order the command
 prints, **builds it again**, and then runs characterization over the assemblies
 the build produced.
 
-Those last two are the two open questions. Does *converted* mean *it builds*,
-and on a real .NET Framework estate does characterization reach anything.
+It also runs **`upgrade-assistant` on a copy of the same solution**, as a
+competitor and never as a component. Three milestones went into the conversions
+while that tool was alive and doing the same work, and the honest way to find
+out whether that was a mistake is to run both on the same solution on the same
+day. Nothing in Legacy Lens calls it, and if it turns out to do this better the
+answer is to stop doing it and say so, not to depend on it: the single file
+somebody double-clicks stays offline either way.
+
+So the day answers three questions. Does *converted* mean *it builds*. Is our
+conversion worth having at all. And on a real .NET Framework estate, does
+characterization reach anything.
 
 **It has never run.** PowerShell is not installed here, so not one line of it
 has been executed or parsed, and the header says so. One bug was caught by

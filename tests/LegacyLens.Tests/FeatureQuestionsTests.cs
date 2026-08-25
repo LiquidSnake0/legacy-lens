@@ -145,6 +145,60 @@ public class FeatureQuestionsTests : IDisposable
     }
 
     [Fact]
+    public void The_commentary_in_it_is_not_read_as_a_package()
+    {
+        // Found by Stryker rather than by me. Removing the line that skips
+        // keys beginning with // made no test fail, so nothing checked that
+        // the reasoning written into this hand-edited file is not read back as
+        // a framework. The same test exists for the stranding catalogue and
+        // was never written for this one.
+        var features = Written("""
+            {
+              "//": "Why this file exists.",
+              "//1": "And a second note.",
+              "Old.Package": [
+                {
+                  "name": "Bundling",
+                  "types": ["ScriptBundle"],
+                  "was": "It bundled.",
+                  "now": "Nothing does.",
+                  "options": ["Build them outside.", "Serve them unbundled."]
+                }
+              ]
+            }
+            """);
+
+        Assert.Equal(1, features.Count);
+        Assert.Empty(features.For("//"));
+        Assert.Empty(features.For("//1"));
+        Assert.NotEmpty(features.For("Old.Package"));
+    }
+
+    [Fact]
+    public void The_types_inside_a_question_are_ordered_by_how_much_they_are_used()
+    {
+        // Also Stryker's. A reader looking at a question wants the name that
+        // carries it first, and nothing pinned that.
+        var asked = Written(Catalogue).Ask("Old.Package",
+            Using(("ScriptBundle", 1), ("StyleBundle", 30), ("IItemTransform", 5)));
+
+        Assert.Equal(
+            ["StyleBundle", "IItemTransform", "ScriptBundle"],
+            Assert.Single(asked).Through.Select(t => t.Name));
+    }
+
+    [Fact]
+    public void A_catalogue_nobody_named_says_that_rather_than_naming_a_path()
+    {
+        // Load(null) with nothing beside the binary and nothing up the tree.
+        // The message has to say which of the two happened, and only one half
+        // of that ternary was covered.
+        var features = Features.Load(Path.Combine(Path.GetTempPath(), $"none-{Guid.NewGuid():N}.json"));
+
+        Assert.Contains("no catalogue at", features.Source);
+    }
+
+    [Fact]
     public void A_catalogue_that_is_not_there_says_so_rather_than_reading_as_empty()
     {
         var missing = Path.Combine(Path.GetTempPath(), $"absent-{Guid.NewGuid():N}.json");
