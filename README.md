@@ -364,6 +364,14 @@ curl -X POST localhost:8080/api/report \
 Markdown comes back as the body rather than as a field inside JSON, because it
 is meant to be written to a file, converted to PDF or pasted into a ticket.
 
+**It carries what only a person can decide.** Preparing the mechanical work
+turns up things no amount of reading the code will settle: the target the whole
+solution has to move to before PackageReference works, a connection string
+carrying a password, keys the code reads that nothing declares. Those were said
+in a terminal, once per project, and the document carried an ordered plan
+without any of them. They are in it now, said once each with how much of the
+solution they cover, and before the order, because the order assumes them.
+
 **It carries what the codebase actually uses of the packages with no future.**
 Counting how many projects reference a package cannot separate an afternoon of
 find-and-replace from a rewrite, and how much of it is used, by how few types,

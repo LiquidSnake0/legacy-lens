@@ -4,30 +4,6 @@ using System.Xml.Linq;
 
 namespace LegacyLens.Analysis;
 
-/// <summary>
-/// One thing a reader has to know before applying a patch, and whether it is
-/// theirs to decide.
-///
-/// The two are different and printing them the same way costs a reader more
-/// than either of them saves. **A consequence** is something the conversion
-/// did, and the reader checks it: build configurations dropped, items now
-/// globbed from the folder. **A decision** is something nobody can do for
-/// them: the solution targets 4.5.1 and PackageReference wants 4.6.1, so
-/// somebody has to move it.
-///
-/// <see cref="About"/> is what makes the same caveat from thirty-one projects
-/// one line instead of thirty-one. It is a key and never shown: the sentence is
-/// what a person reads, and grouping by the sentence would break the moment one
-/// of them carried a count.
-/// </summary>
-public record Caveat(string About, string Says)
-{
-    /// <summary>Something to choose, rather than something that was done.</summary>
-    public bool Decides { get; init; }
-
-    public override string ToString() => Says;
-}
-
 /// <summary>One project's conversion, as a patch and the reasons to read it.</summary>
 public record ConversionProposal(
     string Project,

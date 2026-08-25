@@ -90,9 +90,26 @@ public record Assessment(
     /// assessment can still have it, and so this stays an addition rather than
     /// a new requirement on every construction site.
     /// </summary>
-    IReadOnlyList<Dependency>? Dependencies = null)
+    IReadOnlyList<Dependency>? Dependencies = null,
+
+    /// <summary>
+    /// What nobody else can settle, gathered from the conversions.
+    ///
+    /// The conversions have always said these, and they said them where only
+    /// somebody running a command would see them. The report carried an ordered
+    /// plan and none of the decisions that plan depends on: no mention of the
+    /// target the whole solution has to move to before PackageReference works,
+    /// of the connection string carrying a password, or of the keys the code
+    /// reads that nothing declares.
+    ///
+    /// A decision made in a terminal and not written down is a decision nobody
+    /// made.
+    /// </summary>
+    IReadOnlyList<Repeated>? Decisions = null)
 {
     public IReadOnlyList<Dependency> Uses => Dependencies ?? [];
+
+    public IReadOnlyList<Repeated> ToDecide => Decisions ?? [];
 
     public IEnumerable<Finding> Of(FindingKind kind) => Findings.Where(f => f.Kind == kind);
 
@@ -180,6 +197,11 @@ public class Assessor
                 .ToList()
             : [];
 
+        // Judged once and used twice: the repair order names how many project
+        // files can take the modern format, and the decisions below are read
+        // off the same verdicts.
+        var sdk = new SdkStyleConversion().Judge(modernisation, rootPath);
+
         risk = WithoutTestProjects(risk, map, rootPath);
 
         var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath)));
@@ -191,10 +213,11 @@ public class Assessor
             findings,
             risk,
             modernisation,
-            Order(map, findings, risk, modernisation, rootPath),
+            Order(map, findings, risk, modernisation, sdk),
             Limits(map, findings, risk, modernisation),
             started.ElapsedMilliseconds,
-            dependencies);
+            dependencies,
+            ToDecide(modernisation, sdk, rootPath));
     }
 
     /// <summary>
@@ -248,12 +271,50 @@ public class Assessor
     /// report padded with sections that say "none" reads as thorough and is
     /// noise.
     /// </summary>
+    /// <summary>
+    /// Every caveat the conversions raise that is somebody's to decide, said
+    /// once each.
+    ///
+    /// Read off the conversions rather than restated here, so a caveat that
+    /// stops being a decision stops appearing, and one that becomes a decision
+    /// appears without anybody remembering to add it.
+    /// </summary>
+    private static IReadOnlyList<Repeated> ToDecide(
+        ModernisationSurvey survey,
+        IReadOnlyList<SdkConversionVerdict> sdk,
+        string rootPath)
+    {
+        var raised = new List<(string Project, Caveat Caveat)>();
+
+        foreach (var verdict in sdk)
+        {
+            if (verdict.Proposal is { } proposal)
+                raised.AddRange(proposal.Caveats.Select(c => (proposal.Project, c)));
+        }
+
+        var packages = new PackagesConfigConversion();
+
+        foreach (var project in survey.Projects)
+        {
+            if (packages.Propose(project, rootPath) is { } proposal)
+                raised.AddRange(proposal.Caveats.Select(c => (proposal.Project, c)));
+        }
+
+        var configuration = new ConfigurationMigration();
+        var config = configuration.Survey(rootPath);
+
+        if (configuration.Propose(config, rootPath) is { } settings)
+            raised.AddRange(settings.Caveats.Select(c => (string.Empty, c)));
+
+        return Caveats.Group(raised).Where(one => one.What.Decides).ToList();
+    }
+
     private List<RepairStep> Order(
         SolutionMap map,
         IReadOnlyList<Finding> findings,
         RiskReport risk,
         ModernisationSurvey survey,
-        string rootPath)
+        IReadOnlyList<SdkConversionVerdict> sdk)
     {
         var steps = new List<RepairStep>();
 
@@ -309,9 +370,7 @@ public class Assessor
         // about that, so a report saying three sat above a command offering
         // twenty-nine. One question, one answer, which is the rule M17 exists
         // for.
-        var convertible = new SdkStyleConversion().Judge(survey, rootPath)
-            .Where(verdict => verdict.Convertible)
-            .ToList();
+        var convertible = sdk.Where(verdict => verdict.Convertible).ToList();
 
         if (convertible.Count > 0)
         {

@@ -2310,6 +2310,70 @@ It now reads the marks off a real conversion, and removing one makes it fail.
 
 ---
 
+## M24. A decision nobody wrote down is a decision nobody made ✅
+
+*M23 named five of them. They were named in a terminal.*
+
+The report is the one artefact somebody keeps. It carried an ordered plan and
+**none of the decisions that plan depends on**. Searched for them, on
+nopCommerce 3.90:
+
+| | mentions in the report |
+|---|---|
+| `4.6.1` | 0 |
+| `PackageReference` | 0 |
+| a connection string carrying a password | 0 |
+| keys declared twice with different values | 0 |
+| keys read by the code and declared nowhere | 0 |
+
+Its second repair step said *convert the project files that can take the modern
+format, 29 projects*, without saying that all thirty-one have to move to 4.6.1
+first for the packages half to work at all.
+
+### They are read off the conversions, not restated
+
+The assessment runs them and keeps the caveats marked as decisions. Nothing is
+written twice, so a caveat that stops being a decision stops appearing, and one
+that becomes a decision appears without anybody remembering to add it.
+
+On nopCommerce the document now says, before the order because the order assumes
+it:
+
+```
+## What only you can decide
+
+**31 projects.** Targets v4.5.1. PackageReference is supported from 4.6.1
+onwards; on an older target the restore may behave differently.
+
+**28 projects, one shown.** Still depends on packages with no path to modern
+.NET: Microsoft.AspNet.Mvc, Microsoft.AspNet.Razor, ...
+
+**Across the solution.** 8 key(s) are read by the code and declared nowhere.
+They are not in this file either, because inventing a value is the one thing
+that would make it wrong.
+```
+
+Orchard gets three of its own, including one key declared in more than one
+config file with different values, where which one won depended on which
+application loaded them.
+
+### The grouping moved out of the terminal
+
+It lived in the command that printed it, which made it look like a concern of
+the terminal. Two callers group caveats now, and two groupings would eventually
+disagree about what counts as the same caveat, so it sits beside `Caveat` in the
+analysis where both can reach it.
+
+### What it costs
+
+The assessment now runs the packages conversion and the configuration survey as
+well. On Orchard the report went from **8.2 to 12.4 seconds**. It is a document
+somebody generates once and reads for an hour, and there is no section without
+something to put in it: a heading over an empty list would read as *there is
+nothing to decide*, which is never true.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

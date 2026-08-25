@@ -21,7 +21,7 @@ public class CaveatGroupingTests
     [Fact]
     public void The_same_caveat_from_many_projects_is_said_once()
     {
-        var grouped = Conversions.Group([
+        var grouped = Caveats.Group([
             From("A", "target-below-461", "Targets v4.5.1."),
             From("B", "target-below-461", "Targets v4.5.1."),
             From("C", "target-below-461", "Targets v4.5.1."),
@@ -39,7 +39,7 @@ public class CaveatGroupingTests
         // The sentence carries counts and package names, so no two projects
         // write it the same way. Grouping by the sentence would put each of
         // these on a line of its own, which is the state this replaced.
-        var grouped = Conversions.Group([
+        var grouped = Caveats.Group([
             From("A", "items-globbed", "125 item(s) are dropped."),
             From("B", "items-globbed", "7 item(s) are dropped."),
         ]);
@@ -54,7 +54,7 @@ public class CaveatGroupingTests
     {
         // Being told that twenty-nine projects said this is only useful if it
         // also says whether they said it about the same thing.
-        var grouped = Conversions.Group([
+        var grouped = Caveats.Group([
             From("A", "still-blocked", "Still depends on: Microsoft.AspNet.Mvc."),
             From("B", "still-blocked", "Still depends on: log4net."),
         ]);
@@ -65,7 +65,7 @@ public class CaveatGroupingTests
     [Fact]
     public void What_has_to_be_decided_is_kept_apart_from_what_was_done()
     {
-        var outcome = new ConversionOutcome("sdk", "patch", [], [], Conversions.Group([
+        var outcome = new ConversionOutcome("sdk", "patch", [], [], Caveats.Group([
             From("A", "target-below-461", "Targets v4.5.1.", decides: true),
             From("A", "build-configurations", "Build configurations are dropped."),
             From("B", "build-configurations", "Build configurations are dropped."),
@@ -81,7 +81,7 @@ public class CaveatGroupingTests
     [Fact]
     public void The_loudest_group_comes_first()
     {
-        var grouped = Conversions.Group([
+        var grouped = Caveats.Group([
             From("A", "rare", "Once."),
             From("B", "common", "Twice."),
             From("C", "common", "Twice."),
@@ -96,7 +96,7 @@ public class CaveatGroupingTests
         // The configuration and version conversions produce one patch for the
         // whole solution, so there is no project to attribute a caveat to and
         // an empty name must not be printed as one.
-        var one = Assert.Single(Conversions.Group([
+        var one = Assert.Single(Caveats.Group([
             From(string.Empty, "keys-kept-flat", "Keys are kept flat."),
         ]));
 

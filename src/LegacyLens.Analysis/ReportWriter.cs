@@ -51,6 +51,7 @@ public class ReportWriter
         Hurt(report, assessment);
         Migration(report, assessment);
         Used(report, assessment);
+        Decide(report, assessment);
         Order(report, assessment);
         Unsaid(report, assessment);
         Method(report, assessment);
@@ -601,6 +602,60 @@ public class ReportWriter
 
     /// <summary>Types named per package.</summary>
     private const int TopTypes = 8;
+
+    /// <summary>
+    /// What nobody else can settle, before the order that assumes it.
+    ///
+    /// The conversions have always said these, in a terminal, one line per
+    /// project. The document carried an ordered plan and none of the decisions
+    /// the plan depends on: nothing about the target the whole solution has to
+    /// move to before PackageReference works, about the connection string
+    /// carrying a password, or about the keys the code reads that nothing
+    /// declares.
+    ///
+    /// Said once each, with how much of the solution it covers, because a
+    /// decision repeated thirty-one times is one decision and thirty pieces of
+    /// noise.
+    /// </summary>
+    private static void Decide(StringBuilder report, Assessment assessment)
+    {
+        if (assessment.ToDecide.Count == 0) return;
+
+        report.AppendLine("## What only you can decide");
+        report.AppendLine();
+        report.AppendLine(Wrap(
+            "Everything below came out of preparing the mechanical work, and none of it can be "
+          + "settled by reading the code harder. They are listed before the order because the "
+          + "order assumes them."));
+        report.AppendLine();
+
+        foreach (var one in assessment.ToDecide)
+        {
+            var scope = one.Projects.Count switch
+            {
+                0 => "Across the solution",
+                1 => one.Projects[0],
+                _ => $"{Assessor.Count(one.Projects.Count, "project")}"
+                   + (one.Varies ? ", one shown" : string.Empty),
+            };
+
+            report.AppendLine(Wrap($"**{scope}.** {one.What.Says}"));
+
+            if (one.Projects.Count > 1)
+            {
+                report.AppendLine();
+                report.AppendLine(Wrap(Listed(one.Projects)));
+            }
+
+            report.AppendLine();
+        }
+    }
+
+    /// <summary>A few names and then a count, because a report is read.</summary>
+    private static string Listed(IReadOnlyList<string> projects) =>
+        projects.Count <= 6
+            ? string.Join(", ", projects)
+            : string.Join(", ", projects.Take(6)) + $", and {projects.Count - 6} more.";
 
     private static void Order(StringBuilder report, Assessment assessment)
     {

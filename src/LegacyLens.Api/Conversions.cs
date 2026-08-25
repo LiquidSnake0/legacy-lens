@@ -2,13 +2,6 @@ using LegacyLens.Analysis;
 
 namespace LegacyLens.Api;
 
-/// <summary>One caveat, and everyone who raised it.</summary>
-public record Repeated(Caveat What, IReadOnlyList<string> Projects)
-{
-    /// <summary>True where the projects did not all say the same thing.</summary>
-    public bool Varies { get; init; }
-}
-
 /// <summary>One conversion's result: the patch, and everything to read first.</summary>
 public record ConversionOutcome(
     string Kind,
@@ -81,7 +74,7 @@ public static class Conversions
             + "declare no packages or already use PackageReference.",
         };
 
-        return new ConversionOutcome("packages", patch.ToString(), notes, [], Group(raised));
+        return new ConversionOutcome("packages", patch.ToString(), notes, [], Caveats.Group(raised));
     }
 
     private static ConversionOutcome SdkStyle(string rootPath)
@@ -113,7 +106,7 @@ public static class Conversions
             $"{survey.Projects.Count - refusals.Count} converted, {refusals.Count} refused.",
         };
 
-        return new ConversionOutcome("sdk", patch.ToString(), notes, refusals, Group(raised));
+        return new ConversionOutcome("sdk", patch.ToString(), notes, refusals, Caveats.Group(raised));
     }
 
     private static ConversionOutcome Versions(string rootPath)
@@ -137,7 +130,7 @@ public static class Conversions
 
         return new ConversionOutcome(
             "versions", proposal.Patch, [], refusals,
-            Group(proposal.Caveats.Select(c => (string.Empty, c))));
+            Caveats.Group(proposal.Caveats.Select(c => (string.Empty, c))));
     }
 
     private static ConversionOutcome Configuration(string rootPath)
@@ -181,7 +174,7 @@ public static class Conversions
 
         return new ConversionOutcome(
             "config", proposal?.Patch ?? string.Empty, notes, refusals,
-            Group(proposal?.Caveats.Select(c => (string.Empty, c)) ?? []));
+            Caveats.Group(proposal?.Caveats.Select(c => (string.Empty, c)) ?? []));
     }
 
     /* ---- the command ---- */
@@ -238,35 +231,6 @@ public static class Conversions
         Say(outcome.Consequences, "Done, and worth reading");
 
         foreach (var refusal in outcome.Refusals) Console.Error.WriteLine($"  {refusal}");
-    }
-
-    /// <summary>
-    /// The same caveat from many projects, said once.
-    ///
-    /// Grouped by <see cref="Caveat.About"/> rather than by the sentence,
-    /// because the sentence carries counts and package names and no two
-    /// projects write it the same way. Where the sentences do differ, one is
-    /// shown and the line says so: a reader who is told twenty-nine projects
-    /// said this needs to know whether they said the same thing.
-    /// </summary>
-    internal static IReadOnlyList<Repeated> Group(IEnumerable<(string Project, Caveat Caveat)> raised)
-    {
-        return raised
-            .GroupBy(entry => entry.Caveat.About, StringComparer.Ordinal)
-            .Select(group =>
-            {
-                var texts = group.Select(entry => entry.Caveat.Says)
-                    .Distinct(StringComparer.Ordinal).ToList();
-
-                var projects = group.Select(entry => entry.Project)
-                    .Where(name => name.Length > 0)
-                    .Distinct(StringComparer.Ordinal)
-                    .ToList();
-
-                return new Repeated(group.First().Caveat, projects) { Varies = texts.Count > 1 };
-            })
-            .OrderByDescending(entry => entry.Projects.Count)
-            .ToList();
     }
 
     private static void Say(IEnumerable<Repeated> raised, string heading)
