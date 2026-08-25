@@ -16,7 +16,9 @@ tool proposes a diff, a person approves it". M9 is also the one concession to
 the position above, and Microsoft is the reason: it replaced a deterministic
 upgrade tool with a generative one and shipped the exact failure mode this
 codebase exists to avoid. **M11 writes nothing at all**: it asks questions, and
-what it produces is a plan and a sketch that compiles.
+what it produces is a plan and a sketch that compiles. **M12 runs code**, which
+is a different kind of capability again, so the command is the way in and the
+route is off unless the operator turns it on.
 
 A rule that holds across every milestone:
 
@@ -959,7 +961,7 @@ having.
 
 ---
 
-## M11. Measure, migrate, mutate
+## M11. Measure, migrate, mutate ✅
 
 *Three steps, and the tool changes role between them.*
 
@@ -986,7 +988,7 @@ because they are worth selling separately.
 
 ---
 
-### Measure
+### Measure ✅
 
 Everything M0 through M6 already do, gathered behind one surface instead of nine
 endpoints: the map, the diagrams, the risk ranking, the packaging survey, the
@@ -1419,6 +1421,83 @@ who knows whose code it is.
 **Effort:** the engine is days. The honesty around it, which is the part that
 took the work, is the refusals, the counting and the two live runs that found
 what the tests did not.
+
+---
+
+## What this borrows, and from whom
+
+Nothing here is a new idea. Each of these is an existing technique with a half
+that is right for this problem and a half that is not, and the work was picking
+the seam rather than inventing anything.
+
+Worth writing down for two reasons: so nobody re-derives it, and because the
+distinction between taking an *idea* and taking *code* is the one that decides
+whether a licence is anybody's problem. **An idea carries no licence.** A file
+does. Everything below is the first kind; anything of the second kind would need
+its licence read before a line of it came near this repository, and that is a
+decision to make deliberately rather than while in a hurry.
+
+| | taken | left |
+|---|---|---|
+| **Characterization tests** (Feathers) | pin what the code does before changing it; the tests are a net, not a specification | writing them by hand, which is the reason nobody has them |
+| **Golden master / approval testing** | a result you cannot describe can still be pinned by its serialised form | a checked-in file per case, which rots as fast as it is written |
+| **Property-based testing** (QuickCheck and its descendants) | generated inputs reach boundaries examples never do | random generation. A suite that differs between two runs is one nobody can review or commit, so the values here are fixed |
+| **Seeded fuzzing** (a fuzzer's dictionary of constants pulled from the target) | the program tells you its own boundaries; feed them back as inputs | the fuzzing. There is no crash oracle here, and no budget for millions of executions |
+| **Concolic execution** | the interesting inputs are the ones a branch turns on | the solver. Reading the literals gets most of it for none of the weight |
+| **Mutation testing** (Stryker and its kind) | change the code, see whether the tests notice; used three times in this repository and it found something each time | running it over the whole codebase on every push |
+| **Upgrade Assistant, try-convert** | the mechanical conversions really are mechanical, and M9 does them | stopping at the wall and reporting it as completion |
+
+The two that meet in M12 are the third and fourth rows. Property-based testing
+says *generate inputs you would not have thought of*, and is right. Seeded
+fuzzing says *the constants are in the program already*, and is also right.
+Neither is enough alone: invented values missed `years >= 3` and the file's own
+values would never have found the overflow at `int.MaxValue`. Taken in turn,
+they find both.
+
+---
+
+## M13. A catalogue nobody has to hand-write
+
+*Planned.*
+
+`data/successors.json` is the part of this that took the work, and it is written
+by hand. Around a hundred entries covers the surface that matters, the coverage
+figures already say out loud how much is missing, and it grows one migration at
+a time.
+
+Microsoft publishes [apisof.net](https://github.com/dotnet/apisof.net), which is
+open source and is a database of which API exists in which framework and
+version. That is the half worth taking: nobody should be typing out which types
+`System.Web` has and modern .NET does not.
+
+**It is not the same question.** That data says what *exists*. The catalogue here
+says what *replaces* what, which is a judgement with a note attached, and the
+three-way answer this rests on, replaced, has none, unknown, is not in it. So
+the shape of M13 is a generated floor with the judgements laid on top by hand,
+and the generated part must be visibly separate from the written part, or the
+whole distinction that makes the catalogue trustworthy dissolves.
+
+**Read the licence before taking a byte of it.** Taking the idea is free; taking
+the data is a decision with terms, and this repository publishes under MIT.
+
+---
+
+## M14. Something to hand to somebody
+
+*Planned.*
+
+Today this is a web service, which is right for a team and wrong for the first
+conversation. A single binary that opens a window, indexes a folder and answers
+questions is what somebody can be handed at the end of a meeting, and it removes
+the sentence that ends most of those meetings: *where would it run?*
+
+Windows first, because that is where the code being modernised lives. It needs
+code signing, or the first thing the prospect sees is their own machine telling
+them not to trust it, and it needs the local model bundled or fetched on first
+run, which is gigabytes either way.
+
+None of that is analysis work. It is the difference between a project and a
+product, and it is worth naming so it does not arrive as a surprise.
 
 ---
 
