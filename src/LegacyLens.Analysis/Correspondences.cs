@@ -143,6 +143,12 @@ public sealed class Correspondences
     /// </summary>
     private static bool Seen(IReadOnlySet<string> written, string name)
     {
+        // A counterpart in a sibling package is recorded with where it lives,
+        // because a bare `RouteData` says nothing about which framework it
+        // belongs to. Code names the type, not the namespace.
+        var dot = name.LastIndexOf('.');
+        if (dot > 0 && dot < name.Length - 1) name = name[(dot + 1)..];
+
         if (written.Contains(name)) return true;
 
         const string Suffix = "Attribute";

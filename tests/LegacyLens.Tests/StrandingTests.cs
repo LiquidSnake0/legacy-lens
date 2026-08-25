@@ -171,3 +171,56 @@ public class OptimizationPackageTests
             ApiSurface.Namespaces["Microsoft.AspNet.Web.Optimization"]);
     }
 }
+
+/// <summary>
+/// The three catalogues have to agree about which packages exist.
+///
+/// They drifted. `Microsoft.AspNet.Web.Optimization` was measured by nothing
+/// until M28 uncovered it, and `Microsoft.AspNet.Razor`, the two Web API
+/// packages and Owin were all recorded as having no life on modern .NET with
+/// nothing recorded about what to do instead. The surface counted their usage
+/// and the report answered silence.
+/// </summary>
+public class CatalogueAgreementTests
+{
+    [Fact]
+    public void Every_package_the_surface_measures_is_judged_on_whether_it_can_stay()
+    {
+        var strandings = Strandings.Load();
+
+        foreach (var package in ApiSurface.Namespaces.Keys)
+        {
+            Assert.True(strandings.For(package) is not null,
+                $"{package} is measured and nobody has said whether it can stay");
+        }
+    }
+
+    [Fact]
+    public void Every_package_that_cannot_stay_has_an_answer_recorded()
+    {
+        // Not necessarily a successor: "nothing replaces it" is an answer and
+        // an empty candidate says so. Silence is not.
+        var catalogue = Successors.Load();
+        var strandings = Strandings.Load();
+
+        foreach (var package in ApiSurface.Namespaces.Keys)
+        {
+            if (strandings.For(package)?.Strands != true) continue;
+
+            Assert.True(catalogue.For(package).Count > 0,
+                $"{package} cannot stay and the catalogue says nothing about what to do");
+        }
+    }
+
+    [Fact]
+    public void And_a_package_that_can_stay_is_not_pretended_to_be_urgent()
+    {
+        // Newtonsoft, log4net, Autofac, EF6 and NHibernate all run on modern
+        // .NET. Recording a successor for them is right, and recording them as
+        // stranded would price a choice as a sentence.
+        var strandings = Strandings.Load();
+
+        foreach (var package in new[] { "Newtonsoft.Json", "log4net", "Autofac", "EntityFramework", "NHibernate" })
+            Assert.False(strandings.For(package)?.Strands, $"{package} runs on modern .NET");
+    }
+}

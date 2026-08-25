@@ -375,9 +375,9 @@ solution they cover, and before the order, because the order assumes them.
 **It carries what the codebase actually uses of the packages with no future.**
 Counting how many projects reference a package cannot separate an afternoon of
 find-and-replace from a rewrite, and how much of it is used, by how few types,
-with how much already answered, can. On Orchard the document says 3,634 uses of
-190 types across 365 files, 24 types carrying four fifths of it, a successor
-covering 76 per cent, and 121 types still to decide once the framework has been
+with how much already answered, can. On Orchard the document says 3,619 uses of
+185 types across 365 files, 24 types carrying four fifths of it, a successor
+covering 83 per cent, and 109 types still to decide once the framework has been
 asked about the ones nobody catalogued. That reading is a second walk over every
 source file, which took the assessment from 4.8 to 8.2 seconds on Orchard.
 
@@ -762,7 +762,7 @@ It reads what the codebase uses of each catalogued package, how concentrated
 that usage is, and scores the candidate replacements against it. No model is
 involved.
 
-On Orchard, for the package that blocks 73 of its 89 projects: 3,634 calls
+On Orchard, for the package that blocks 73 of its 89 projects: 3,619 calls
 across 365 files, of which **24 types carry four fifths**. That is the number
 that turns "73 projects blocked" into a catalogue somebody can write.
 
@@ -1259,8 +1259,10 @@ cannot.
 
 It is the same executable the container runs, published self-contained with the
 interface beside it. Which is also how it is checked: pointed at Orchard, the
-binary answers 3,634 uses, 24 types carrying four fifths, 76% covered and 121
-left to decide, digit for digit what the server answers.
+binary answers 3,619 uses, 24 types carrying four fifths, 83% covered and 109
+left to decide, digit for digit what the server answers. Checked again after
+fifteen milestones and three catalogues it did not have when that was written:
+the two reports differ in the elapsed time and in nothing else.
 
 **The model is not in it.** A local model is gigabytes and does not travel on a
 memory stick. Everything that needs no model still works: the map, the diagrams,

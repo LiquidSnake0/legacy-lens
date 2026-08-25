@@ -603,19 +603,44 @@ public class ReportWriter
         if (!reading.Applicable) return;
 
         var leads = reading.Of(Standing.InSuccessor).Count;
-        var traps = reading.Of(Standing.Elsewhere).Count;
+        var elsewhere = reading.Of(Standing.Elsewhere).ToList();
         var gone = reading.Of(Standing.Gone).Count;
 
         report.AppendLine(Wrap(
             $"Asked of the framework itself rather than of the catalogue: "
           + $"{Assessor.Count(leads, "type")} of that column exist inside {coverage.Candidate} "
           + $"under the same name, which is a lead worth checking. "
-          + $"{Assessor.Count(traps, "type")} exist somewhere unrelated, which is a trap "
-          + $"rather than an answer: `System.Web.HttpContext` and its modern namesake share "
-          + $"a word and nothing else. {Assessor.Count(gone, "type")} the framework does not "
-          + $"have at all. That leaves {Assessor.Count(reading.Left, "type")} still to "
-          + "decide."));
+          + $"{Assessor.Count(elsewhere.Count, "type")} exist elsewhere in the framework under "
+          + "the same name, which nobody has recorded either way. "
+          + $"{Assessor.Count(gone, "type")} the framework does not have at all. That leaves "
+          + $"{Assessor.Count(reading.Left, "type")} still to decide."));
         report.AppendLine();
+
+        // Named rather than counted, and not called a trap.
+        //
+        // This used to say "somewhere unrelated, which is a trap rather than an
+        // answer". Sometimes. `System.Web.HttpContext` and
+        // `Microsoft.AspNetCore.Http.HttpContext` share a word and nothing
+        // else, and that is the case the sentence was written for. But on
+        // nopCommerce every one of these was a real counterpart in a sibling
+        // package: ASP.NET Core split MVC across Http, Routing and Html, and
+        // `Microsoft.AspNetCore.Routing.RouteData` is not somewhere unrelated.
+        //
+        // Which of the two it is cannot be settled by looking at namespaces,
+        // and calling them all traps sent somebody past correspondences that
+        // were there. Named, a reader settles it in a minute.
+        if (elsewhere.Count > 0)
+        {
+            report.AppendLine(Wrap(
+                "Those are worth a minute each, because the framework was split up and a "
+              + "counterpart in a sibling package looks the same from here as a coincidence:"));
+            report.AppendLine();
+
+            foreach (var found in elsewhere.OrderByDescending(t => t.Use.Uses).Take(TopTypes))
+                report.AppendLine($"- `{found.Use.Name}` ({Assessor.Count(found.Use.Uses, "use")}) is `{found.Where}`");
+
+            report.AppendLine();
+        }
     }
 
     /// <summary>

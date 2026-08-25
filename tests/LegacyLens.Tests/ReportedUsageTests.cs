@@ -118,7 +118,8 @@ public class ReportedUsageTests : IDisposable
 
         Assert.Contains("Asked of the framework itself", report);
         Assert.Contains("still to decide", report);
-        Assert.Contains("trap rather than an answer", report);
+        Assert.Contains("elsewhere in the framework under the same name", report);
+        Assert.Contains("nobody has recorded either way", report);
     }
 
     [Fact]

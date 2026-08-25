@@ -8,6 +8,14 @@
       "package": "Microsoft.AspNetCore.Mvc",
       "note": "The pipeline, the routing and the filters all change shape. Most types have a counterpart, and the controllers still have to be moved onto the new hosting model.",
       "types": {
+      "//sibling": "ASP.NET Core split MVC across several packages, so a counterpart is not always inside Microsoft.AspNetCore.Mvc. These are recorded with where they live, because a name in a sibling package looks the same from a namespace as a coincidence does, and they were being left in the column nobody had looked at.",
+      "//trap": "System.Web.HttpContext is deliberately absent from this list. It has a namesake in Microsoft.AspNetCore.Http and they share a word and nothing else, which is the case that makes naming a namespace a bad way to decide.",
+      "FormCollection": "Microsoft.AspNetCore.Http.IFormCollection",
+      "RouteData": "Microsoft.AspNetCore.Routing.RouteData",
+      "RouteCollection": "Microsoft.AspNetCore.Routing.RouteCollection",
+      "RouteBase": "Microsoft.AspNetCore.Routing.RouteBase",
+      "HtmlString": "Microsoft.AspNetCore.Html.HtmlString",
+
         "Controller": "Controller",
         "ControllerBase": "ControllerBase",
         "ActionResult": "IActionResult",
@@ -113,6 +121,72 @@
         "RequireHttpsAttribute": "1 migration(s): Umbraco",
         "SelectListGroup": "1 migration(s): Smartstore",
         "ValidateAntiForgeryTokenAttribute": "1 migration(s): Orchard"
+      }
+    }
+  ],
+
+  "Microsoft.AspNet.WebApi.Core": [
+    {
+      "package": "Microsoft.AspNetCore.Mvc",
+      "note": "Web API and MVC are one framework on ASP.NET Core. A controller stops deriving from ApiController and derives from ControllerBase, and the action results are the MVC ones. The routing attributes keep their names and change namespace, and the configuration object has no counterpart because configuration is services and middleware now.",
+      "types": {
+        "ApiController": "ControllerBase",
+        "IHttpActionResult": "IActionResult",
+        "FromBody": "FromBodyAttribute",
+        "FromUri": "FromQueryAttribute",
+        "RoutePrefix": "RouteAttribute",
+        "Route": "RouteAttribute",
+        "HttpGet": "HttpGetAttribute",
+        "HttpPost": "HttpPostAttribute",
+        "HttpPut": "HttpPutAttribute",
+        "HttpDelete": "HttpDeleteAttribute",
+        "AllowAnonymous": "AllowAnonymousAttribute",
+        "ActionFilterAttribute": "ActionFilterAttribute",
+        "OkResult": "OkResult",
+        "NotFoundResult": "NotFoundResult",
+        "BadRequestResult": "BadRequestResult",
+        "HttpConfiguration": null,
+        "HttpRouteCollection": null,
+        "ApiExplorer": null
+      }
+    }
+  ],
+
+  "Microsoft.AspNet.WebApi.WebHost": [
+    {
+      "package": "",
+      "note": "It hosted Web API inside IIS through System.Web. ASP.NET Core is its own host and there is nothing to configure in its place: the reference goes and the hosting is Program.cs.",
+      "types": {
+        "HttpControllerHandler": null,
+        "HttpControllerRouteHandler": null
+      }
+    }
+  ],
+
+  "Microsoft.AspNet.Razor": [
+    {
+      "package": "",
+      "note": "The engine itself is not a public API anybody ports. Views move with MVC and the syntax is the same. Code that drove the engine directly, to render a template outside a request, is a different question and is asked as one.",
+      "types": {
+        "RazorEngineHost": null,
+        "RazorTemplateEngine": null,
+        "RazorEngineHostFactory": null,
+        "GeneratorResults": null
+      }
+    }
+  ],
+
+  "Owin": [
+    {
+      "package": "",
+      "note": "Katana is the .NET Framework host. ASP.NET Core has its own pipeline and does not run it, so an OWIN startup class becomes middleware in Program.cs rather than being ported.",
+      "types": {
+        "IAppBuilder": null,
+        "OwinStartup": null,
+        "OwinMiddleware": null,
+        "IOwinContext": null,
+        "IOwinRequest": null,
+        "IOwinResponse": null
       }
     }
   ],

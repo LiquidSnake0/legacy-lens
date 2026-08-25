@@ -1122,8 +1122,8 @@ Measured on Orchard, for the package that holds 73 of its 89 projects:
 
 | | |
 |---|---|
-| Uses of `Microsoft.AspNet.Mvc` | **3,634** |
-| Distinct types | **190** |
+| Uses of `Microsoft.AspNet.Mvc` | **3,619** |
+| Distinct types | **185** |
 | Files importing it | **365** |
 | **Types carrying four fifths of it** | **24** |
 | Files carrying four fifths of it | **134** |
@@ -1614,9 +1614,11 @@ address in case it cannot.
 **There is no second implementation of anything.** It is the same executable the
 container runs, published self-contained with the built interface beside it and
 serving both from one port. Which is also the acceptance test: pointed at
-Orchard, the binary answers 3,634 uses, 24 types carrying four fifths, 76 per
-cent covered and 121 left to decide, which is what the server answers to the
-digit. Those are the figures as they stand after M20; the property being checked
+Orchard, the binary answers 3,619 uses, 24 types carrying four fifths, 83 per
+cent covered and 109 left to decide, which is what the server answers to the
+digit. Checked again fifteen milestones later, against three catalogues and a
+file-system index it did not have when this was written: the two reports differ
+in the elapsed time and in nothing else. Those are the figures as they stand after M20; the property being checked
 is that the two agree, and they still do.
 
 ---
@@ -1854,17 +1856,17 @@ So the reading is in the assessment, and the document has a section for it. On
 Orchard:
 
 ```
-3,634 uses of 190 types, across 365 files. 24 types and 134 files carry four
+3,619 uses of 185 types, across 365 files. 24 types and 134 files carry four
 fifths of it.
 
-Microsoft.AspNetCore.Mvc covers 76% of those calls. 138 types, 884 calls,
+Microsoft.AspNetCore.Mvc covers 83% of those calls. 116 types, 543 calls,
 are not in the catalogue at all: unknown, which is not the same as fine.
 
 Asked of the framework itself rather than of the catalogue: 17 types of that
 column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a
 lead worth checking. 15 types exist somewhere unrelated, which is a trap
 rather than an answer. 106 types the framework does not have at all. That
-leaves 121 types still to decide.
+leaves 109 types still to decide.
 ```
 
 Those are the figures M14's acceptance test used, now in the artefact rather
@@ -2732,6 +2734,92 @@ And the sentence is pinned by a test rather than left to survive the next edit.
 This changes no behaviour and no measurement. It changes what the numbers are
 allowed to mean, which is the part that would have cost something in front of
 somebody deciding whether to pay for it.
+
+---
+
+## M29. Closing the loose ends before the machine ✅
+
+*The last one that can be done without Windows. Everything left after this needs
+a toolchain nothing here has had.*
+
+### The shipped binary, re-verified after fifteen milestones
+
+M14 set the rule: the single file must answer digit for digit what the server
+answers. Nobody had checked since, and three catalogues, a features file and a
+file-system index have been added underneath it.
+
+Rebuilt and compared on both codebases, `surface` and the full `report`. **The
+two differ in the elapsed time and in nothing else.** The four catalogues travel
+with it, and the win-x64 build is on disk waiting for the machine.
+
+### A sentence that had been over-claiming since M13
+
+The framework reading called its middle answer *somewhere unrelated, which is a
+trap rather than an answer*, and offered `System.Web.HttpContext` and its modern
+namesake as the example. That case is real. The others were not:
+
+```
+- FormCollection  (81 uses) is Microsoft.AspNetCore.Http.FormCollection
+- RouteCollection (25 uses) is Microsoft.AspNetCore.Routing.RouteCollection
+- RouteData       (18 uses) is Microsoft.AspNetCore.Routing.RouteData
+- HtmlString       (2 uses) is Microsoft.AspNetCore.Html.HtmlString
+- RouteBase        (1 use)  is Microsoft.AspNetCore.Routing.RouteBase
+```
+
+ASP.NET Core split MVC across Http, Routing and Html, and a counterpart in a
+sibling package looks exactly like a coincidence from a namespace. Which of the
+two it is cannot be settled by looking, so the report **names them with where
+they live** instead of counting them and calling them traps. A reader settles
+each in a minute.
+
+All five are catalogued now, with a note saying why `HttpContext` is
+deliberately not among them.
+
+### Four packages that could not stay and had no answer recorded
+
+`Microsoft.AspNet.Razor`, the two Web API packages and `Owin` were all recorded
+as having no life on modern .NET, and the catalogue said nothing about what to
+do instead. The surface counted their usage and the report answered silence.
+
+Web API gets its real answer, that it and MVC are one framework now:
+`ApiController` becomes `ControllerBase`, `IHttpActionResult` becomes
+`IActionResult`, and `HttpConfiguration` has no counterpart because
+configuration is services and middleware. The other three get an empty candidate
+and a note, which is an answer.
+
+**A test now pins the three catalogues agreeing**: everything the surface
+measures is judged on whether it can stay, and everything that cannot stay has
+an answer recorded. Silence is no longer possible without a red test.
+
+### Measured after all of it
+
+| | before M29 | after |
+|---|---|---|
+| nopCommerce, covered by the successor | 78% | **81%** |
+| nopCommerce, unknown | 33 types, 239 calls | **28 types, 112 calls** |
+| nopCommerce, still to decide | 28 | **23** |
+| Orchard, covered by the successor | 76% | **83%** |
+| Orchard, unknown | 138 types, 884 calls | **116 types, 543 calls** |
+| Orchard, still to decide | 121 | **109** |
+
+Every figure this repository publishes was brought current with those.
+
+### And the script the machine will run
+
+`measure.ps1`. It reports what the tool says before anything is applied, builds
+the solution as it stands, applies both conversions in the order the command
+prints, **builds it again**, and then runs characterization over the assemblies
+the build produced.
+
+Those last two are the two open questions. Does *converted* mean *it builds*,
+and on a real .NET Framework estate does characterization reach anything.
+
+**It has never run.** PowerShell is not installed here, so not one line of it
+has been executed or parsed, and the header says so. One bug was caught by
+reading: a native command that fails does not throw in PowerShell, it sets an
+exit code, so `git apply` refusing a patch would have printed *applied*. That is
+the same class of claim this repository spent the previous commit removing from
+its own wording.
 
 ---
 
