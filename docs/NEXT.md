@@ -62,18 +62,7 @@ straightforward and turns a full re-run into seconds.
 
 ---
 
-## 7. Reading the code's own values into the characterization tests
-
-M12 offers a file's own constants back to it as arguments, and it finds
-boundaries the invented values never reach. The characterization net generates
-its cases the same way and does not do this yet.
-
-Not simply switched on: that net writes a test file somebody has to read and
-commit, so every extra case costs a reader rather than a few milliseconds. Worth
-measuring what it catches before deciding how many cases a generated file should
-carry.
-
-## 8. Attributing a type to the package it actually came from, exactly
+## 7. Attributing a type to the package it actually came from, exactly
 
 The usage surface counts a type as a package's when it appears in a type
 position in a file that imports that package. That is cheap, needs no

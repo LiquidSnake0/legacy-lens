@@ -1731,6 +1731,79 @@ this against code they did not write.
 
 ---
 
+## M16. The boundaries the code was written around ✅
+
+*The characterization net tries the numbers the code names, not only the ones
+this tool invents.*
+
+M12 already did this for comparing a rewrite, and it was the change that turned
+`years >= 3` rewritten as `> 3` from **reported unchanged over six calls** into
+a caught regression. The net that writes test files did not do it, because it is
+handed an assembly rather than a file: the source may be on another machine, may
+have moved on, and on an inherited codebase may not be anywhere anybody can
+find.
+
+So the constants are read where they certainly are. `if (years >= 3)` leaves the
+3 in the method body, and that body is in the assembly being characterized. A
+`const int Minimum = 250` leaves no instruction at all, so the fields are read
+too.
+
+**Decoded rather than scanned.** An instruction stream cannot be searched for
+bytes that look like constants: an operand holds any value, so `0x20` inside a
+four-byte token reads as `ldc.i4` to anything stepping a byte at a time. The
+walk decodes instruction by instruction, and the opcode table is built from the
+runtime's own `OpCodes` rather than copied out here, because a hand-written
+table of two hundred numbers has to be right and nothing would say when it was
+not. The two readers, source and compiled, are checked against each other.
+
+### Measured, because the note said to measure
+
+A case here costs a reader rather than a millisecond: this net writes a file
+somebody commits. Four mutations of a class with four boundaries, each edit the
+kind that looks like tidying, with the suite generated from the original run
+against each mutant.
+
+| cases per method | invented only | reading the code | tests written |
+|---|---|---|---|
+| 4 *(the default)* | 0 of 4 | **2 of 4** | 16 either way |
+| 6 | 1 of 4 | 2 of 4 | 23 / 24 |
+| 8 | 1 of 4 | 2 of 4 | 23 / 32 |
+| 10 | 1 of 4 | **4 of 4** | 23 / 38 |
+| 12 | 1 of 4 | 4 of 4 | 23 / 44 |
+
+Two things decide the default. **At four cases it is free**: the same sixteen
+tests are written either way, because the cases were already being spent, just
+on values that told nobody anything. And **inventing harder does not substitute
+for it**: what this tool invents is six values long, so past the budget that
+reaches all six, more of a reader's attention buys nothing. The invented column
+never moves again.
+
+Reaching the last two costs ten cases and more than doubles the file. That is a
+trade for whoever reads and commits it, so it is `--cases` with the cheaper end
+as the default rather than a decision made on their behalf.
+
+### What the measurement found on the way
+
+**The verifier reported clean without running anything.** It runs the cases it
+was named, and a caller holding only a generated file names none, so it compiled
+the suite, invoked nothing, found no failures and reported a suite that passed.
+The repository's own `Everything_offered_compiled_and_passed`, the test that
+re-checks the promise the whole approach rests on, had been unfalsifiable since
+it was written. Naming none now runs everything, and a verification that
+executed nothing can no longer call itself clean.
+
+**Two plausible improvements measured as nothing.** Raising the per-type
+allowance from eight values to twenty-four changed no outcome at any budget: the
+ranking is by how often a value is mentioned, and a boundary written twice
+already outranks the neighbours of everything else. Excluding the values this
+tool invents before the allowance is spent changed no outcome either, because
+the same values are dropped downstream anyway. That one was kept for a reason
+the mutation test could not show and a direct one could: on a compiled method
+full of the zeroes and ones a loop counter emits, it is the difference between
+an allowance of eight delivering five useful values and delivering eight.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

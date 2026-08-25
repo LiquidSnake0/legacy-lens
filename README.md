@@ -417,6 +417,10 @@ dotnet run --project src/LegacyLens.Api -- characterize \
     --type CodeMetrics --out ./characterization
 ```
 
+`--cases <n>` sets how many calls each method gets. It is the one number here
+that costs somebody something, because every case is a test a person reads and
+commits.
+
 What comes out has been called, watched twice, written down, compiled and run:
 
 ```csharp
@@ -438,6 +442,22 @@ asked to review an assertion on trust.
 **Two identical calls have to agree.** A method reading the clock, a GUID or a
 random number produces a test that passes today and fails tomorrow morning.
 Every call is made twice and the result is discarded when the two disagree.
+
+**It tries the numbers the code names, and not only the ones anyone invents.**
+Invented values find the boundaries somebody thought of in advance: empty, zero,
+negative, the extremes. They do not find the boundary this particular code turns
+on, and that one is written a few lines away. Since the net is handed an
+assembly rather than a file, the constants are read out of the compiled method
+bodies, where they certainly are.
+
+Measured by mutation, on a class with four boundaries and four edits of the kind
+that look like tidying. At the default of four cases per method it catches two
+of the four where invented values catch none, and writes the same sixteen tests
+either way: the cases were already being spent, just on values that told nobody
+anything. Catching all four takes ten cases and more than doubles the file, so
+that end is `--cases 10` rather than the default. Inventing harder is not a
+substitute: what the tool invents is six values long, and past the budget that
+reaches all six the invented column never moves again.
 
 **It will happily freeze a bug.** The generated file says so at the top. This
 net guarantees a migration changed nothing; it says nothing about whether what
