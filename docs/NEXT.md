@@ -4,22 +4,7 @@ In rough order of how much each would improve the answers.
 
 ---
 
-## 1. Hybrid search
-
-The largest gap, and the one specific to code.
-
-Vector search is weak on rare identifiers. Someone typing `PriceEngine` wants
-that exact token, and an embedding, which encodes meaning, has no particular
-reason to favour an exact match on a proper noun it never saw during training.
-Lexical search is simply better at that job.
-
-The fix is to run both and fuse the scores. SQLite ships FTS5, so this costs no
-new dependency: a full-text index over the same chunks, a BM25 score, and
-reciprocal rank fusion against the cosine ranking.
-
-Expect this to matter more than any amount of tuning elsewhere.
-
-## 2. Recalibrating the score floor on a real codebase
+## 1. Recalibrating the score floor on a real codebase
 
 Done once, on this repository. Four answerable questions scored 0.59 to 0.68 at
 the top; three unanswerable ones scored 0.00, 0.46 and 0.47. The floor sits at
@@ -34,7 +19,7 @@ If the two clusters ever overlap, an absolute floor cannot separate them and a
 relative one is needed as well, discard anything below some fraction of the best
 score for that query, which adapts to how hard the question is.
 
-## 3. Opening a citation
+## 2. Opening a citation
 
 The frontend exists now (Angular 22, in `web/`), and it shows each citation with
 its path, line range and score. What it does not do is open them: clicking a
@@ -42,27 +27,13 @@ citation should show the excerpt, or hand off to an editor via a `vscode://`
 link. Right now the reader has to find the file themselves, which is most of the
 friction left in the loop.
 
-## 4. Streaming
-
-`OllamaChatClient` asks for `stream: false` and waits. On a CPU-only machine a
-3B model takes tens of seconds to produce an answer, and watching nothing happen
-for that long feels broken. Server-sent events from the API, token by token.
-
-## 5. Reranking
+## 3. Reranking
 
 A cross-encoder rescoring the top twenty candidates, comparing each against the
 question directly rather than through separately-computed vectors. Markedly more
 accurate and markedly slower, worth it only once there is hardware to spare.
 
-## 6. Incremental indexing
-
-Re-indexing currently walks and embeds everything. Chunk ids are stable, so
-skipping files whose modification time predates the last index is
-straightforward and turns a full re-run into seconds.
-
----
-
-## 7. Attributing a type to the package it actually came from, exactly
+## 4. Attributing a type to the package it actually came from, exactly
 
 The usage surface counts a type as a package's when it appears in a type
 position in a file that imports that package. That is cheap, needs no

@@ -364,6 +364,15 @@ curl -X POST localhost:8080/api/report \
 Markdown comes back as the body rather than as a field inside JSON, because it
 is meant to be written to a file, converted to PDF or pasted into a ticket.
 
+**It carries what the codebase actually uses of the packages with no future.**
+Counting how many projects reference a package cannot separate an afternoon of
+find-and-replace from a rewrite, and how much of it is used, by how few types,
+with how much already answered, can. On Orchard the document says 3,877 uses of
+198 types across 365 files, 28 types carrying four fifths of it, a successor
+covering 71 per cent, and 129 types still to decide once the framework has been
+asked about the ones nobody catalogued. That reading is a second walk over every
+source file, which took the assessment from 4.8 to 8.2 seconds on Orchard.
+
 **Orchard CMS, 414,611 lines, assessed in 2 seconds.** The document opens with
 the paragraph for a reader who will read one paragraph:
 

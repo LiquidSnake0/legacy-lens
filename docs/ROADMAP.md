@@ -1804,6 +1804,83 @@ an allowance of eight delivering five useful values and delivering eight.
 
 ---
 
+## M17. The same answer, wherever it is asked ✅
+
+*One way to ask what a codebase uses, and that answer in the document that gets
+handed over.*
+
+### The command and the route disagreed by five hundred uses
+
+`ApiSurface` takes the catalogue as an argument because it has to be able to
+abstain: asked about a package nobody recorded, it must exclude nothing rather
+than guess. That argument had a default, and a default is a second answer
+waiting to be given.
+
+It was given. The route built the catalogue and passed it. The command passed
+nothing, took the abstaining behaviour, and printed a different number for the
+same directory:
+
+```
+route     Microsoft.AspNet.Mvc: 3877 use(s) of 198 type(s), across 365 file(s)
+command   Microsoft.AspNet.Mvc: 4379 use(s) of 267 type(s), across 365 file(s)
+```
+
+Thirteen per cent apart, and the larger one is the number M13 was built to stop
+reporting, because it counts types the framework still supplies as a dead
+package's work. This README publishes 3,877, so the command contradicted the
+project's own measurement.
+
+The rule M14 wrote down applies without a word changed: **the same program
+giving different answers depending on how it was asked is worse than one that
+refuses to answer.** So there is one way in now, `Surfaces`, which loads the
+catalogue and applies it. The argument below it has no default any more, and a
+caller that means to abstain says so out loud. The only six call sites that had
+to change were tests, each of them a test of abstaining, and each now says so.
+
+### The report did not contain the number that decides the size
+
+Everything the assessment counted was what a solution *declares*: how many
+projects reference a package, how many are unclassified. Its first repair step
+read "78 packages nobody has classified, each one either a non-event or a
+rewrite" and stopped there, while the tool already knew which of the two, and
+would say so if you ran a second command.
+
+So the reading is in the assessment, and the document has a section for it. On
+Orchard:
+
+```
+3,877 uses of 198 types, across 365 files. 28 types and 135 files carry four
+fifths of it.
+
+Microsoft.AspNetCore.Mvc covers 71% of those calls. 146 types, 1,127 calls,
+are not in the catalogue at all: unknown, which is not the same as fine.
+
+Asked of the framework itself rather than of the catalogue: 17 types of that
+column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a
+lead worth checking. 15 types exist somewhere unrelated, which is a trap
+rather than an answer. 114 types the framework does not have at all. That
+leaves 129 types still to decide.
+```
+
+Those are the figures M14's acceptance test used, now in the artefact rather
+than behind a second command. It costs a second walk over every source file:
+the report on Orchard went from 4.8 to 8.2 seconds and from 363 to 478 lines,
+and a caller that does not want to pay for it can turn it off.
+
+### Three items claimed to be missing and were not
+
+`NEXT.md` listed hybrid search, streaming, and incremental indexing as things
+this does not do yet. All three are in the code: an FTS5 index fused with the
+cosine ranking, `text/event-stream` with token events, and an ingestion ledger
+that skips a file whose content hash has not moved. The file that tells a reader
+what is missing was wrong in three places out of seven, which is worse than
+having no such file: a roadmap nobody trusts is read as marketing.
+
+What is left there now is four items, one of which is a trade rather than a
+task.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
