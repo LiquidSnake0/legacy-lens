@@ -56,6 +56,16 @@ public record Limitation(string Subject, string Detail);
 /// asks that none of them answers alone, which is what to do first. That
 /// question needs all four at once, so composing them is the work.
 /// </summary>
+/// <summary>
+/// One dependency with a future in question: how much of it this codebase
+/// actually uses, and what could take its place.
+/// </summary>
+public record Dependency(UsageSurface Surface, IReadOnlyList<Coverage> Candidates)
+{
+    /// <summary>The best answer anyone has recorded, or none.</summary>
+    public Coverage? Best => Candidates.Count > 0 ? Candidates[0] : null;
+}
+
 public record Assessment(
     string Name,
     string Root,
@@ -65,8 +75,25 @@ public record Assessment(
     ModernisationSurvey Modernisation,
     IReadOnlyList<RepairStep> Repairs,
     IReadOnlyList<Limitation> Limitations,
-    long ElapsedMs)
+    long ElapsedMs,
+
+    /// <summary>
+    /// What the codebase uses of the packages whose future is in question.
+    ///
+    /// The report used to say "78 packages nobody has classified" and stop,
+    /// while the tool already knew that one of them accounts for 3,877 uses of
+    /// 198 types across 365 files and that a successor covers 63 per cent of
+    /// them. That number is the one that separates an afternoon from a
+    /// rewrite, and it was reachable only by running a second command.
+    ///
+    /// Empty by default so that a caller wanting the cheap half of an
+    /// assessment can still have it, and so this stays an addition rather than
+    /// a new requirement on every construction site.
+    /// </summary>
+    IReadOnlyList<Dependency>? Dependencies = null)
 {
+    public IReadOnlyList<Dependency> Uses => Dependencies ?? [];
+
     public IEnumerable<Finding> Of(FindingKind kind) => Findings.Where(f => f.Kind == kind);
 
     /// <summary>
@@ -116,6 +143,16 @@ public class Assessor
     /// <summary>Projects under this are not worth a box on the diagram.</summary>
     public int DiagramMinimumLines { get; init; } = 500;
 
+    /// <summary>
+    /// Whether to read what the codebase uses of its dependencies.
+    ///
+    /// On, because it is the half of the answer that prices the work. A switch
+    /// because it walks and parses every source file again, which on a large
+    /// solution is most of the time an assessment takes, and a caller who only
+    /// wants the project map should not pay for it.
+    /// </summary>
+    public bool ReadDependencies { get; init; } = true;
+
     public Assessment Assess(string rootPath)
     {
         if (!Directory.Exists(rootPath))
@@ -132,6 +169,17 @@ public class Assessor
         }.Analyse(rootPath);
         var modernisation = new Modernisation().Survey(rootPath);
 
+        // What is actually used of the packages with no future. Reading the
+        // syntax again is most of the extra time an assessment now takes, and
+        // it is what turns "78 packages to classify" into a size.
+        var reading = new Surfaces();
+
+        var dependencies = ReadDependencies
+            ? reading.All(rootPath)
+                .Select(surface => new Dependency(surface, reading.Candidates(surface)))
+                .ToList()
+            : [];
+
         risk = WithoutTestProjects(risk, map, rootPath);
 
         var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath)));
@@ -145,7 +193,8 @@ public class Assessor
             modernisation,
             Order(map, findings, risk, modernisation),
             Limits(map, findings, risk, modernisation),
-            started.ElapsedMilliseconds);
+            started.ElapsedMilliseconds,
+            dependencies);
     }
 
     /// <summary>

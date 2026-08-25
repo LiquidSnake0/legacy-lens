@@ -50,6 +50,7 @@ public class ReportWriter
         Shape(report, assessment);
         Hurt(report, assessment);
         Migration(report, assessment);
+        Used(report, assessment);
         Order(report, assessment);
         Unsaid(report, assessment);
         Method(report, assessment);
@@ -465,6 +466,141 @@ public class ReportWriter
             report.AppendLine();
         }
     }
+
+    /// <summary>
+    /// What the codebase actually uses of the packages with no future.
+    ///
+    /// The section the report was missing. Everything above it counts what a
+    /// solution declares: how many projects reference a package, how many are
+    /// unclassified. None of that separates an afternoon of find-and-replace
+    /// from a rewrite, and the thing that does is how much of a package is
+    /// used, by how few types, with how much of it already answered.
+    ///
+    /// It says what it cannot say, in the same breath. The count is read from
+    /// syntax rather than from a compilation, the unknown column is unknown and
+    /// not fine, and a percentage covered is a percentage of calls with a
+    /// recorded counterpart, which is not a promise that applying them is
+    /// mechanical.
+    /// </summary>
+    private static void Used(StringBuilder report, Assessment assessment)
+    {
+        var used = assessment.Uses.Where(d => d.Surface.Used).ToList();
+
+        if (used.Count == 0) return;
+
+        report.AppendLine("## What you actually use of what is going away");
+        report.AppendLine();
+        report.AppendLine(Wrap(
+            "A package with no future is not a unit of work. What decides the size is how "
+          + "much of it this codebase touches and how few types carry it: a hundred calls "
+          + "through six types is an afternoon, and the same hundred spread over sixty is a "
+          + "rewrite. Counted from the syntax, so a type is counted where it appears in a "
+          + "type position in a file importing the package and nothing in the solution "
+          + "declares it."));
+        report.AppendLine();
+
+        foreach (var dependency in used.Take(TopDependencies))
+        {
+            var surface = dependency.Surface;
+
+            report.AppendLine($"### {surface.Package}");
+            report.AppendLine();
+            report.AppendLine(Wrap(
+                $"{Assessor.Count(surface.Uses, "use")} of "
+              + $"{Assessor.Count(surface.Types.Count, "type")}, across "
+              + $"{Assessor.Count(surface.Files, "file")}. "
+              + $"{Assessor.Count(surface.TypesForMostOfIt, "type")} and "
+              + $"{Assessor.Count(surface.FilesForMostOfIt, "file")} carry four fifths of it."));
+            report.AppendLine();
+
+            foreach (var type in surface.Types.Take(TopTypes))
+                report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
+
+            report.AppendLine();
+
+            var best = dependency.Best;
+
+            if (best is null)
+            {
+                report.AppendLine(Wrap(
+                    "Nobody has recorded what replaces this. That is a gap in the catalogue "
+                  + "rather than a statement about the package."));
+                report.AppendLine();
+                continue;
+            }
+
+            report.AppendLine(Wrap(
+                $"**{best.Candidate}** covers {best.Percent}% of those calls. "
+              + $"{Assessor.Count(best.Unknown.Count, "type")}, "
+              + $"{Assessor.Count(best.UsesUnknown, "call")}, are not in the catalogue at "
+              + "all: unknown, which is not the same as fine."));
+            report.AppendLine();
+
+            Asked(report, best);
+
+            if (best.Blocked)
+            {
+                report.AppendLine(Wrap(
+                    $"{Assessor.Count(best.Unavailable.Count, "type")}, "
+                  + $"{Assessor.Count(best.UsesUnavailable, "call")}, have no replacement "
+                  + "recorded at all. Those are the ones that decide whether this is a "
+                  + "migration or a rewrite, and they are named rather than counted:"));
+                report.AppendLine();
+
+                foreach (var type in best.Unavailable.Take(TopTypes))
+                    report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
+
+                report.AppendLine();
+            }
+        }
+
+        if (used.Count > TopDependencies)
+        {
+            report.AppendLine(Wrap(
+                $"{used.Count - TopDependencies} further catalogued package(s) are used and "
+              + "not listed here. The command prints all of them."));
+            report.AppendLine();
+        }
+    }
+
+    /// <summary>
+    /// What the framework being migrated to says about the column nobody
+    /// catalogued.
+    ///
+    /// Without it a reader is left with a number of unknowns and no way to tell
+    /// a rename from a rewrite. With it, most of that column turns out to be
+    /// types that kept their name and changed namespace, which is transcription
+    /// rather than work. Read from the metadata this process already has
+    /// loaded, and said to be read rather than judged: the catalogue is a
+    /// judgement somebody signed, and this is not.
+    /// </summary>
+    private static void Asked(StringBuilder report, Coverage coverage)
+    {
+        var reading = new Unlisted().Read(coverage.Unknown, coverage.Candidate);
+
+        if (!reading.Applicable) return;
+
+        var leads = reading.Of(Standing.InSuccessor).Count;
+        var traps = reading.Of(Standing.Elsewhere).Count;
+        var gone = reading.Of(Standing.Gone).Count;
+
+        report.AppendLine(Wrap(
+            $"Asked of the framework itself rather than of the catalogue: "
+          + $"{Assessor.Count(leads, "type")} of that column exist inside {coverage.Candidate} "
+          + $"under the same name, which is a lead worth checking. "
+          + $"{Assessor.Count(traps, "type")} exist somewhere unrelated, which is a trap "
+          + $"rather than an answer: `System.Web.HttpContext` and its modern namesake share "
+          + $"a word and nothing else. {Assessor.Count(gone, "type")} the framework does not "
+          + $"have at all. That leaves {Assessor.Count(reading.Left, "type")} still to "
+          + "decide."));
+        report.AppendLine();
+    }
+
+    /// <summary>Packages given a section of their own. A report is read, not scrolled.</summary>
+    private const int TopDependencies = 5;
+
+    /// <summary>Types named per package.</summary>
+    private const int TopTypes = 8;
 
     private static void Order(StringBuilder report, Assessment assessment)
     {
