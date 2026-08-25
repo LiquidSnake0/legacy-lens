@@ -51,6 +51,7 @@ public class ReportWriter
         Hurt(report, assessment);
         Migration(report, assessment);
         Used(report, assessment);
+        Facing(report, assessment);
         Decide(report, assessment);
         Order(report, assessment);
         Unsaid(report, assessment);
@@ -558,7 +559,6 @@ public class ReportWriter
             }
 
             Asked(report, best);
-            Facing(report, surface.Package, best);
 
             if (best.Blocked)
             {
@@ -632,18 +632,35 @@ public class ReportWriter
     /// how many people, how much time, and whether the old and the new have to
     /// run side by side, none of which is in the code.
     /// </summary>
-    private static void Facing(StringBuilder report, string package, Coverage coverage)
+    private static void Facing(StringBuilder report, Assessment assessment)
     {
-        var questions = Features.Load().Ask(package, [.. coverage.Unknown, .. coverage.Unavailable]);
+        var features = Features.Load();
+
+        // Every dependency, and not only the few heaviest the section above
+        // details. A question is not ranked by how many calls reach it:
+        // bundling is eight calls on nopCommerce and it is an architectural
+        // decision, while a rename with four hundred calls behind it is not a
+        // decision at all. Asked inside that section, it fell under the cap
+        // that exists so nobody is handed ninety packages, and stopped being
+        // asked anywhere.
+        var questions = assessment.Uses
+            .Where(dependency => dependency.Best is not null)
+            .SelectMany(dependency => features.Ask(
+                dependency.Surface.Package,
+                [.. dependency.Best!.Unknown, .. dependency.Best.Unavailable]))
+            .OrderByDescending(question => question.Uses)
+            .ToList();
 
         if (questions.Count == 0) return;
 
+        report.AppendLine("## What there is to decide about the frameworks themselves");
+        report.AppendLine();
         report.AppendLine(Wrap(
-            $"Those names come to {Assessor.Count(questions.Count, "question")}. What follows is "
-          + "what each one was for, what replaced it, and what there is to choose between. None "
-          + "of the options is a recommendation: which one is right depends on how many people, "
-          + "how much time, and whether the old and the new have to run side by side, and none "
-          + "of that is in the code."));
+            $"The names nothing accounts for come to {Assessor.Count(questions.Count, "question")}. "
+          + "What follows is what each one was for, what replaced it, and what there is to choose "
+          + "between. None of the options is a recommendation: which one is right depends on how "
+          + "many people, how much time, and whether the old and the new have to run side by "
+          + "side, and none of that is in the code."));
         report.AppendLine();
 
         foreach (var question in questions)

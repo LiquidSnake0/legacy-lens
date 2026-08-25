@@ -123,6 +123,12 @@ public class ApiSurface
                 ["System.Web.WebPages", "System.Web.Helpers", "System.Web.WebPages.Html"],
             ["Microsoft.Web.Infrastructure"] = ["Microsoft.Web.Infrastructure"],
 
+            // Bundling. Its own package rather than part of MVC, which is what
+            // the ownership index made visible: ScriptBundle and the rest were
+            // being counted as MVC's work, and when M28 stopped doing that the
+            // question about bundling stopped being asked anywhere at all.
+            ["Microsoft.AspNet.Web.Optimization"] = ["System.Web.Optimization"],
+
             ["Microsoft.AspNet.WebApi.Core"] = ["System.Web.Http", "System.Web.Http.Controllers"],
             ["Microsoft.AspNet.WebApi.WebHost"] = ["System.Web.Http.WebHost"],
 

@@ -119,3 +119,55 @@ public class StrandingTests
         Assert.Null(strandings.For("//1"));
     }
 }
+
+/// <summary>
+/// Bundling, which is its own package and had fallen through every net.
+///
+/// The surface counted its types as ASP.NET MVC's until M28 read the packages
+/// and found they belong to Microsoft.AspNet.Web.Optimization. That was right,
+/// and it made the question disappear: the package was in no catalogue, so
+/// nothing measured it, nothing said it cannot stay, and nobody was asked what
+/// to do about it.
+/// </summary>
+public class OptimizationPackageTests
+{
+    [Fact]
+    public void It_cannot_stay_and_the_catalogue_says_why()
+    {
+        var stranding = Strandings.Load().For("Microsoft.AspNet.Web.Optimization");
+
+        Assert.NotNull(stranding);
+        Assert.True(stranding.Strands);
+        Assert.Contains("System.Web", stranding.Why);
+    }
+
+    [Fact]
+    public void Nothing_replaces_it_and_that_is_recorded_rather_than_left_unknown()
+    {
+        var successor = Assert.Single(
+            Successors.Load().For("Microsoft.AspNet.Web.Optimization"));
+
+        Assert.Equal(string.Empty, successor.Package);
+        Assert.Contains("ScriptBundle", successor.Types.Keys);
+        Assert.Null(successor.Types["ScriptBundle"]);
+    }
+
+    [Fact]
+    public void And_it_is_not_recorded_as_withdrawn()
+    {
+        // The distinction M26 drew. A withdrawn feature leaves nothing to do.
+        // The assets still have to be bundled somewhere, so this leaves
+        // somebody with a problem and must not be priced as a deletion.
+        var successor = Assert.Single(
+            Successors.Load().For("Microsoft.AspNet.Web.Optimization"));
+
+        Assert.Empty(successor.Removed);
+    }
+
+    [Fact]
+    public void The_surface_knows_which_namespace_it_occupies()
+    {
+        Assert.Contains("System.Web.Optimization",
+            ApiSurface.Namespaces["Microsoft.AspNet.Web.Optimization"]);
+    }
+}

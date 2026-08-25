@@ -19,6 +19,10 @@
     "strands": true,
     "why": "It exists to register modules with the old pipeline. Nothing replaces it because nothing needs to."
   },
+  "Microsoft.AspNet.Web.Optimization": {
+    "strands": true,
+    "why": "System.Web.Optimization builds and minifies at run time inside System.Web. ASP.NET Core serves static files and expects the assets to have been built already."
+  },
   "Microsoft.AspNet.WebApi.Core": {
     "strands": true,
     "why": "System.Web.Http is the old Web API stack. ASP.NET Core folds Web API and MVC into one framework."

@@ -2652,6 +2652,29 @@ it would have thrown away a correspondence four migrations had confirmed. The
 index reads exported types too, and a name two packages expose belongs to
 neither exclusively.
 
+### The catalogue gained the package the index uncovered
+
+Reading ownership correctly had a consequence nobody asked for: `ScriptBundle`
+and its family stopped being ASP.NET MVC's, which is right, and the bundling
+question **stopped being asked anywhere at all**, because
+`Microsoft.AspNet.Web.Optimization` was in no catalogue. Nothing measured it,
+nothing said it cannot stay, and nobody was asked what to do about it.
+
+It is in all four now: the namespaces the surface reads, the judgement that it
+has no life on ASP.NET Core, the thirty-two types it defines with no counterpart
+recorded for any of them, and the question with its options. Recorded as *no
+counterpart* and never as *withdrawn*, because the assets still have to be
+bundled somewhere: that leaves somebody with a problem, and pricing it as a
+deletion would be the difference between an afternoon and a fortnight.
+
+**And the questions moved out of the per-package section.** A question is not
+ranked by how many calls reach it. Bundling is eight calls on nopCommerce and it
+is an architectural decision; a rename with four hundred calls behind it is not
+a decision at all. Asked inside the section that details the five heaviest
+packages, it fell under the cap that exists so nobody is handed ninety packages,
+and vanished. It has a section of its own now, over every dependency: five
+questions on nopCommerce, four on Orchard.
+
 ### What did not transfer, and it is most of pacman
 
 `replaces` and `provides` work because **a maintainer declares them** and the

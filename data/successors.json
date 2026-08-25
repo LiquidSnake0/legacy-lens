@@ -132,6 +132,47 @@
     }
   ],
 
+  "Microsoft.AspNet.Web.Optimization": [
+    {
+      "package": "",
+      "note": "Nothing in ASP.NET Core replaces it, and the need it served does not go away with it: the assets still have to be bundled somewhere. That is the difference between this and a feature the framework withdrew, and it is why every type here is recorded as having no counterpart rather than as deleted.",
+      "types": {
+        "Bundle": null,
+        "BundleCollection": null,
+        "BundleContext": null,
+        "BundleDefinition": null,
+        "BundleFile": null,
+        "BundleFileSetOrdering": null,
+        "BundleManifest": null,
+        "BundleModule": null,
+        "BundleResolver": null,
+        "BundleResponse": null,
+        "BundleTable": null,
+        "CssMinify": null,
+        "CssRewriteUrlTransform": null,
+        "DefaultBundleBuilder": null,
+        "DefaultBundleOrderer": null,
+        "DynamicFolderBundle": null,
+        "FileExtensionReplacementList": null,
+        "IBundleBuilder": null,
+        "IBundleOrderer": null,
+        "IBundleResolver": null,
+        "IBundleTransform": null,
+        "IgnoreList": null,
+        "IItemTransform": null,
+        "JsMinify": null,
+        "OptimizationMode": null,
+        "OptimizationSettings": null,
+        "Optimizer": null,
+        "PreApplicationStartCode": null,
+        "ScriptBundle": null,
+        "Scripts": null,
+        "StyleBundle": null,
+        "Styles": null
+      }
+    }
+  ],
+
   "Microsoft.Web.Infrastructure": [
     {
       "package": "",

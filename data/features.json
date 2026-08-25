@@ -2,13 +2,21 @@
   "//": "What a framework stopped offering, grouped by the thing it offered rather than by the types that named it.",
   "//1": "The unit of decision is the feature. On nopCommerce 3.90, forty-four types modern .NET does not have come to six questions, and two attributes of a seventh accounted for 596 calls on their own.",
   "//2": "Options are what a person chooses between, written plainly and checkable. None of them is a recommendation: which one is right depends on things that are not in the code, which is the whole reason this file exists.",
-
   "Microsoft.AspNet.Mvc": [
     {
       "name": "The request context",
-      "types": ["HttpContextBase", "HttpContextWrapper", "HttpRequestBase", "HttpResponseBase",
-                "RequestContext", "HttpCookieCollection", "HttpException", "HttpPostedFileBase",
-                "HttpSessionStateBase", "HttpServerUtilityBase"],
+      "types": [
+        "HttpContextBase",
+        "HttpContextWrapper",
+        "HttpRequestBase",
+        "HttpResponseBase",
+        "RequestContext",
+        "HttpCookieCollection",
+        "HttpException",
+        "HttpPostedFileBase",
+        "HttpSessionStateBase",
+        "HttpServerUtilityBase"
+      ],
       "was": "System.Web wrapped the request in a family of abstract base classes so that code could be tested against them, and passed one around as the ambient state of the request.",
       "now": "ASP.NET Core has HttpContext and its parts, injected rather than ambient, with different names and a different shape. An uploaded file is IFormFile, cookies are IRequestCookieCollection, and there is no HttpException.",
       "options": [
@@ -18,20 +26,13 @@
       ]
     },
     {
-      "name": "Bundling and minification",
-      "types": ["ScriptBundle", "StyleBundle", "CssRewriteUrlTransform", "IItemTransform",
-                "BundleCollection", "BundleTable", "Bundle"],
-      "was": "System.Web.Optimization combined and minified scripts and stylesheets at run time, from bundles declared in code.",
-      "now": "Nothing in ASP.NET Core does this. The framework serves static files and expects the assets to have been built already.",
-      "options": [
-        "Build the assets with the toolchain the front end already uses, and serve the output as static files.",
-        "Use a community package that reproduces the old behaviour, if the bundles are many and the front end has no build.",
-        "Serve the files unbundled. Defensible over HTTP/2, and it is a decision about latency rather than about code."
-      ]
-    },
-    {
       "name": "Display modes",
-      "types": ["DisplayInfo", "IDisplayMode", "DefaultDisplayMode", "DisplayModeProvider"],
+      "types": [
+        "DisplayInfo",
+        "IDisplayMode",
+        "DefaultDisplayMode",
+        "DisplayModeProvider"
+      ],
       "was": "MVC picked a different view file for a mobile browser, by matching a suffix on the file name.",
       "now": "Removed. ASP.NET Core selects views by name and by area, and knows nothing about the user agent.",
       "options": [
@@ -42,8 +43,14 @@
     },
     {
       "name": "Model binding extensibility",
-      "types": ["DefaultModelBinder", "IModelBinderProvider", "ModelBinderDictionary",
-                "DataAnnotationsModelMetadataProvider", "ModelMetadataProvider", "ModelState"],
+      "types": [
+        "DefaultModelBinder",
+        "IModelBinderProvider",
+        "ModelBinderDictionary",
+        "DataAnnotationsModelMetadataProvider",
+        "ModelMetadataProvider",
+        "ModelState"
+      ],
       "was": "Binding was extended by deriving from the default binder or replacing the metadata provider, both of which knew a great deal about the pipeline around them.",
       "now": "ASP.NET Core binds through IModelBinder and IModelBinderProvider, registered in options. The shape is similar and the base classes are not there to derive from.",
       "options": [
@@ -53,7 +60,11 @@
     },
     {
       "name": "Areas",
-      "types": ["AreaRegistration", "AreaRegistrationContext", "IRouteWithArea"],
+      "types": [
+        "AreaRegistration",
+        "AreaRegistrationContext",
+        "IRouteWithArea"
+      ],
       "was": "An area registered itself by deriving from AreaRegistration, and the framework found it by scanning assemblies at startup.",
       "now": "Areas still exist and there is nothing to register: a controller carries [Area] and routes name it.",
       "options": [
@@ -63,14 +74,52 @@
     },
     {
       "name": "Pipeline internals",
-      "types": ["MvcRouteHandler", "ReflectedControllerDescriptor", "VirtualPathProviderViewEngine",
-                "HttpApplication", "MvcHandler", "ControllerBuilder"],
+      "types": [
+        "MvcRouteHandler",
+        "ReflectedControllerDescriptor",
+        "VirtualPathProviderViewEngine",
+        "HttpApplication",
+        "MvcHandler",
+        "ControllerBuilder"
+      ],
       "was": "Code that reached into how MVC found controllers, resolved views or handled the application lifetime. Global.asax is the usual entry point.",
       "now": "There is no equivalent, and that is deliberate: the pipeline is middleware you compose in Program.cs rather than handlers you replace.",
       "options": [
         "Find what the code was working around and check whether the new pipeline does it already. Most of these predate features the framework grew.",
         "Write it as middleware, which is where the behaviour belongs now.",
         "Treat it as a rewrite of that concern, and price it as one. This is the group that genuinely costs."
+      ]
+    }
+  ],
+  "Microsoft.AspNet.Web.Optimization": [
+    {
+      "name": "Bundling and minification",
+      "types": [
+        "ScriptBundle",
+        "StyleBundle",
+        "Bundle",
+        "BundleCollection",
+        "BundleTable",
+        "Scripts",
+        "Styles",
+        "CssRewriteUrlTransform",
+        "IItemTransform",
+        "IBundleTransform",
+        "BundleContext",
+        "BundleResponse",
+        "JsMinify",
+        "CssMinify",
+        "DynamicFolderBundle",
+        "BundleModule",
+        "Optimizer",
+        "OptimizationSettings"
+      ],
+      "was": "System.Web.Optimization combined and minified scripts and stylesheets at run time, from bundles declared in code.",
+      "now": "Nothing in ASP.NET Core does this. The framework serves static files and expects the assets to have been built already.",
+      "options": [
+        "Build the assets with the toolchain the front end already uses, and serve the output as static files.",
+        "Use a community package that reproduces the old behaviour, if the bundles are many and the front end has no build.",
+        "Serve the files unbundled. Defensible over HTTP/2, and it is a decision about latency rather than about code."
       ]
     }
   ]

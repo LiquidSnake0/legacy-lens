@@ -127,6 +127,24 @@ public class FeatureQuestionsTests : IDisposable
     }
 
     [Fact]
+    public void Bundling_belongs_to_the_package_that_defines_it()
+    {
+        // It lived under Microsoft.AspNet.Mvc while the surface counted
+        // ScriptBundle as MVC's work. M28 stopped doing that, correctly, and
+        // the question stopped being asked anywhere at all because
+        // Microsoft.AspNet.Web.Optimization was not in the catalogue.
+        var features = Features.Load();
+
+        Assert.Empty(features.For("Microsoft.AspNet.Mvc")
+            .Where(f => f.Name.Contains("Bundling", StringComparison.Ordinal)));
+
+        var bundling = Assert.Single(features.For("Microsoft.AspNet.Web.Optimization"));
+
+        Assert.Contains("ScriptBundle", bundling.Types);
+        Assert.True(bundling.Options.Count >= 2);
+    }
+
+    [Fact]
     public void A_catalogue_that_is_not_there_says_so_rather_than_reading_as_empty()
     {
         var missing = Path.Combine(Path.GetTempPath(), $"absent-{Guid.NewGuid():N}.json");
