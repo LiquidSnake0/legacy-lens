@@ -27,7 +27,9 @@ public class ReportWriterTests
         ModernisationSurvey? survey = null,
         RepairStep[]? repairs = null,
         Limitation[]? limitations = null,
-        HistoryStatus history = HistoryStatus.Available)
+        HistoryStatus history = HistoryStatus.Available,
+        string? historyNote = null,
+        string? historyWindow = "the last 24 months")
     {
         projects ??= [Project("Core"), Project("Web", ProjectKind.Web, 40_000)];
 
@@ -37,8 +39,8 @@ public class ReportWriterTests
             new SolutionMap(projects, [], []),
             findings ?? [],
             new RiskReport(risks ?? [], history, history == HistoryStatus.Available
-                ? null
-                : "Not a git repository.", 0),
+                ? historyNote
+                : "Not a git repository.", 0, historyWindow),
             survey ?? new ModernisationSurvey([], [], 0),
             repairs ?? [],
             limitations ?? [],
@@ -233,5 +235,35 @@ public class ReportWriterTests
                 PackageDeclaration.PackagesConfig, "v4.8", [])],
             [new PackageUse("Newtonsoft.Json", versions, 1, Portability.Portable)],
             redirects);
+    }
+
+    [Fact]
+    public void The_report_names_the_stretch_of_history_it_counted_over()
+    {
+        // A report read next to last quarter's is only comparable when both
+        // say which stretch they counted, and this one is not always the one
+        // that was asked for.
+        // Read as prose: the report wraps to a column, so any phrase long
+        // enough to be worth asserting on is split across lines.
+        var report = Write(Assessment(
+            risks: [new RiskEntry("src/A.cs", 0.5, 10, 5, "M", 2, 200, 4, 2, false, [])]));
+
+        Assert.Contains("change frequency from git over the last 24 months", Prose(report));
+    }
+
+    [Fact]
+    public void A_widened_window_is_explained_where_the_ranking_is()
+    {
+        // Not in a footnote. A reader who sees churn counts spanning a decade
+        // has to be told why without going looking.
+        var report = Write(Assessment(
+            risks: [new RiskEntry("src/A.cs", 0.5, 10, 5, "M", 2, 200, 82, 24, false, [])],
+            historyNote: "Only 102 of this directory's 11677 commits fall in the last 24 months, "
+                       + "so the whole history was read instead.",
+            historyWindow: "the full history"));
+
+        Assert.Contains("change frequency from git over the full history", Prose(report));
+        Assert.Contains("The history window was widened", Prose(report));
+        Assert.Contains("11677 commits", Prose(report));
     }
 }

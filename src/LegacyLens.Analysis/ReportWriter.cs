@@ -323,7 +323,11 @@ public class ReportWriter
         report.AppendLine();
         report.AppendLine(Wrap(
             "Ranked on three signals that were all already on disk: complexity from the "
-          + "syntax tree, change frequency from git, and whether a test appears to cover the "
+          + "syntax tree, change frequency from git"
+          + (assessment.Risk.HistoryWindow is { Length: > 0 } window
+                ? $" over {window}"
+                : string.Empty)
+          + ", and whether a test appears to cover the "
           + "file. The score is the geometric mean of structure and churn, so a file has to "
           + "score high on both to reach the top: complicated but never touched is not "
           + "urgent, and touched constantly but trivial is not dangerous. The score is a "
@@ -331,6 +335,17 @@ public class ReportWriter
           + "everything inside a test project are left out rather than ranked, because "
           + "reporting that a test fixture is complicated and untested is true and useless."));
         report.AppendLine();
+
+        // Said where the ranking is, not in a footnote. A report read next to
+        // last quarter's is only comparable when both name the stretch they
+        // counted over, and this one is not always the stretch that was asked
+        // for: a repository that has stopped changing is read whole.
+        if (assessment.Risk.HistoryStatus == HistoryStatus.Available
+            && assessment.Risk.HistoryNote is { Length: > 0 } widened)
+        {
+            report.AppendLine(Lead("The history window was widened", widened));
+            report.AppendLine();
+        }
 
         report.AppendLine("| Score | File | Lines | Commits | Tested | Why |");
         report.AppendLine("|---:|---|---:|---:|---|---|");

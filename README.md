@@ -1014,7 +1014,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 503 tests, no network, ~7 s
+dotnet test                                   # 505 tests, no network, ~7 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 144 tests, no network, ~5 s
@@ -1031,7 +1031,7 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 503 unit tests covering
+**Question answering** needs an index and a local model. 505 unit tests covering
 every layer, plus 144 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
