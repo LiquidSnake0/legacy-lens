@@ -1922,6 +1922,14 @@ for what kind of migration it was before it can mark anything.
 **Two of three.** Three claims on one product is thin, and the rate is reported
 as a count rather than a percentage for that reason.
 
+> **Superseded by M19.** Two more pairs took this to four of ten, and laid out
+> together the ten claims showed that coverage was never predicting the
+> decision. What it scores now is whether the package can live on the target at
+> all. The numbers here are what was measured at the time and are left as they
+> were.
+
+
+
 **The miss is the useful part.** `Microsoft.AspNet.WebPages` was covered 8 per
 cent and ported anyway, because it was four files. The coverage number says how
 much of a move is a substitution and says nothing about how much there is to
@@ -1944,6 +1952,86 @@ it in one slice, on .NET Framework, and moved the runtime later.
 That is the strangler fig performed by people who had to ship, and it is the
 direct answer to anyone expecting a codebase to arrive on modern .NET in one
 move.
+
+---
+
+## M19. What is forced, and what is a choice ✅
+
+*The tool was being marked on a question it was not answering.*
+
+M18 scored the coverage number: above half covered, a team would substitute;
+below it, they would not. Two of three on nopCommerce. Two more pairs were
+added, **Umbraco 8.18 to 9.0** and **SmartStoreNET 4.2 to Smartstore 5.0**, both
+verified as real ports, and the score fell to **four of ten**, worse than a coin.
+
+Laid out, the ten claims were not ambiguous at all:
+
+| | coverage | became |
+|---|---|---|
+| six `Microsoft.AspNet.*` packages | 8, 41, 45, 49, 56, 68% | every one of them moved |
+| four chosen libraries | 3, 6, 12, 17% | two kept, one straddling, one moved |
+
+A team moving to ASP.NET Core has no choice about `System.Web`. They port it
+whether a successor covers eight per cent of their calls or sixty-eight.
+**Coverage never predicted the decision. It estimates how much of a move is a
+substitution rather than a rewrite, which is a cost, and it was being marked as
+a behaviour.**
+
+### The judgement that does predict it
+
+`data/stranded.json`, hand-written like every other judgement here: does this
+package have any life at all on the target? `System.Web.Mvc` does not and never
+will. `Newtonsoft.Json` ships netstandard2.0 and runs unchanged, so moving off
+it is a choice somebody makes rather than one the runtime makes for them.
+Absence means unknown, and nothing is claimed about it.
+
+### Held out, because the hypothesis came from the data
+
+Three pairs generated it, so re-measuring on them is in-sample and says little.
+**Orchard to Orchard Core was never looked at until the model was frozen.**
+
+| | forced | a choice |
+|---|---|---|
+| nopCommerce *(port)* | 2 of 2 | 3 of 3 |
+| Umbraco *(port)* | 5 of 5 | 1 of 1 |
+| Smartstore *(port)* | 3 of 3 | 2 of 4 |
+| **Orchard *(rewrite, held out)*** | **5 of 5** | **0 of 4** |
+| | **15 of 15** | **6 of 12** |
+
+**What the runtime forces held fifteen times out of fifteen**, across four real
+migrations, two of which the model had never seen. What a team was free to
+decide either way held six times out of twelve, which is to say it is not a
+prediction.
+
+And its failure is not noise. In the three ports it was six of eight, because a
+port keeps what still runs. In the rewrite it was none of four, because a
+rewrite keeps nothing: Orchard Core grew thirty-one per cent in lines and picked
+new libraries for everything, Serilog over log4net, System.Text.Json over
+Newtonsoft, its own container over Autofac.
+
+### So the two are never blended
+
+A single rate of twenty-one out of twenty-seven would hide the only thing worth
+knowing. The command prints two, and says of the second that it is not a
+prediction and should not be read as one.
+
+That is also the honest shape of what this tool can sell. **It can tell you with
+certainty what you have no choice about, and price it. What you have a choice
+about is yours, and it should stop pretending otherwise.**
+
+### Two smaller things
+
+**A remainder is not a dependency.** A package on its way out leaves one:
+Umbraco's MVC went from 1,106 uses to 18. Judged by presence, that reads as
+kept. The cut is a fifth, and the number barely matters, which is the point:
+across four ports the packages on their way out sat at 1.6, 2.5 and 11 per cent
+and the ones kept at 78 or more, several above a hundred because they were used
+harder afterwards. Nothing measured falls in between.
+
+**The catalogue lookup was written twice** and was about to be written a third
+time. It is in `Catalogues` now, one copy, which matters because getting it
+wrong is silent: a single-file publish extracts to a temporary folder, and that
+is how M14 shipped a binary where every package came back with no candidate.
 
 ---
 

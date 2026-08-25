@@ -946,7 +946,7 @@ why the setting stays off by default. A real sandbox is a container per
 comparison, and that belongs to whoever runs this against code they did not
 write.
 
-### Marked against a migration that already happened
+### Marked against migrations that already happened
 
 Nobody can evaluate a migration tool, because there is no correct answer to
 compare it against. A codebase that exists in both states removes that problem.
@@ -955,30 +955,44 @@ compare it against. A codebase that exists in both states removes that problem.
 dotnet run --project src/LegacyLens.Api -- hindsight /repos/before /repos/after
 ```
 
-Measured on **nopCommerce 3.90 to 4.00**, a real port of a 250,000-line
-commercial product: 425 files on `System.Web` became two, 416 arrived on ASP.NET
-Core, and the line count moved three per cent, which is what separates a port
-from a rewrite.
+Four real migrations, three of them ports and one a rewrite: **nopCommerce 3.90
+to 4.00**, **Umbraco 8.18 to 9.0**, **SmartStoreNET 4.2 to Smartstore 5.0**, and
+**Orchard to Orchard Core**. Between a quarter and four hundred thousand lines
+each, with hundreds of files leaving `System.Web` and arriving on ASP.NET Core.
 
-| package | before | proposed | covered | became | |
-|---|---|---|---|---|---|
-| `Microsoft.AspNet.Mvc` | 4,860 uses | `Microsoft.AspNetCore.Mvc` | 68% | ported | agreed |
-| `Microsoft.AspNet.WebPages` | 72 uses, 4 files | `…Mvc.Razor` | 8% | ported | **disagreed** |
-| `Newtonsoft.Json` | 33 uses | `System.Text.Json` | 6% | kept, grew to 92 | agreed |
+**What is predicted is whether a package is still there afterwards**, and it
+comes from whether the package can live on the target at all. `System.Web.Mvc`
+cannot, so it goes. `Newtonsoft.Json` ships netstandard2.0 and runs unchanged,
+so moving off it is a choice somebody makes rather than one the runtime makes
+for them.
 
-Two of three, on three claims, which is thin and is reported as a count rather
-than a rate for that reason. **The miss is the useful part**: WebPages was
-covered 8 per cent and ported anyway, because it was four files. Coverage says
-how much of a move is a substitution and nothing about how much there is to
-move.
+| | forced | a choice |
+|---|---|---|
+| nopCommerce *(port)* | 2 of 2 | 3 of 3 |
+| Umbraco *(port)* | 5 of 5 | 1 of 1 |
+| Smartstore *(port)* | 3 of 3 | 2 of 4 |
+| Orchard *(rewrite, held out)* | 5 of 5 | 0 of 4 |
+| | **15 of 15** | **6 of 12** |
 
-A package the catalogue is silent about is never scored, in either direction.
+The first three pairs produced the model, so Orchard was kept back and not
+looked at until it was frozen.
 
-**And the pair says something about migrating at all.** That team changed one
-thing. They moved the web framework and kept the ORM, the container, the JSON
-serialiser and the runtime: 4.00 still targets `net461` and still imports
-`System.Data.Entity`. A professional team on a quarter of a million lines did it
-in one slice and moved the runtime later.
+**The two rates are never blended.** A single twenty-one out of twenty-seven
+would hide the only thing worth knowing: what the runtime forces held every
+time, and what a team was free to decide either way is not a prediction at all.
+Its failure is not noise either. In the three ports it held six times out of
+eight, because a port keeps what still runs. In the rewrite it held none out of
+four, because a rewrite keeps nothing.
+
+**An earlier version of this scored the coverage number** and got four of ten.
+Coverage estimates how much of a move is a substitution rather than a rewrite,
+which is a cost, and it was being marked as a behaviour. Six `Microsoft.AspNet.*`
+packages moved at coverages from 8 to 68 per cent, which is the whole argument
+in one row.
+
+That is also the honest shape of what this tool offers. **It can tell you with
+certainty what you have no choice about, and price it. What you have a choice
+about is yours.**
 
 ### What it cannot decide for you
 
