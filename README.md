@@ -467,6 +467,12 @@ machine that has it.
 It is a command and never an HTTP route, because loading an assembly and calling
 into it from a web request is remote code execution with a JSON body.
 
+The same machinery answers a different question further down, where two versions
+of one file are called with the same values to see whether a rewrite still
+behaves the same. That one has a route as well as a command, and it is off
+unless the operator turned it on: see
+[And whether it still does the same thing](#and-whether-it-still-does-the-same-thing).
+
 ---
 
 ## Mechanical conversions
