@@ -217,6 +217,39 @@ public class ApiSurface
         Of(Read(rootPath), package, claimed);
 
     /// <summary>
+    /// How many files import anything under each of these namespaces.
+    ///
+    /// A cruder question than the surface, and deliberately so. It is asked of
+    /// the *modern* side of a migration, where there is no catalogue to consult
+    /// because the catalogue is a list of things being left behind. So there is
+    /// no abstaining decision here and no claimed set: it counts imports.
+    ///
+    /// Matched on the prefix, which works because a modern .NET package is
+    /// named after its root namespace. `Microsoft.AspNetCore.Mvc` the package
+    /// puts its types under `Microsoft.AspNetCore.Mvc` the namespace, and its
+    /// family below that. The same assumption M13 makes when it asks the
+    /// framework whether it carries a successor at all.
+    ///
+    /// One read for every prefix, because reading a tree twice to answer two
+    /// questions about it is the kind of thing that turns a five second command
+    /// into a minute.
+    /// </summary>
+    public IReadOnlyDictionary<string, int> Importing(
+        string rootPath, IReadOnlyCollection<string> namespacePrefixes)
+    {
+        var parsed = Read(rootPath);
+
+        return namespacePrefixes
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(
+                prefix => prefix,
+                prefix => parsed.Count(file => file.Imports.Any(
+                    import => import.Equals(prefix, StringComparison.Ordinal)
+                           || import.StartsWith(prefix + ".", StringComparison.Ordinal))),
+                StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// <paramref name="claimed"/> is the names the catalogue records as this
     /// package's own, and it is what keeps the exclusion below honest.
     ///

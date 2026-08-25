@@ -41,6 +41,15 @@ if (args is ["equivalence", .. var equivalenceArguments])
     return;
 }
 
+// A finished migration, read backwards. Two directories, the same product
+// before and after somebody moved it, and the question this field cannot
+// normally ask: was the tool right? Syntax on both sides, nothing compiled.
+if (args is ["hindsight", .. var hindsightArguments])
+{
+    Environment.ExitCode = Reckon.Run(hindsightArguments);
+    return;
+}
+
 // The mechanical conversions, as a patch. A command as well as a route,
 // because what comes out is meant to be redirected to a file and handed to
 // `git apply` by a person who read it first. Nothing here writes to the tree.
