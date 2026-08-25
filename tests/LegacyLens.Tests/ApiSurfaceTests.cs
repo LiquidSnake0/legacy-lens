@@ -503,4 +503,32 @@ public class ApiSurfaceTests : IDisposable
         Assert.Contains("JsonSerializer",
             new ApiSurface().Of(_root, "Newtonsoft.Json").Types.Select(t => t.Name));
     }
+
+    [Fact]
+    public void A_test_framework_s_attributes_are_never_the_package_s_api()
+    {
+        // Measured on Orchard: [Test] was the tenth most used "type of
+        // Microsoft.AspNet.Mvc" at 119 uses. The framework reading cannot say
+        // so, because NUnit is not in the framework either.
+        Write("HomeTests.cs", """
+            using System.Web.Mvc;
+            using NUnit.Framework;
+
+            [TestFixture]
+            public class HomeControllerTests
+            {
+                [Test]
+                public void It_returns_a_view()
+                {
+                    ActionResult result = null;
+                }
+            }
+            """);
+
+        var named = Mvc().Types.Select(t => t.Name).ToList();
+
+        Assert.Contains("ActionResult", named);
+        Assert.DoesNotContain("Test", named);
+        Assert.DoesNotContain("TestFixture", named);
+    }
 }

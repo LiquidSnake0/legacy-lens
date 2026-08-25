@@ -151,6 +151,27 @@ public class ApiSurface
         && places.Any(full => full.StartsWith("System.", StringComparison.Ordinal));
 
     /// <summary>
+    /// Names a test framework supplies, which are never a package's API.
+    ///
+    /// `[Test]` in a file that also imports System.Web.Mvc is NUnit's attribute,
+    /// and it was the tenth most used "type of Microsoft.AspNet.Mvc" on Orchard
+    /// at 119 uses. Nothing in the framework reading can say so, because NUnit
+    /// is not in the framework either.
+    ///
+    /// Hand-written and short on purpose, like the list below it. The general
+    /// answer needs resolved symbols, which needs compiling, which is the
+    /// property that makes this usable on code that does not build.
+    /// </summary>
+    private static readonly IReadOnlySet<string> TestScaffolding =
+        new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Test", "TestFixture", "TestCase", "TestCaseSource", "SetUp", "TearDown",
+            "OneTimeSetUp", "OneTimeTearDown", "Ignore", "Category", "Explicit",
+            "Fact", "Theory", "InlineData", "MemberData", "ClassData",
+            "TestMethod", "TestClass", "TestInitialize", "TestCleanup", "DataRow",
+        };
+
+    /// <summary>
     /// Names C# supplies, which belong to no package and would drown the list.
     /// </summary>
     private static readonly IReadOnlySet<string> Builtin =
@@ -238,7 +259,8 @@ public class ApiSurface
 
             foreach (var name in file.TypeNames)
             {
-                if (Builtin.Contains(name) || local.Contains(name)) continue;
+                if (Builtin.Contains(name) || TestScaffolding.Contains(name)
+                    || local.Contains(name)) continue;
 
                 // A name the framework being migrated to still supplies under
                 // System.* is not this package's, whatever a file happens to

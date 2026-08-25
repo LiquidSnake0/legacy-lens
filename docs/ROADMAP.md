@@ -1122,20 +1122,20 @@ Measured on Orchard, for the package that holds 73 of its 89 projects:
 
 | | |
 |---|---|
-| Uses of `Microsoft.AspNet.Mvc` | **4,027** |
-| Distinct types | **202** |
+| Uses of `Microsoft.AspNet.Mvc` | **3,877** |
+| Distinct types | **198** |
 | Files importing it | **365** |
-| **Types carrying four fifths of it** | **29** |
-| Files carrying four fifths of it | **134** |
+| **Types carrying four fifths of it** | **28** |
+| Files carrying four fifths of it | **135** |
 
-**Twenty-nine.** That is the number this milestone exists to produce. "73
-projects blocked" is a wall; "29 type correspondences cover eighty per cent of
+**Twenty-eight.** That is the number this milestone exists to produce. "73
+projects blocked" is a wall; "28 type correspondences cover eighty per cent of
 the work" is a catalogue somebody can write in an afternoon. The two sentences
 describe the same codebase.
 
 The figures above were 4,529 uses across 271 types with 41 carrying four fifths,
 until M13 stopped attributing to a package the names the target framework still
-supplies itself. `TextWriter` and `ArgumentException` appear in Orchard's MVC
+supplies itself, and the test scaffolding a test file names beside them. `TextWriter` and `ArgumentException` appear in Orchard's MVC
 files like they appear in every C# file, and 69 such names over 502 uses were
 being counted as ASP.NET MVC's work. The number got smaller because the
 measurement got truer, which is the only reason a number here is allowed to move.
@@ -1145,8 +1145,9 @@ The ten most used are `ActionResult` at 541, `HttpUnauthorizedResult` at 408,
 `Controller`, `IHtmlString`. Every one of them has a direct counterpart in
 ASP.NET Core. The rewrite is repetitive, which is exactly why counting it pays.
 
-The tenth is `Test`, NUnit's attribute, and it is the one this still gets wrong:
-see M13 and `docs/NEXT.md`.
+The tenth used to be `Test`, NUnit's attribute. It is `UrlHelper` now: a short
+hand-written list of what a test framework supplies keeps that scaffolding out,
+the same way a short list keeps out what C# supplies.
 
 **A mistake the first real measurement found, which the unit tests did not.**
 The obvious way to collect types is `OfType<TypeSyntax>()`, and it is wrong:
@@ -1191,11 +1192,11 @@ First run against Orchard, for `Microsoft.AspNet.Mvc`:
 
 | | |
 |---|---|
-| Calls covered by `Microsoft.AspNetCore.Mvc` | **68%** |
+| Calls covered by `Microsoft.AspNetCore.Mvc` | **71%** |
 | Types recorded as having no replacement | 3, over 5 calls |
-| Types the catalogue says nothing about | **150, over 1,277 calls** |
+| Types the catalogue says nothing about | **146, over 1,127 calls** |
 
-**Sixty-eight per cent, and the honest part is the 150.** The
+**Seventy-one per cent, and the honest part is the 146.** The
 catalogue is young; what makes the number usable is that it says so instead of
 counting silence as success. Coverage is weighted by calls rather than by type,
 because a type used five hundred times and one used once are not the same amount
@@ -1528,16 +1529,16 @@ the one that will bite: `System.Configuration.ConfigurationManager` is absent
 from the platform set and available as a package, and this reports it as gone.
 
 **Four answers, and only one of them is a lead.** Measured on Orchard, against
-the package that holds 73 of its 89 projects, on the 150 types the catalogue
-never mentions over 1,277 calls:
+the package that holds 73 of its 89 projects, on the 146 types the catalogue
+never mentions over 1,127 calls:
 
 | | types | calls | |
 |---|---:|---:|---|
 | named inside the successor | 17 | 136 | a lead |
 | the same name somewhere unrelated | 15 | 182 | **a trap** |
-| nowhere at all | 118 | 959 | the finding |
+| nowhere at all | 114 | 809 | the finding |
 
-**150 unknown became 133 left to decide**, and a fourth answer that used to sit
+**146 unknown became 129 left to decide**, and a fourth answer that used to sit
 in this table was removed by fixing the cause instead. A name the framework
 still supplies under `System.*`, which the catalogue does not record as this
 package's, is no longer attributed to it at all: 69 types over 502 uses on
@@ -1579,14 +1580,16 @@ away with ASP.NET. Modern .NET keeps exactly two, `HttpUtility` and
 exclusion reported two survivors as losses. The set is read from the target
 framework, so nothing about the old one needs excluding.
 
-**And one this exposed in older code, half of which is now fixed.** The usage
-surface attributes a type to a package because a file importing that package
-uses it. The base library half of that is dealt with above. The rest is not: the
-most-used name in the "exists nowhere" column is `Test`, which is NUnit's
-attribute, and no amount of asking the framework will say so because NUnit is
-not in it. Written down in `docs/NEXT.md` rather than papered over, because
-fixing that properly needs resolved symbols and that costs the property which
-makes this usable on inherited code.
+**And one this exposed in older code, now mostly fixed.** The usage surface
+attributes a type to a package because a file importing that package uses it.
+The base library half is dealt with above. The test-framework half needed its
+own answer, because no amount of asking the framework will say that `[Test]` is
+NUnit's: NUnit is not in the framework either. A short hand-written list of what
+a test framework supplies keeps that scaffolding out, exactly the way a short
+list already keeps out what C# supplies. What remains is a third-party package's
+types counted against another's, and that needs resolved symbols, which costs
+the property that makes this usable on inherited code. It stays in
+`docs/NEXT.md`.
 
 ---
 

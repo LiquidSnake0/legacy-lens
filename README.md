@@ -725,15 +725,17 @@ It reads what the codebase uses of each catalogued package, how concentrated
 that usage is, and scores the candidate replacements against it. No model is
 involved.
 
-On Orchard, for the package that blocks 73 of its 89 projects: 4,027 calls
-across 365 files, of which **29 types carry four fifths**. That is the number
+On Orchard, for the package that blocks 73 of its 89 projects: 3,877 calls
+across 365 files, of which **28 types carry four fifths**. That is the number
 that turns "73 projects blocked" into a catalogue somebody can write.
 
 A name the target framework still supplies under `System.*`, and that the
 catalogue does not record as this package's, is not counted at all: 69 of them
 over 502 uses on Orchard. Its MVC files name `TextWriter`, `ArgumentException`
 and `XElement` like any other C# file, and counting those as uses of ASP.NET MVC
-put half a thousand calls of work into an estimate that had none.
+put half a thousand calls of work into an estimate that had none. A test
+framework's own attributes go the same way: `[Test]` was the tenth most used
+"type of Microsoft.AspNet.Mvc" at 119 uses.
 
 Every type gets one of three answers, and the third is the point:
 
@@ -761,9 +763,9 @@ only one of them is a lead:
 |---|---:|---:|---|
 | named inside the successor | 17 | 136 | a lead, worth checking |
 | sharing a name with something unrelated | 15 | 182 | **a trap, not an answer** |
-| the framework does not have at all | 118 | 959 | the finding |
+| the framework does not have at all | 114 | 809 | the finding |
 
-**150 unknown becomes 133 left to decide**, on top of the 69 that never entered
+**146 unknown becomes 129 left to decide**, on top of the 69 that never entered
 the count in the first place.
 
 The trap row earns its name. `System.Web.HttpContext` and
@@ -1065,7 +1067,7 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 524 tests, no network, ~9 s
+dotnet test                                   # 525 tests, no network, ~9 s
 dotnet run --project src/LegacyLens.Api
 
 cd web && npm test                            # 154 tests, no network, ~5 s
@@ -1082,7 +1084,7 @@ Working, in halves that need different things of the machine.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 524 unit tests covering
+**Question answering** needs an index and a local model. 525 unit tests covering
 every layer, plus 154 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
