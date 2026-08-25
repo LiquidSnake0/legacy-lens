@@ -26,7 +26,7 @@ public class ApiSurfaceTests : IDisposable
     private void Write(string name, string source) =>
         File.WriteAllText(Path.Combine(_root, name), source);
 
-    private UsageSurface Mvc() => new ApiSurface().Of(_root, "Microsoft.AspNet.Mvc");
+    private UsageSurface Mvc() => new ApiSurface().Of(_root, "Microsoft.AspNet.Mvc", claimed: null);
 
     /* ---- what counts ---- */
 
@@ -378,7 +378,7 @@ public class ApiSurfaceTests : IDisposable
     [Fact]
     public void A_package_outside_the_catalogue_is_refused_rather_than_guessed()
     {
-        var surface = new ApiSurface().Of(_root, "Some.Package.Nobody.Listed");
+        var surface = new ApiSurface().Of(_root, "Some.Package.Nobody.Listed", claimed: null);
 
         Assert.False(surface.Used);
         Assert.Contains(surface.Notes, n => n.Contains("not in the catalogue"));
@@ -404,7 +404,7 @@ public class ApiSurfaceTests : IDisposable
             }
             """);
 
-        var all = new ApiSurface().All(_root);
+        var all = new ApiSurface().All(_root, claimed: null);
 
         Assert.Contains(all, s => s.Package == "Microsoft.AspNet.Mvc");
         Assert.Contains(all, s => s.Package == "Newtonsoft.Json");
@@ -434,14 +434,14 @@ public class ApiSurfaceTests : IDisposable
             }
             """);
 
-        Assert.Equal("Microsoft.AspNet.Mvc", new ApiSurface().All(_root)[0].Package);
+        Assert.Equal("Microsoft.AspNet.Mvc", new ApiSurface().All(_root, claimed: null)[0].Package);
     }
 
     [Fact]
     public void A_directory_that_is_not_there_is_said_rather_than_returned_empty()
     {
         Assert.Throws<DirectoryNotFoundException>(
-            () => new ApiSurface().All(Path.Combine(_root, "nope")));
+            () => new ApiSurface().All(Path.Combine(_root, "nope"), claimed: null));
     }
 
     /* ---- ce que le framework fournit encore n'est pas le travail du paquet ---- */
@@ -501,7 +501,7 @@ public class ApiSurfaceTests : IDisposable
         // conservative default leaves noise in rather than shrinking an estimate
         // by guessing.
         Assert.Contains("JsonSerializer",
-            new ApiSurface().Of(_root, "Newtonsoft.Json").Types.Select(t => t.Name));
+            new ApiSurface().Of(_root, "Newtonsoft.Json", claimed: null).Types.Select(t => t.Name));
     }
 
     [Fact]

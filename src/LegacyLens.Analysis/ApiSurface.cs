@@ -191,11 +191,18 @@ public class ApiSurface
     /// Every catalogued package this codebase uses.
     ///
     /// <paramref name="claimed"/> answers, per package, which names the
-    /// catalogue records as its own. Without it the exclusion below stays off,
-    /// which is the conservative way round.
+    /// catalogue records as its own. Passing null keeps the exclusion off,
+    /// which is the conservative way round and a different answer: on Orchard
+    /// it is 4,379 uses of `Microsoft.AspNet.Mvc` against 3,877 with the
+    /// catalogue applied.
+    ///
+    /// So it has no default. It had one, and the command took it while the
+    /// route did not, which is how the same program came to answer the same
+    /// question two ways. A caller that means to abstain says so.
+    /// <see cref="Surfaces"/> is what everything shipping goes through.
     /// </summary>
     public IReadOnlyList<UsageSurface> All(
-        string rootPath, Func<string, IReadOnlySet<string>>? claimed = null)
+        string rootPath, Func<string, IReadOnlySet<string>>? claimed)
     {
         var read = Read(rootPath);
 
@@ -206,7 +213,7 @@ public class ApiSurface
             .ToList();
     }
 
-    public UsageSurface Of(string rootPath, string package, IReadOnlySet<string>? claimed = null) =>
+    public UsageSurface Of(string rootPath, string package, IReadOnlySet<string>? claimed) =>
         Of(Read(rootPath), package, claimed);
 
     /// <summary>

@@ -57,9 +57,14 @@ if (args is ["convert", var convertTarget, ..])
 // counting. No model is involved: this reads the syntax.
 if (args is ["surface", var surfaceTarget, ..])
 {
+    // Through Surfaces, like the route. Asked directly, the reader abstains
+    // from the catalogue and answers differently: 4,379 uses against 3,877 on
+    // Orchard, and this command used to print the larger one.
+    var reading = new Surfaces();
+
     var surfaces = args.Length > 2
-        ? [new ApiSurface().Of(surfaceTarget, args[2])]
-        : new ApiSurface().All(surfaceTarget);
+        ? [reading.Of(surfaceTarget, args[2])]
+        : reading.All(surfaceTarget);
 
     foreach (var surface in surfaces)
     {
@@ -617,22 +622,12 @@ app.MapPost("/api/surface", (SurfaceRequest request) =>
 
     try
     {
-        var reader = new ApiSurface();
-        var catalogue = Successors.Load();
-        var successors = new Successors();
-
-        // The catalogue tells the surface which names each package claims, so a
-        // name the framework also has is only dropped when nobody recorded it
-        // as this package's. Without that, Newtonsoft's JsonSerializer would go
-        // out with System.Text.Json's.
-        IReadOnlySet<string> Claimed(string package) =>
-            catalogue.For(package)
-                .SelectMany(successor => successor.Types.Keys)
-                .ToHashSet(StringComparer.Ordinal);
+        var reading = new Surfaces();
+        var catalogue = reading.Catalogue;
 
         var surfaces = string.IsNullOrWhiteSpace(request.Package)
-            ? reader.All(request.Path, Claimed)
-            : [reader.Of(request.Path, request.Package, Claimed(request.Package))];
+            ? reading.All(request.Path)
+            : [reading.Of(request.Path, request.Package)];
 
         return Results.Ok(new
         {
@@ -649,7 +644,7 @@ app.MapPost("/api/surface", (SurfaceRequest request) =>
                 types = surface.Types.Take(25),
                 heaviest = surface.Heaviest.Take(10),
                 surface.Notes,
-                candidates = successors.Rank(surface, catalogue).Select(coverage => new
+                candidates = reading.Candidates(surface).Select(coverage => new
                 {
                     coverage.Candidate,
                     coverage.Note,
