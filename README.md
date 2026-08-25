@@ -745,6 +745,39 @@ every migration anybody performs and does not need a rebuild to do so, and
 rather than by type, because a type used five hundred times and one used once
 are not the same amount of work.
 
+**The third column is then read against the framework itself.** What replaces
+what is a judgement and stays hand-written. Whether modern .NET still has a type
+of that name is a question of fact, and the framework being migrated to is
+loaded into this process already. So the unknown column gets four answers, and
+only one of them is a lead:
+
+| Orchard, `Microsoft.AspNet.Mvc` | types | calls | |
+|---|---:|---:|---|
+| the framework still provides, unchanged | 69 | 502 | nothing to do |
+| named inside the successor | 17 | 136 | a lead, worth checking |
+| sharing a name with something unrelated | 15 | 182 | **a trap, not an answer** |
+| the framework does not have at all | 118 | 959 | the finding |
+
+**219 unknown becomes 133 left to decide**, and nearly a third of the calls in
+that column turn out never to have been work.
+
+The trap row earns its name. `System.Web.HttpContext` and
+`Microsoft.AspNetCore.Http.HttpContext` share a word and nothing else, and that
+pair is the hardest part of an ASP.NET migration rather than a rename. Reported
+as a correspondence it would send somebody into the worst of the work believing
+it was done, so it is labelled and never counted as settled.
+
+**None of it is written back into the catalogue**, and a test says so. The
+generated part stays visibly apart from the written part, or the distinction
+that makes the catalogue worth trusting dissolves into it.
+
+This deliberately does not download anything. Microsoft publishes
+[apisof.net](https://github.com/dotnet/apisof.net) under MIT and it knows two
+things this does not: which version introduced an API, and which package a type
+moved into once it left the base library. What it cannot be is offline, current
+with the runtime in front of it, and free of somebody else's data in a
+repository that ships under its own licence.
+
 ### A projection, compiled
 
 One file, rewritten and put through a compiler before anyone is shown it.
@@ -1023,10 +1056,10 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 511 tests, no network, ~13 s
+dotnet test                                   # 521 tests, no network, ~10 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 151 tests, no network, ~5 s
+cd web && npm test                            # 153 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -1040,8 +1073,8 @@ Working, in halves that need different things of the machine.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 511 unit tests covering
-every layer, plus 151 in the browser, no network and no model in either, and the
+**Question answering** needs an index and a local model. 521 unit tests covering
+every layer, plus 153 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no

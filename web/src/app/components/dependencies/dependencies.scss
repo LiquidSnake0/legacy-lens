@@ -309,3 +309,46 @@ h4 {
   margin: 1rem 0 0;
   overflow-wrap: anywhere;
 }
+
+/* ---- ce que le framework répond sur la colonne inconnue ---- */
+
+/* Le seul h4 du composant qui suit un paragraphe plutôt qu'un bloc : sans
+   marge haute il se colle à la note du catalogue au-dessus. */
+h4.framework { margin-top: 0.875rem; }
+/* Jetons uniquement : clair et sombre sont le même code. */
+
+.standing {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    padding: 0.125rem 0;
+    font-size: 0.6875rem;
+    color: var(--muted);
+  }
+
+  .count {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    min-width: 4ch;
+    text-align: right;
+    flex: none;
+  }
+
+  .what { flex: 1 1 auto; max-width: 52ch; }
+
+  .calls {
+    font-family: var(--mono);
+    color: var(--faint);
+    flex: none;
+  }
+
+  /* La seule piste des quatre porte l'accent, qui est la couleur de ce que
+     l'outil a trouvé. Les trois autres sont des constats, pas des trouvailles. */
+  li.lead .count { color: var(--accent-ink); }
+}

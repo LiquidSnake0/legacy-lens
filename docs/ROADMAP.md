@@ -1473,9 +1473,9 @@ they find both.
 
 ---
 
-## M13. A catalogue nobody has to hand-write
+## M13. Asking the framework ✅
 
-*Planned.*
+*The column beside the catalogue, answered by the runtime rather than by hand.*
 
 `data/successors.json` is the part of this that took the work, and it is written
 by hand. Around a hundred entries covers the surface that matters, the coverage
@@ -1496,6 +1496,68 @@ whole distinction that makes the catalogue trustworthy dissolves.
 
 **Read the licence before taking a byte of it.** Taking the idea is free; taking
 the data is a decision with terms, and this repository publishes under MIT.
+
+---
+
+### What was built instead, and why
+
+The licence was read first: apisof.net is MIT, and compatible. Nothing was taken
+anyway.
+
+The question the unknown column asks is *does modern .NET still have a type of
+this name*, and the framework being migrated to is already loaded into this
+process. It is compiled against every assembly that framework ships, on every
+projection. The answer was in metadata this tool reads anyway, current with the
+runtime in front of it, offline, and without anybody else's data in the
+repository.
+
+So the reading is local, and the two things apisof knows that it does not are
+written here rather than pretended away: **which version introduced an API**, and
+**which package a type moved into once it left the base library**. The second is
+the one that will bite: `System.Configuration.ConfigurationManager` is absent
+from the platform set and available as a package, and this reports it as gone.
+
+**Four answers, and only one of them is a lead.** Measured on Orchard, against
+the package that holds 73 of its 89 projects, on the 219 types the catalogue
+never mentions over 1,779 calls:
+
+| | types | calls | |
+|---|---:|---:|---|
+| still provided under `System.*` | 69 | 502 | not work, and had been counted as work |
+| named inside the successor | 17 | 136 | a lead |
+| the same name somewhere unrelated | 15 | 182 | **a trap** |
+| nowhere at all | 118 | 959 | the finding |
+
+**219 unknown became 133 left to decide.** Nearly a third of the calls in that
+column were never work at all.
+
+The trap row is the one that justifies four answers rather than two.
+`System.Web.HttpContext` and `Microsoft.AspNetCore.Http.HttpContext` share a
+word and nothing else, and that pair is the hardest part of an ASP.NET migration
+rather than a rename. A first version of this looked for the name anywhere under
+`Microsoft.AspNetCore` and reported exactly that as found, along with
+`RouteData` resolving to Blazor's. Reported as correspondences they would send
+somebody into the worst of the work believing it was done.
+
+**Nothing is written back into the catalogue**, and a test asserts it. The
+generated part has to stay visibly apart from the written part, or the
+distinction that makes the catalogue worth trusting dissolves into it.
+
+**A wrong assumption caught by reading it back.** The first version excluded
+`System.Web` from "still there", on the reasoning that the whole family went
+away with ASP.NET. Modern .NET keeps exactly two, `HttpUtility` and
+`IHtmlString`, and Orchard uses the second more than a hundred times: the
+exclusion reported two survivors as losses. The set is read from the target
+framework, so nothing about the old one needs excluding.
+
+**And one this exposed in older code.** The usage surface attributes a type to a
+package because a file importing that package uses it. That is why 69 of the 219
+are base library types, and why the most-used name in the "exists nowhere"
+column is `Test`, which is NUnit's attribute. Both statements the reading makes
+about them are true; neither type was ever ASP.NET MVC's. Written down in
+`docs/NEXT.md` rather than papered over, because fixing it properly needs
+resolved symbols and that costs the property which makes this usable on
+inherited code.
 
 ---
 

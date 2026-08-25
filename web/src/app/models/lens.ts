@@ -167,6 +167,37 @@ export interface Candidate {
   usesCovered: number;
   usesUnavailable: number;
   usesUnknown: number;
+  /**
+   * What the framework being migrated to says about the unknown column.
+   *
+   * Its own field rather than folded into the counts above, because it is read
+   * from metadata and those are written by hand. A reader has to be able to see
+   * which is which.
+   */
+  unlisted: Unlisted;
+}
+
+/** One group of types the framework gave the same answer about. */
+export interface UnlistedGroup {
+  types: { name: string; uses: number; where: string | null }[];
+  count: number;
+  uses: number;
+}
+
+/**
+ * The unknown column, read against the target framework.
+ *
+ * Four answers and only one of them is a lead. `elsewhere` is the dangerous
+ * one: a name that survived into an unrelated namespace is a trap, not an
+ * answer, and it is labelled one.
+ */
+export interface Unlisted {
+  unchanged: UnlistedGroup;
+  inSuccessor: UnlistedGroup;
+  elsewhere: UnlistedGroup;
+  gone: UnlistedGroup;
+  /** What is left to decide once the noise is out. */
+  left: number;
 }
 
 export interface PackageSurface {

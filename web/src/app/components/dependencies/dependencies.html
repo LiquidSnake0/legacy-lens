@@ -61,6 +61,40 @@
                       <p class="reading">{{ reading(candidate) }}</p>
                       <p class="trade">{{ candidate.note }}</p>
 
+                      <!--
+                        Read from the framework rather than written by hand, and
+                        said so on the page. The catalogue is a judgement
+                        somebody signed; this is what the target runtime answers
+                        when asked whether a name still exists.
+                      -->
+                      @if (candidate.unknownCount) {
+                        <h4 class="framework">What the framework says about the rest</h4>
+
+                        <ul class="standing">
+                          @for (group of groups(candidate); track group.key) {
+                            @if (group.count) {
+                              <li [class.lead]="group.key === 'inSuccessor'">
+                                <span class="count">{{ group.count }}</span>
+                                <span class="what">{{ group.what }}</span>
+                                <span class="calls">{{ group.uses }} call(s)</span>
+                              </li>
+                            }
+                          }
+                        </ul>
+
+                        @if (candidate.unlisted.elsewhere.count) {
+                          <p class="caveat">
+                            The {{ candidate.unlisted.elsewhere.count }} above sharing a
+                            name with something unrelated are a trap rather than an
+                            answer:
+                            @for (type of candidate.unlisted.elsewhere.types.slice(0, 3); track type.name) {
+                              <code>{{ type.name }}</code> is now
+                              <code>{{ type.where }}</code>@if (!$last) {, }
+                            }.
+                          </p>
+                        }
+                      }
+
                       @if (candidate.unavailable.length) {
                         <p class="blocked">
                           Nothing replaces these, and the catalogue says so rather

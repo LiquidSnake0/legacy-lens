@@ -46,6 +46,13 @@ describe('Dependencies', () => {
             usesCovered: 2745,
             usesUnavailable: 5,
             usesUnknown: 1779,
+            unlisted: {
+              unchanged: { types: [{ name: 'TextWriter', uses: 56, where: 'System.IO.TextWriter' }], count: 69, uses: 502 },
+              inSuccessor: { types: [{ name: 'TagBuilder', uses: 51, where: 'Microsoft.AspNetCore.Mvc.Rendering.TagBuilder' }], count: 17, uses: 136 },
+              elsewhere: { types: [{ name: 'HttpContext', uses: 8, where: 'Microsoft.AspNetCore.Http.HttpContext' }], count: 15, uses: 182 },
+              gone: { types: [{ name: 'HttpUnauthorizedResult', uses: 408, where: null }], count: 118, uses: 959 },
+              left: 133,
+            },
           },
         ],
       },
@@ -100,13 +107,46 @@ describe('Dependencies', () => {
     expect(element.querySelector('.shape')?.textContent).toContain('41 type(s)');
   });
 
-  it('says what is unknown beside what is covered', () => {
+  it('says what is unknown beside what is covered, and what is left of it', () => {
+    // A column of "nobody has looked at these" is read as work, and most of it
+    // is not. On Orchard the framework accounts for 86 of the 219.
     const app = build().componentInstance;
     const reading = app.reading(report.packages[0].candidates[0]);
 
     expect(reading).toContain('61%');
     expect(reading).toContain('219 type(s)');
-    expect(reading).toContain('unknown rather than fine');
+    expect(reading).toContain('133 still to decide');
+  });
+
+  it('separates what the framework answers from what the catalogue says', () => {
+    // The catalogue is a judgement somebody signed. This is what the target
+    // runtime answers when asked whether a name still exists, and the page has
+    // to say which is which.
+    const fixture = build();
+    fixture.componentInstance.toggle(report.packages[0]);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const text = element.textContent ?? '';
+
+    expect(text).toContain('What the framework says about the rest');
+    expect(text).toContain('still provides, unchanged');
+    expect(element.querySelectorAll('.standing li')).toHaveLength(4);
+  });
+
+  it('calls a name that survived somewhere unrelated a trap rather than an answer', () => {
+    // System.Web.HttpContext and Microsoft.AspNetCore.Http.HttpContext share a
+    // word and nothing else. Reported as a correspondence it would send
+    // somebody into the worst of the migration believing it was done.
+    const fixture = build();
+    fixture.componentInstance.toggle(report.packages[0]);
+    fixture.detectChanges();
+
+    const caveat = (fixture.nativeElement as HTMLElement).querySelector('.caveat')?.textContent ?? '';
+
+    expect(caveat).toContain('trap rather than an answer');
+    expect(caveat).toContain('HttpContext');
+    expect(caveat).toContain('Microsoft.AspNetCore.Http.HttpContext');
   });
 
   it('says so plainly when the catalogue has an answer for everything', () => {

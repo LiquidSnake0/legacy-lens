@@ -137,15 +137,36 @@ export class Dependencies {
    * The unknown count is in it on purpose. A percentage on its own reads as a
    * verdict, and this one is a measurement against a catalogue that is still
    * being written.
+   *
+   * What is left to decide comes from the framework reading rather than from
+   * the raw count: a column of "nobody has looked at these" is read as work,
+   * and most of it is not. On Orchard, 219 became 133.
    */
   reading(candidate: Candidate): string {
     if (candidate.unknownCount === 0) {
       return `${candidate.percent}% of the calls, and the catalogue has an answer for the rest.`;
     }
 
-    return `${candidate.percent}% of the calls. ${candidate.unknownCount} type(s) `
-      + `over ${candidate.usesUnknown} call(s) are not in the catalogue yet, which is `
-      + `unknown rather than fine.`;
+    return `${candidate.percent}% of the calls. ${candidate.unknownCount} type(s) over `
+      + `${candidate.usesUnknown} call(s) are not in the catalogue, and the framework `
+      + `accounts for enough of them to leave ${candidate.unlisted.left} still to decide.`;
+  }
+
+  /**
+   * The four answers, in the order a reader needs them.
+   *
+   * Settled first, then the lead, then the trap, then the work. Reading it the
+   * other way round is reading the worst case and stopping.
+   */
+  groups(candidate: Candidate): { key: string; count: number; uses: number; what: string }[] {
+    const u = candidate.unlisted;
+
+    return [
+      { key: 'unchanged', ...u.unchanged, what: 'the framework still provides, unchanged' },
+      { key: 'inSuccessor', ...u.inSuccessor, what: 'named inside the successor, worth checking' },
+      { key: 'elsewhere', ...u.elsewhere, what: 'sharing a name with something unrelated' },
+      { key: 'gone', ...u.gone, what: 'the framework does not have at all' },
+    ].map(({ key, count, uses, what }) => ({ key, count, uses, what }));
   }
 
   /** The last two segments of a path, which is what a reader recognises. */
