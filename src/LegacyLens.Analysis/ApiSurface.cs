@@ -139,6 +139,18 @@ public class ApiSurface
         };
 
     /// <summary>
+    /// Whether the framework being migrated to still supplies this name itself.
+    ///
+    /// Restricted to <c>System.*</c> deliberately. Everything the base library
+    /// keeps, it keeps under that root, and a name that only turns up somewhere
+    /// like <c>Microsoft.AspNetCore.Http</c> is a different type wearing the
+    /// same word rather than the same type still being there.
+    /// </summary>
+    private static bool StillSupplied(string name) =>
+        FrameworkTypes.ByName.TryGetValue(name, out var places)
+        && places.Any(full => full.StartsWith("System.", StringComparison.Ordinal));
+
+    /// <summary>
     /// Names C# supplies, which belong to no package and would drown the list.
     /// </summary>
     private static readonly IReadOnlySet<string> Builtin =
@@ -154,20 +166,39 @@ public class ApiSurface
         };
 
     /// <summary>The surface for every catalogued package this codebase touches.</summary>
-    public IReadOnlyList<UsageSurface> All(string rootPath)
+    /// <summary>
+    /// Every catalogued package this codebase uses.
+    ///
+    /// <paramref name="claimed"/> answers, per package, which names the
+    /// catalogue records as its own. Without it the exclusion below stays off,
+    /// which is the conservative way round.
+    /// </summary>
+    public IReadOnlyList<UsageSurface> All(
+        string rootPath, Func<string, IReadOnlySet<string>>? claimed = null)
     {
         var read = Read(rootPath);
 
         return Namespaces.Keys
-            .Select(package => Of(read, package))
+            .Select(package => Of(read, package, claimed?.Invoke(package)))
             .Where(surface => surface.Used)
             .OrderByDescending(surface => surface.Uses)
             .ToList();
     }
 
-    public UsageSurface Of(string rootPath, string package) => Of(Read(rootPath), package);
+    public UsageSurface Of(string rootPath, string package, IReadOnlySet<string>? claimed = null) =>
+        Of(Read(rootPath), package, claimed);
 
-    private static UsageSurface Of(IReadOnlyList<ParsedFile> parsed, string package)
+    /// <summary>
+    /// <paramref name="claimed"/> is the names the catalogue records as this
+    /// package's own, and it is what keeps the exclusion below honest.
+    ///
+    /// Left null, nothing is excluded. That is the conservative default on
+    /// purpose: without knowing which names the package claims, dropping one
+    /// makes an estimate smaller than the work is, and a tool that shrinks an
+    /// estimate by guessing is worse than one that leaves noise in.
+    /// </summary>
+    private static UsageSurface Of(
+        IReadOnlyList<ParsedFile> parsed, string package, IReadOnlySet<string>? claimed = null)
     {
         if (!Namespaces.TryGetValue(package, out var namespaces))
         {
@@ -182,6 +213,8 @@ public class ApiSurface
         var local = parsed.SelectMany(f => f.Declared).ToHashSet(StringComparer.Ordinal);
 
         var uses = new Dictionary<string, (int Uses, HashSet<string> Files)>(StringComparer.Ordinal);
+        var supplied = new HashSet<string>(StringComparer.Ordinal);
+        var suppliedUses = 0;
         var perFile = new List<int>();
         var heaviest = new List<FileUse>();
         var files = 0;
@@ -206,6 +239,34 @@ public class ApiSurface
             foreach (var name in file.TypeNames)
             {
                 if (Builtin.Contains(name) || local.Contains(name)) continue;
+
+                // A name the framework being migrated to still supplies under
+                // System.* is not this package's, whatever a file happens to
+                // import beside it. Orchard's MVC files name TextWriter,
+                // ArgumentException, Lazy and XElement, and counting those as
+                // uses of ASP.NET MVC put 502 calls of work into an estimate
+                // that had none.
+                //
+                // Only System.*, and never a name the catalogue records as this
+                // package's own. Both halves earn their place, and the second
+                // was added after measuring: `Newtonsoft.Json.JsonSerializer`
+                // and `System.Text.Json.JsonSerializer` share a name, so the
+                // first rule alone dropped fifteen real Newtonsoft types over
+                // sixty-five uses and made that migration look smaller than it is.
+                //
+                // HttpContext needs neither half to stay: it resolves to
+                // Microsoft.AspNetCore.Http today, which is not System.*, and it
+                // is emphatically not System.Web.HttpContext.
+                // `claimed` null means nobody said what this package claims, and
+                // then nothing is dropped. An empty set is a different statement:
+                // it says the catalogue claims none of them, which is the true
+                // situation for a package it has no entry for.
+                if (claimed is not null && !claimed.Contains(name) && StillSupplied(name))
+                {
+                    supplied.Add(name);
+                    suppliedUses++;
+                    continue;
+                }
 
                 if (!uses.TryGetValue(name, out var seen))
                     seen = (0, new HashSet<string>(StringComparer.Ordinal));
@@ -234,6 +295,15 @@ public class ApiSurface
                 + "appears in a type position in a file importing this package, and no "
                 + "declaration in the solution accounts for it. Static calls are not "
                 + "counted: telling Assert.That from services.Add needs resolved symbols.");
+        }
+
+        if (supplied.Count > 0)
+        {
+            notes.Add(
+                $"{supplied.Count} name(s) over {suppliedUses} use(s) were left out because the "
+                + "target framework still supplies them under System.* and the catalogue does "
+                + "not record them as this package's, so they are not its work however often "
+                + "its files name them.");
         }
 
         if (ambiguous > 0)

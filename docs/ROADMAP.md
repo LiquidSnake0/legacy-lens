@@ -1122,21 +1122,31 @@ Measured on Orchard, for the package that holds 73 of its 89 projects:
 
 | | |
 |---|---|
-| Uses of `Microsoft.AspNet.Mvc` | **4,529** |
-| Distinct types | **271** |
+| Uses of `Microsoft.AspNet.Mvc` | **4,027** |
+| Distinct types | **202** |
 | Files importing it | **365** |
-| **Types carrying four fifths of it** | **41** |
-| Files carrying four fifths of it | **138** |
+| **Types carrying four fifths of it** | **29** |
+| Files carrying four fifths of it | **134** |
 
-**Forty-one.** That is the number this milestone exists to produce. "73 projects
-blocked" is a wall; "41 type correspondences cover eighty per cent of the work"
-is a catalogue somebody can write in a week. The two sentences describe the same
-codebase.
+**Twenty-nine.** That is the number this milestone exists to produce. "73
+projects blocked" is a wall; "29 type correspondences cover eighty per cent of
+the work" is a catalogue somebody can write in an afternoon. The two sentences
+describe the same codebase.
+
+The figures above were 4,529 uses across 271 types with 41 carrying four fifths,
+until M13 stopped attributing to a package the names the target framework still
+supplies itself. `TextWriter` and `ArgumentException` appear in Orchard's MVC
+files like they appear in every C# file, and 69 such names over 502 uses were
+being counted as ASP.NET MVC's work. The number got smaller because the
+measurement got truer, which is the only reason a number here is allowed to move.
 
 The ten most used are `ActionResult` at 541, `HttpUnauthorizedResult` at 408,
 `HttpPost`, `RouteValueDictionary`, `SelectListItem`, `HtmlHelper`, `ActionName`,
 `Controller`, `IHtmlString`. Every one of them has a direct counterpart in
 ASP.NET Core. The rewrite is repetitive, which is exactly why counting it pays.
+
+The tenth is `Test`, NUnit's attribute, and it is the one this still gets wrong:
+see M13 and `docs/NEXT.md`.
 
 **A mistake the first real measurement found, which the unit tests did not.**
 The obvious way to collect types is `OfType<TypeSyntax>()`, and it is wrong:
@@ -1181,11 +1191,11 @@ First run against Orchard, for `Microsoft.AspNet.Mvc`:
 
 | | |
 |---|---|
-| Calls covered by `Microsoft.AspNetCore.Mvc` | **61%** |
+| Calls covered by `Microsoft.AspNetCore.Mvc` | **68%** |
 | Types recorded as having no replacement | 3, over 5 calls |
-| Types the catalogue says nothing about | **219, over 1,779 calls** |
+| Types the catalogue says nothing about | **150, over 1,277 calls** |
 
-**Sixty-one per cent from a first pass, and the honest part is the 219.** The
+**Sixty-eight per cent, and the honest part is the 150.** The
 catalogue is young; what makes the number usable is that it says so instead of
 counting silence as success. Coverage is weighted by calls rather than by type,
 because a type used five hundred times and one used once are not the same amount
@@ -1518,18 +1528,27 @@ the one that will bite: `System.Configuration.ConfigurationManager` is absent
 from the platform set and available as a package, and this reports it as gone.
 
 **Four answers, and only one of them is a lead.** Measured on Orchard, against
-the package that holds 73 of its 89 projects, on the 219 types the catalogue
-never mentions over 1,779 calls:
+the package that holds 73 of its 89 projects, on the 150 types the catalogue
+never mentions over 1,277 calls:
 
 | | types | calls | |
 |---|---:|---:|---|
-| still provided under `System.*` | 69 | 502 | not work, and had been counted as work |
 | named inside the successor | 17 | 136 | a lead |
 | the same name somewhere unrelated | 15 | 182 | **a trap** |
 | nowhere at all | 118 | 959 | the finding |
 
-**219 unknown became 133 left to decide.** Nearly a third of the calls in that
-column were never work at all.
+**150 unknown became 133 left to decide**, and a fourth answer that used to sit
+in this table was removed by fixing the cause instead. A name the framework
+still supplies under `System.*`, which the catalogue does not record as this
+package's, is no longer attributed to it at all: 69 types over 502 uses on
+Orchard, gone from the estimate rather than explained inside it.
+
+**That correction had a trap of its own, caught by measuring.** Excluding every
+`System.*` name would drop `Newtonsoft.Json.JsonSerializer` because
+`System.Text.Json.JsonSerializer` exists, and make that migration look smaller
+than it is, which is the one direction this tool must never be wrong in. So the
+catalogue's own list of a package's types protects them, and where nobody says
+what a package claims, nothing is dropped.
 
 The trap row is the one that justifies four answers rather than two.
 `System.Web.HttpContext` and `Microsoft.AspNetCore.Http.HttpContext` share a
@@ -1550,14 +1569,14 @@ away with ASP.NET. Modern .NET keeps exactly two, `HttpUtility` and
 exclusion reported two survivors as losses. The set is read from the target
 framework, so nothing about the old one needs excluding.
 
-**And one this exposed in older code.** The usage surface attributes a type to a
-package because a file importing that package uses it. That is why 69 of the 219
-are base library types, and why the most-used name in the "exists nowhere"
-column is `Test`, which is NUnit's attribute. Both statements the reading makes
-about them are true; neither type was ever ASP.NET MVC's. Written down in
-`docs/NEXT.md` rather than papered over, because fixing it properly needs
-resolved symbols and that costs the property which makes this usable on
-inherited code.
+**And one this exposed in older code, half of which is now fixed.** The usage
+surface attributes a type to a package because a file importing that package
+uses it. The base library half of that is dealt with above. The rest is not: the
+most-used name in the "exists nowhere" column is `Test`, which is NUnit's
+attribute, and no amount of asking the framework will say so because NUnit is
+not in it. Written down in `docs/NEXT.md` rather than papered over, because
+fixing that properly needs resolved symbols and that costs the property which
+makes this usable on inherited code.
 
 ---
 

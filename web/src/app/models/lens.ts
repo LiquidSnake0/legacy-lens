@@ -187,12 +187,12 @@ export interface UnlistedGroup {
 /**
  * The unknown column, read against the target framework.
  *
- * Four answers and only one of them is a lead. `elsewhere` is the dangerous
+ * Three answers and only one of them is a lead. `elsewhere` is the dangerous
  * one: a name that survived into an unrelated namespace is a trap, not an
- * answer, and it is labelled one.
+ * answer, and it is labelled one. Names the framework still supplies itself
+ * never reach here: the surface stops attributing those to the package.
  */
 export interface Unlisted {
-  unchanged: UnlistedGroup;
   inSuccessor: UnlistedGroup;
   elsewhere: UnlistedGroup;
   gone: UnlistedGroup;

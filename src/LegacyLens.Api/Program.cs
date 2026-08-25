@@ -595,9 +595,18 @@ app.MapPost("/api/surface", (SurfaceRequest request) =>
         var catalogue = Successors.Load();
         var successors = new Successors();
 
+        // The catalogue tells the surface which names each package claims, so a
+        // name the framework also has is only dropped when nobody recorded it
+        // as this package's. Without that, Newtonsoft's JsonSerializer would go
+        // out with System.Text.Json's.
+        IReadOnlySet<string> Claimed(string package) =>
+            catalogue.For(package)
+                .SelectMany(successor => successor.Types.Keys)
+                .ToHashSet(StringComparer.Ordinal);
+
         var surfaces = string.IsNullOrWhiteSpace(request.Package)
-            ? reader.All(request.Path)
-            : [reader.Of(request.Path, request.Package)];
+            ? reader.All(request.Path, Claimed)
+            : [reader.Of(request.Path, request.Package, Claimed(request.Package))];
 
         return Results.Ok(new
         {
@@ -1147,10 +1156,11 @@ object? Behaviour(EquivalenceReport? report)
 /// <summary>
 /// The unknown column, read against the framework being migrated to.
 ///
-/// Four answers and only one of them is a lead. A type the base library still
-/// provides is not work; a type named inside the successor is worth checking; a
-/// type whose name survived somewhere unrelated is a trap and is labelled one;
-/// a name the framework does not have at all is the finding.
+/// Three answers and only one of them is a lead. A type named inside the
+/// successor is worth checking; a type whose name survived somewhere unrelated
+/// is a trap and is labelled one; a name the framework does not have at all is
+/// the finding. Names the framework still supplies itself never get this far:
+/// the usage surface stops attributing those to the package.
 /// </summary>
 object Unlisted(Coverage coverage)
 {
@@ -1166,7 +1176,6 @@ object Unlisted(Coverage coverage)
 
     return new
     {
-        unchanged = Group(Standing.Unchanged),
         inSuccessor = Group(Standing.InSuccessor),
         elsewhere = Group(Standing.Elsewhere),
         gone = Group(Standing.Gone),

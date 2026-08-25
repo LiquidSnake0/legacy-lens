@@ -3,9 +3,6 @@ namespace LegacyLens.Analysis;
 /// <summary>Where a type the catalogue never mentions stands with the target framework.</summary>
 public enum Standing
 {
-    /// <summary>Still provided under <c>System.*</c>. The code keeps it as it is.</summary>
-    Unchanged,
-
     /// <summary>A type of that name lives in the successor's own namespaces. A lead.</summary>
     InSuccessor,
 
@@ -28,11 +25,11 @@ public record UnlistedReading(IReadOnlyList<UnlistedType> Types)
     public int Uses(Standing standing) => Of(standing).Sum(t => t.Use.Uses);
 
     /// <summary>
-    /// What is actually left to decide, once the noise is out.
+    /// What is actually left to decide.
     ///
-    /// The number this exists to produce. A column of "the catalogue says
-    /// nothing about these" is honest and unusable: it is read as work, and
-    /// most of it is not.
+    /// A lead is not work: the name is waiting in the successor and whoever
+    /// checks it will be done in a minute. A trap is, because the reader has to
+    /// find out what the old type really did.
     /// </summary>
     public int Left => Of(Standing.Gone).Count + Of(Standing.Elsewhere).Count;
 }
@@ -48,15 +45,14 @@ public record UnlistedReading(IReadOnlyList<UnlistedType> Types)
 /// here, loaded into this process.
 ///
 /// Measured on Orchard, against the package holding 73 of its 89 projects: of
-/// 219 types the catalogue never mentions, over 1,779 calls, **69 are still
-/// provided under System.\* unchanged**. They were counted as work for years.
-/// Another 15 have a same-named type somewhere else in modern .NET, which is
+/// the 150 types the catalogue never mentions, 118 exist nowhere in modern .NET
+/// at all, and 15 have a same-named type somewhere else. That second group is
 /// worse than no answer if it is reported as one: `System.Web.HttpContext` and
 /// `Microsoft.AspNetCore.Http.HttpContext` share a word and nothing else, and
 /// that particular pair is the hardest part of the migration rather than a
 /// rename.
 ///
-/// So four answers, and only one of them is a lead. Nothing here is written
+/// So three answers, and only one of them is a lead. Nothing here is written
 /// into the catalogue and nothing here claims to be a correspondence: the
 /// generated part stays visibly apart from the written part, or the distinction
 /// that makes the catalogue worth trusting dissolves into it.
@@ -80,25 +76,12 @@ public class Unlisted
                 ? found
                 : [];
 
-            // Still in the base library, so the code keeps it whatever brought
-            // it into this file.
-            //
-            // System.Web is not excluded, and an earlier version of this did
-            // exclude it on the assumption that the whole family went away.
-            // Modern .NET keeps exactly two of them, System.Web.HttpUtility and
-            // System.Web.IHtmlString, and Orchard uses the second more than a
-            // hundred times: excluding them reported two survivors as losses.
-            // The question here is only ever what the target framework has, and
-            // this set was read from the target framework.
-            var bcl = everywhere.FirstOrDefault(
-                full => full.StartsWith("System.", StringComparison.Ordinal));
-
-            if (bcl is not null)
-            {
-                read.Add(new UnlistedType(use, Standing.Unchanged, bcl));
-                continue;
-            }
-
+            // A fourth answer used to live here, for a name the base library
+            // still supplies. It was always right and it is now unreachable:
+            // the usage surface stopped attributing those to the package at
+            // all, which is a better place to deal with them than an
+            // explanation further down. On Orchard it was 69 types over 502
+            // calls, and they never belonged in the estimate to begin with.
             var inside = successorPackage.Length > 0
                 ? FrameworkTypes.Under(use.Name, successorPackage)
                 : [];

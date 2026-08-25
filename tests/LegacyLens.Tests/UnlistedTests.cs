@@ -23,22 +23,6 @@ public class UnlistedTests
         new Unlisted().Read(types, successor);
 
     [Fact]
-    public void A_type_the_base_library_still_provides_is_not_work()
-    {
-        // Measured on Orchard: 69 of the 219 types the catalogue never mentions
-        // are these, over 502 calls. They were being counted as migration work
-        // because they appeared in a file that imported a dead package.
-        var reading = Read("Microsoft.AspNetCore.Mvc",
-            Use("TextWriter"), Use("ArgumentException"), Use("Lazy"));
-
-        Assert.Equal(3, reading.Of(Standing.Unchanged).Count);
-        Assert.Equal(0, reading.Left);
-
-        Assert.Equal("System.IO.TextWriter",
-            reading.Of(Standing.Unchanged).Single(t => t.Use.Name == "TextWriter").Where);
-    }
-
-    [Fact]
     public void A_type_named_in_the_successor_is_offered_as_a_lead()
     {
         var reading = Read("Microsoft.AspNetCore.Mvc", Use("TagBuilder"));
@@ -82,7 +66,7 @@ public class UnlistedTests
         // A trap is not an answer, so it is still work. Counting it as settled
         // because a word matched is the whole thing this avoids.
         var reading = Read("Microsoft.AspNetCore.Mvc",
-            Use("TextWriter"), Use("TagBuilder"), Use("HttpContext"), Use("HttpUnauthorizedResult"));
+            Use("TagBuilder"), Use("HttpContext"), Use("HttpUnauthorizedResult"));
 
         Assert.Equal(2, reading.Left);
     }
@@ -100,20 +84,6 @@ public class UnlistedTests
     }
 
     [Fact]
-    public void The_two_survivors_of_System_Web_count_as_still_there()
-    {
-        // An earlier version excluded System.* names under System.Web, on the
-        // assumption that the whole family went away with ASP.NET. Modern .NET
-        // keeps exactly two, and Orchard uses IHtmlString more than a hundred
-        // times, so the exclusion reported two survivors as losses.
-        var reading = Read("Microsoft.AspNetCore.Mvc", Use("HttpUtility"), Use("IHtmlString"));
-
-        Assert.Equal(2, reading.Of(Standing.Unchanged).Count);
-        Assert.Equal(0, reading.Left);
-        Assert.All(reading.Types, t => Assert.StartsWith("System.Web.", t.Where));
-    }
-
-    [Fact]
     public void The_hard_one_is_still_a_trap_after_that()
     {
         // The exclusion was doing one useful thing by accident, and this is the
@@ -123,7 +93,7 @@ public class UnlistedTests
         var reading = Read("Microsoft.AspNetCore.Mvc", Use("HttpContext"));
 
         Assert.Single(reading.Of(Standing.Elsewhere));
-        Assert.Empty(reading.Of(Standing.Unchanged));
+        Assert.Empty(reading.Of(Standing.InSuccessor));
     }
 
     [Fact]

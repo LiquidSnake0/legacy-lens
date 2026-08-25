@@ -443,4 +443,64 @@ public class ApiSurfaceTests : IDisposable
         Assert.Throws<DirectoryNotFoundException>(
             () => new ApiSurface().All(Path.Combine(_root, "nope")));
     }
+
+    /* ---- ce que le framework fournit encore n'est pas le travail du paquet ---- */
+
+    [Fact]
+    public void A_name_the_target_framework_still_supplies_is_not_this_package_s()
+    {
+        // Measured on Orchard: 69 names over 502 uses. Its MVC files name
+        // TextWriter, ArgumentException, Lazy and XElement, and counting those
+        // as uses of ASP.NET MVC put half a thousand calls of work into an
+        // estimate that had none.
+        Write("Home.cs", """
+            using System.Web.Mvc;
+            using System.IO;
+
+            public class HomeController : Controller
+            {
+                public ActionResult Index(TextWriter writer, ArgumentException failure) => View();
+            }
+            """);
+
+        // An empty set, which is what the catalogue answers for a package it
+        // has no entry for: it claims none of these names.
+        var surface = new ApiSurface().Of(_root, "Microsoft.AspNet.Mvc", new HashSet<string>());
+        var named = surface.Types.Select(t => t.Name).ToList();
+
+        Assert.Contains("Controller", named);
+        Assert.Contains("ActionResult", named);
+        Assert.DoesNotContain("TextWriter", named);
+        Assert.DoesNotContain("ArgumentException", named);
+
+        Assert.Contains(surface.Notes, n => n.Contains("still supplies them under System.*"));
+    }
+
+    [Fact]
+    public void A_name_the_catalogue_records_as_the_package_s_is_kept_whatever_the_framework_has()
+    {
+        // Newtonsoft.Json.JsonSerializer and System.Text.Json.JsonSerializer
+        // share a name. Dropping the first because the second exists made that
+        // migration look smaller than it is, which is the one direction this
+        // tool must never be wrong in.
+        Write("Serialiser.cs", """
+            using Newtonsoft.Json;
+
+            public class Store
+            {
+                public JsonSerializer Make() => null;
+            }
+            """);
+
+        var claimed = new HashSet<string>(StringComparer.Ordinal) { "JsonSerializer" };
+
+        Assert.Contains("JsonSerializer",
+            new ApiSurface().Of(_root, "Newtonsoft.Json", claimed).Types.Select(t => t.Name));
+
+        // And without the catalogue saying so, nothing is dropped either: the
+        // conservative default leaves noise in rather than shrinking an estimate
+        // by guessing.
+        Assert.Contains("JsonSerializer",
+            new ApiSurface().Of(_root, "Newtonsoft.Json").Types.Select(t => t.Name));
+    }
 }

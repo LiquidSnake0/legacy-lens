@@ -725,9 +725,15 @@ It reads what the codebase uses of each catalogued package, how concentrated
 that usage is, and scores the candidate replacements against it. No model is
 involved.
 
-On Orchard, for the package that blocks 73 of its 89 projects: 4,529 calls
-across 271 types and 365 files, of which **41 types carry four fifths**. That is
-the number that turns "73 projects blocked" into a catalogue somebody can write.
+On Orchard, for the package that blocks 73 of its 89 projects: 4,027 calls
+across 365 files, of which **29 types carry four fifths**. That is the number
+that turns "73 projects blocked" into a catalogue somebody can write.
+
+A name the target framework still supplies under `System.*`, and that the
+catalogue does not record as this package's, is not counted at all: 69 of them
+over 502 uses on Orchard. Its MVC files name `TextWriter`, `ArgumentException`
+and `XElement` like any other C# file, and counting those as uses of ASP.NET MVC
+put half a thousand calls of work into an estimate that had none.
 
 Every type gets one of three answers, and the third is the point:
 
@@ -748,18 +754,17 @@ are not the same amount of work.
 **The third column is then read against the framework itself.** What replaces
 what is a judgement and stays hand-written. Whether modern .NET still has a type
 of that name is a question of fact, and the framework being migrated to is
-loaded into this process already. So the unknown column gets four answers, and
+loaded into this process already. So the unknown column gets three answers, and
 only one of them is a lead:
 
 | Orchard, `Microsoft.AspNet.Mvc` | types | calls | |
 |---|---:|---:|---|
-| the framework still provides, unchanged | 69 | 502 | nothing to do |
 | named inside the successor | 17 | 136 | a lead, worth checking |
 | sharing a name with something unrelated | 15 | 182 | **a trap, not an answer** |
 | the framework does not have at all | 118 | 959 | the finding |
 
-**219 unknown becomes 133 left to decide**, and nearly a third of the calls in
-that column turn out never to have been work.
+**150 unknown becomes 133 left to decide**, on top of the 69 that never entered
+the count in the first place.
 
 The trap row earns its name. `System.Web.HttpContext` and
 `Microsoft.AspNetCore.Http.HttpContext` share a word and nothing else, and that

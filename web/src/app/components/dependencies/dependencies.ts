@@ -155,14 +155,13 @@ export class Dependencies {
   /**
    * The four answers, in the order a reader needs them.
    *
-   * Settled first, then the lead, then the trap, then the work. Reading it the
-   * other way round is reading the worst case and stopping.
+   * The lead first, then the trap, then the work. Reading it the other way
+   * round is reading the worst case and stopping.
    */
   groups(candidate: Candidate): { key: string; count: number; uses: number; what: string }[] {
     const u = candidate.unlisted;
 
     return [
-      { key: 'unchanged', ...u.unchanged, what: 'the framework still provides, unchanged' },
       { key: 'inSuccessor', ...u.inSuccessor, what: 'named inside the successor, worth checking' },
       { key: 'elsewhere', ...u.elsewhere, what: 'sharing a name with something unrelated' },
       { key: 'gone', ...u.gone, what: 'the framework does not have at all' },

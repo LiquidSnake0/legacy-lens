@@ -42,12 +42,11 @@ describe('Dependencies', () => {
             covered: 49,
             unavailable: [{ name: 'ChildActionOnly', uses: 3, files: 2 }],
             unknown: [{ name: 'Test', uses: 119, files: 17 }],
-            unknownCount: 219,
+            unknownCount: 150,
             usesCovered: 2745,
             usesUnavailable: 5,
-            usesUnknown: 1779,
+            usesUnknown: 1277,
             unlisted: {
-              unchanged: { types: [{ name: 'TextWriter', uses: 56, where: 'System.IO.TextWriter' }], count: 69, uses: 502 },
               inSuccessor: { types: [{ name: 'TagBuilder', uses: 51, where: 'Microsoft.AspNetCore.Mvc.Rendering.TagBuilder' }], count: 17, uses: 136 },
               elsewhere: { types: [{ name: 'HttpContext', uses: 8, where: 'Microsoft.AspNetCore.Http.HttpContext' }], count: 15, uses: 182 },
               gone: { types: [{ name: 'HttpUnauthorizedResult', uses: 408, where: null }], count: 118, uses: 959 },
@@ -114,7 +113,7 @@ describe('Dependencies', () => {
     const reading = app.reading(report.packages[0].candidates[0]);
 
     expect(reading).toContain('61%');
-    expect(reading).toContain('219 type(s)');
+    expect(reading).toContain('150 type(s)');
     expect(reading).toContain('133 still to decide');
   });
 
@@ -130,8 +129,8 @@ describe('Dependencies', () => {
     const text = element.textContent ?? '';
 
     expect(text).toContain('What the framework says about the rest');
-    expect(text).toContain('still provides, unchanged');
-    expect(element.querySelectorAll('.standing li')).toHaveLength(4);
+    expect(text).toContain('the framework does not have at all');
+    expect(element.querySelectorAll('.standing li')).toHaveLength(3);
   });
 
   it('calls a name that survived somewhere unrelated a trap rather than an answer', () => {
