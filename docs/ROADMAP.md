@@ -2256,6 +2256,60 @@ pieces of noise, and that is the next thing worth fixing.
 
 ---
 
+## M23. One decision, said once ✅
+
+*The objective was to take load off the person deciding. The conversions were
+adding to it.*
+
+On nopCommerce 3.90 the notes beside a patch came to roughly **two hundred
+lines for thirty-one projects**: eight sentences repeated, one per project, in
+the order the projects happened to be walked. Among them, printed thirty-one
+times, was the line that decides the whole shape of the work, that
+PackageReference wants a target this solution does not have.
+
+**A decision repeated thirty-one times is one decision and thirty pieces of
+noise.**
+
+### A caveat now has a key and a nature
+
+The key is what makes the same caveat from thirty-one projects one line. It is
+never shown: the sentence carries counts and package names, so no two projects
+write it the same way, and grouping by the sentence would leave things exactly
+as they were.
+
+The nature is the part that matters. **A consequence** is something the
+conversion did and the reader checks: build configurations dropped, items now
+globbed from the folder. **A decision** is something nobody can settle for
+them. There are five, and they are now named once each:
+
+| | |
+|---|---|
+| `target-below-461` | PackageReference wants 4.6.1 and this solution targets less |
+| `still-blocked` | packages with no path forward, whatever the format change does |
+| `password-in-connection-string` | copied as found, and it must not be committed |
+| `duplicate-keys` | declared twice with different values, and which won depended on the host |
+| `undeclared-keys` | read by the code and declared nowhere, so no value was invented |
+
+### Measured
+
+| | before | after |
+|---|---|---|
+| `convert packages` notes | ~200 lines | **11** |
+| `convert sdk` notes | ~150 lines | **17** |
+
+Decisions print first under their own heading, and where the sentences within a
+group differ the line says **one shown**: being told twenty-nine projects raised
+something is only useful alongside whether they raised it about the same thing.
+
+### One thing found in my own work
+
+The first version of the test that pins which caveats are decisions built its
+own `Caveat` objects and asserted the flags it had just set. A test that cannot
+fail, which is what M20 found in this repository three milestones ago and fixed.
+It now reads the marks off a real conversion, and removing one makes it fail.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

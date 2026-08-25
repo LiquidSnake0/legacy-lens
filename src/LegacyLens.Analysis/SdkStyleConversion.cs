@@ -94,7 +94,7 @@ public class SdkStyleConversion
             return new SdkConversionVerdict(project.Name, blockers, null);
 
         var before = ReadVerbatim(project.Path);
-        var caveats = new List<string>();
+        var caveats = new List<Caveat>();
 
         // A caveat and not a blocker, and the difference was measured. Whether
         // a project can take the SDK format is a question about the file;
@@ -109,10 +109,11 @@ public class SdkStyleConversion
         // is SDK format on net461.
         if (project.Blocked)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("still-blocked",
                 "Still depends on packages with no path to modern .NET: " +
                 string.Join(", ", project.DeadEnds) +
-                ". This changes the file format and not the future of the project.");
+                ". This changes the file format and not the future of the project.")
+                { Decides = true });
         }
         var after = Rewrite(root, ns, project, before, caveats);
 
@@ -197,7 +198,7 @@ public class SdkStyleConversion
         XNamespace ns,
         ProjectModernisation project,
         string before,
-        List<string> caveats)
+        List<Caveat> caveats)
     {
         var newline = before.Contains("\r\n") ? "\r\n" : "\n";
         var lines = new List<string> { "<Project Sdk=\"Microsoft.NET.Sdk\">", "" };
@@ -247,22 +248,22 @@ public class SdkStyleConversion
 
         if (globbed > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("items-globbed",
                 $"{globbed} Compile, Content, None and EmbeddedResource item(s) are dropped: the SDK " +
                 "includes them from the folder. Anything deliberately excluded from the build was " +
-                "excluded by not being listed, and that exclusion is now gone.");
+                "excluded by not being listed, and that exclusion is now gone."));
         }
 
-        caveats.Add(
+        caveats.Add(new Caveat("build-configurations",
             "Build configurations are dropped. Debug and Release come from the SDK, and any " +
-            "non-default OutputPath or DefineConstants went with them.");
+            "non-default OutputPath or DefineConstants went with them."));
 
         if (carried.Count > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("properties-carried",
                 $"{carried.Count} propert(y/ies) not recognised were carried over verbatim rather " +
                 "than dropped, so some may be settings the SDK ignores. Deleting a property this " +
-                "tool did not understand is the one mistake it cannot detect, so it keeps them.");
+                "tool did not understand is the one mistake it cannot detect, so it keeps them."));
         }
 
         lines.Add("</Project>");
@@ -270,7 +271,7 @@ public class SdkStyleConversion
     }
 
     private static void AddItems(
-        List<string> lines, XElement root, XNamespace ns, string name, List<string> caveats)
+        List<string> lines, XElement root, XNamespace ns, string name, List<Caveat> caveats)
     {
         var items = root.Elements(ns + "ItemGroup")
             .SelectMany(g => g.Elements(ns + name))
@@ -311,7 +312,7 @@ public class SdkStyleConversion
     /// carried: PackageReference replaces it, and keeping both is a duplicate.
     /// </summary>
     private static void AddBareReferences(
-        List<string> lines, XElement root, XNamespace ns, List<string> caveats)
+        List<string> lines, XElement root, XNamespace ns, List<Caveat> caveats)
     {
         var references = root.Elements(ns + "ItemGroup")
             .SelectMany(g => g.Elements(ns + "Reference"))
@@ -329,10 +330,10 @@ public class SdkStyleConversion
 
         if (withHint > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("hint-paths-dropped",
                 $"{withHint} reference(s) with a hint path are dropped. They came from " +
                 "packages.config and PackageReference replaces them; convert that first if it " +
-                "has not been done.");
+                "has not been done."));
         }
 
         if (references.Count == 0) return;

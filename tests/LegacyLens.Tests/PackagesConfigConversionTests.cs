@@ -123,7 +123,7 @@ public class PackagesConfigConversionTests : IDisposable
 
         Assert.NotNull(proposal);
         Assert.Contains(proposal.Caveats,
-            c => c.Contains("not whether they have a future"));
+            c => c.Says.Contains("not whether they have a future"));
     }
 
     [Fact]

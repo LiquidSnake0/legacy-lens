@@ -151,7 +151,7 @@ public class ConversionOrderTests : IDisposable
         var result = File.ReadAllText(Project);
 
         Assert.DoesNotContain("Newtonsoft.Json", result);
-        Assert.Contains(sdk.Proposal.Caveats, c => c.Contains("convert that first"));
+        Assert.Contains(sdk.Proposal.Caveats, c => c.Says.Contains("convert that first"));
     }
 
     [Fact]

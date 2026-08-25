@@ -217,7 +217,7 @@ public class ConfigurationMigrationTests : IDisposable
 
         Assert.Contains("\"Mail.Host\": \"smtp.example\"", proposal.Patch);
         Assert.DoesNotContain("\"Mail\": {", proposal.Patch);
-        Assert.Contains(proposal.Caveats, c => c.Contains("joins nested names with a colon"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("joins nested names with a colon"));
     }
 
     [Fact]
@@ -283,7 +283,7 @@ public class ConfigurationMigrationTests : IDisposable
         // Copied, because a translation that edits its source is a different
         // file. Flagged, because it is about to be written to a new one.
         Assert.Contains("hunter2", proposal.Patch);
-        Assert.Contains(proposal.Caveats, c => c.Contains("user secrets"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("user secrets"));
     }
 
     [Fact]
@@ -303,8 +303,8 @@ public class ConfigurationMigrationTests : IDisposable
 
         var proposal = new ConfigurationMigration().Propose(Survey(), _root)!;
 
-        Assert.Contains(proposal.Caveats, c => c.Contains("more than one config file"));
-        Assert.Contains(proposal.Caveats, c => c.Contains("Mode"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("more than one config file"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("Mode"));
     }
 
     [Fact]
@@ -328,7 +328,7 @@ public class ConfigurationMigrationTests : IDisposable
         var proposal = new ConfigurationMigration().Propose(Survey(), _root)!;
 
         Assert.DoesNotContain("\"Port\"", proposal.Patch);
-        Assert.Contains(proposal.Caveats, c => c.Contains("declared") && c.Contains("nowhere"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("declared") && c.Says.Contains("nowhere"));
     }
 
     [Fact]

@@ -161,7 +161,7 @@ public class PackageUnification
         if (unifiable.Count == 0) return null;
 
         var patch = new StringBuilder();
-        var caveats = new List<string>();
+        var caveats = new List<Caveat>();
         var touched = 0;
 
         // Grouped by file rather than by package: two packages changing in one
@@ -192,25 +192,26 @@ public class PackageUnification
 
         foreach (var verdict in unifiable)
         {
-            caveats.Add(
-                $"{verdict.PackageId}: {string.Join(", ", verdict.Found)} becomes {verdict.Chosen}.");
+            caveats.Add(new Caveat("version-chosen",
+                $"{verdict.PackageId}: {string.Join(", ", verdict.Found)} becomes {verdict.Chosen}."));
 
-            foreach (var warning in verdict.Warnings) caveats.Add($"  {warning}");
+            foreach (var warning in verdict.Warnings)
+                caveats.Add(new Caveat("version-warning", $"  {warning}"));
         }
 
         var redirects = RedirectsFor(unifiable.Select(v => v.PackageId).ToList(), rootPath);
         if (redirects.Count > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("redirects-named",
                 $"{redirects.Count} binding redirect(s) name these packages and are left " +
                 "untouched: " + string.Join(", ", redirects.Take(6)) +
-                (redirects.Count > 6 ? ", and more" : "") + ".");
+                (redirects.Count > 6 ? ", and more" : "") + "."));
 
-            caveats.Add(
+            caveats.Add(new Caveat("redirects-not-edited",
                 "  Not edited, and not an oversight. A redirect names an assembly " +
                 "version, which is not the package version and cannot be derived " +
                 "from it by reading these files. Guessing one produces a build that " +
-                "succeeds and an application that throws on first use.");
+                "succeeds and an application that throws on first use."));
         }
 
         return new ConversionProposal("packages", patch.ToString(), caveats);

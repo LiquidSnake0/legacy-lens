@@ -257,8 +257,8 @@ public class PackageUnificationTests : IDisposable
         var proposal = new PackageUnification()
             .Propose(SurveyOfProjects(projects, "6.0.8", "13.0.3"), _root)!;
 
-        Assert.Contains(proposal.Caveats, c => c.Contains("6.0.8, 13.0.3 becomes 13.0.3"));
-        Assert.Contains(proposal.Caveats, c => c.Contains("major version"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("6.0.8, 13.0.3 becomes 13.0.3"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("major version"));
     }
 
     [Fact]
@@ -287,8 +287,8 @@ public class PackageUnificationTests : IDisposable
         var proposal = new PackageUnification()
             .Propose(SurveyOfProjects(projects, "6.0.8", "13.0.3"), _root)!;
 
-        Assert.Contains(proposal.Caveats, c => c.Contains("binding redirect"));
-        Assert.Contains(proposal.Caveats, c => c.Contains("assembly version"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("binding redirect"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("assembly version"));
 
         // Named, never edited. An assembly version is not a package version and
         // cannot be derived from one by reading these files.

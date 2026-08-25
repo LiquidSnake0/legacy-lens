@@ -179,44 +179,49 @@ public class ConfigurationMigration
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         }) + "\n";
 
-        var caveats = new List<string>
+        var caveats = new List<Caveat>
         {
-            $"{settings.Count} app setting(s) and {connections.Count} connection string(s), "
-            + $"read from {survey.Files.Count} config file(s).",
+            new("counted",
+                $"{settings.Count} app setting(s) and {connections.Count} connection string(s), "
+                + $"read from {survey.Files.Count} config file(s)."),
 
-            "Keys are kept flat and unchanged, so configuration[\"Mail.Host\"] reads what "
-            + "ConfigurationManager.AppSettings[\"Mail.Host\"] read. Nesting them reads "
-            + "better and renames them: .NET joins nested names with a colon, and every "
-            + "call site would have to move with them.",
+            new("keys-kept-flat",
+                "Keys are kept flat and unchanged, so configuration[\"Mail.Host\"] reads what "
+                + "ConfigurationManager.AppSettings[\"Mail.Host\"] read. Nesting them reads "
+                + "better and renames them: .NET joins nested names with a colon, and every "
+                + "call site would have to move with them."),
         };
 
         if (connections.Count > 0 && connections.Any(c => LooksLikeSecret(c.Value)))
         {
-            caveats.Add(
+            caveats.Add(new Caveat("password-in-connection-string",
                 "At least one connection string carries a password. It is copied "
                 + "as it was found, because a translation that edits its source is "
                 + "a different file. Move it to user secrets or the environment "
-                + "before this is committed anywhere.");
+                + "before this is committed anywhere.")
+                { Decides = true });
         }
 
         var duplicated = Duplicated(survey);
         if (duplicated.Count > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("duplicate-keys",
                 $"{duplicated.Count} key(s) are declared in more than one config file with "
                 + "different values, and the last one read wins here: "
                 + string.Join(", ", duplicated.Take(5))
                 + (duplicated.Count > 5 ? ", and more" : "")
                 + ". Which one was right at runtime depended on which application "
-                + "loaded them, and that is not something these files record.");
+                + "loaded them, and that is not something these files record.")
+                { Decides = true });
         }
 
         if (survey.Undeclared.Count > 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("undeclared-keys",
                 $"{survey.Undeclared.Count} key(s) are read by the code and declared "
                 + "nowhere. They are not in this file either, because inventing a "
-                + "value is the one thing that would make it wrong.");
+                + "value is the one thing that would make it wrong.")
+                { Decides = true });
         }
 
         return new ConversionProposal(

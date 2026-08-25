@@ -4,12 +4,36 @@ using System.Xml.Linq;
 
 namespace LegacyLens.Analysis;
 
+/// <summary>
+/// One thing a reader has to know before applying a patch, and whether it is
+/// theirs to decide.
+///
+/// The two are different and printing them the same way costs a reader more
+/// than either of them saves. **A consequence** is something the conversion
+/// did, and the reader checks it: build configurations dropped, items now
+/// globbed from the folder. **A decision** is something nobody can do for
+/// them: the solution targets 4.5.1 and PackageReference wants 4.6.1, so
+/// somebody has to move it.
+///
+/// <see cref="About"/> is what makes the same caveat from thirty-one projects
+/// one line instead of thirty-one. It is a key and never shown: the sentence is
+/// what a person reads, and grouping by the sentence would break the moment one
+/// of them carried a count.
+/// </summary>
+public record Caveat(string About, string Says)
+{
+    /// <summary>Something to choose, rather than something that was done.</summary>
+    public bool Decides { get; init; }
+
+    public override string ToString() => Says;
+}
+
 /// <summary>One project's conversion, as a patch and the reasons to read it.</summary>
 public record ConversionProposal(
     string Project,
     string Patch,
     /// <summary>What the patch does not handle, stated rather than hidden.</summary>
-    IReadOnlyList<string> Caveats)
+    IReadOnlyList<Caveat> Caveats)
 {
     public bool IsEmpty => Patch.Length == 0;
 }
@@ -66,7 +90,7 @@ public class PackagesConfigConversion
         if (packages.Count == 0) return null;
 
         var before = ReadVerbatim(project.Path);
-        var caveats = new List<string>();
+        var caveats = new List<Caveat>();
 
         // A package with no path to modern .NET still has to be declared, and
         // declaring it the modern way costs nothing. Refusing here was the same
@@ -78,10 +102,11 @@ public class PackagesConfigConversion
         // restore.
         if (project.Blocked)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("still-blocked",
                 "Still depends on packages with no path to modern .NET: " +
                 string.Join(", ", project.DeadEnds) +
-                ". This changes how they are declared and not whether they have a future.");
+                ". This changes how they are declared and not whether they have a future.")
+                { Decides = true });
         }
 
         var after = Rewrite(before, packages, caveats);
@@ -95,14 +120,15 @@ public class PackagesConfigConversion
              project.TargetFramework.StartsWith("v4.0", StringComparison.OrdinalIgnoreCase) ||
              project.TargetFramework.StartsWith("v3", StringComparison.OrdinalIgnoreCase)))
         {
-            caveats.Add(
+            caveats.Add(new Caveat("target-below-461",
                 $"Targets {project.TargetFramework}. PackageReference is supported from 4.6.1 " +
-                "onwards; on an older target the restore may behave differently.");
+                "onwards; on an older target the restore may behave differently.")
+                { Decides = true });
         }
 
-        caveats.Add(
+        caveats.Add(new Caveat("binding-redirects",
             "Binding redirects are not touched. They are generated from the old references and " +
-            "dropping one is a runtime failure the build does not predict.");
+            "dropping one is a runtime failure the build does not predict."));
 
         return new ConversionProposal(project.Name, patch.ToString(), caveats);
     }
@@ -136,7 +162,7 @@ public class PackagesConfigConversion
     private static string Rewrite(
         string projectFile,
         List<(string Id, string Version)> packages,
-        List<string> caveats)
+        List<Caveat> caveats)
     {
         // Split on the line feed only. Any carriage return stays attached to
         // its line, so a Windows-authored file is reproduced byte for byte and
@@ -186,9 +212,9 @@ public class PackagesConfigConversion
 
         if (removed == 0)
         {
-            caveats.Add(
+            caveats.Add(new Caveat("no-hint-paths",
                 "No assembly references pointing into the packages folder were found, so the old " +
-                "references are left as they are. Check for duplicates after restoring.");
+                "references are left as they are. Check for duplicates after restoring."));
         }
 
         return InsertPackageReferences(kept, packages, DetectIndent(kept), newline);

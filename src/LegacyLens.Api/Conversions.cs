@@ -2,16 +2,31 @@ using LegacyLens.Analysis;
 
 namespace LegacyLens.Api;
 
+/// <summary>One caveat, and everyone who raised it.</summary>
+public record Repeated(Caveat What, IReadOnlyList<string> Projects)
+{
+    /// <summary>True where the projects did not all say the same thing.</summary>
+    public bool Varies { get; init; }
+}
+
 /// <summary>One conversion's result: the patch, and everything to read first.</summary>
 public record ConversionOutcome(
     string Kind,
     string Patch,
-    /// <summary>What the patch does, and what it does not handle.</summary>
+    /// <summary>Headline facts about the run itself.</summary>
     IReadOnlyList<string> Notes,
     /// <summary>What was refused, with the reason. Often the deliverable.</summary>
-    IReadOnlyList<string> Refusals)
+    IReadOnlyList<string> Refusals,
+    /// <summary>What to read before applying, each said once.</summary>
+    IReadOnlyList<Repeated> Caveats)
 {
     public bool Empty => Patch.Length == 0;
+
+    /// <summary>Nobody else can make these. They come first.</summary>
+    public IEnumerable<Repeated> Decisions => Caveats.Where(r => r.What.Decides);
+
+    /// <summary>What the patch did, for a reader to check.</summary>
+    public IEnumerable<Repeated> Consequences => Caveats.Where(r => !r.What.Decides);
 }
 
 /// <summary>
@@ -48,7 +63,7 @@ public static class Conversions
         var conversion = new PackagesConfigConversion();
 
         var patch = new System.Text.StringBuilder();
-        var notes = new List<string>();
+        var raised = new List<(string Project, Caveat Caveat)>();
         var converted = 0;
 
         foreach (var project in survey.Projects)
@@ -57,15 +72,16 @@ public static class Conversions
 
             patch.Append(proposal.Patch);
             converted++;
-            notes.AddRange(proposal.Caveats.Select(c => $"{proposal.Project}: {c}"));
+            raised.AddRange(proposal.Caveats.Select(c => (proposal.Project, c)));
         }
 
-        notes.Insert(0,
+        var notes = new List<string>
+        {
             $"{converted} of {survey.Projects.Count} project(s) converted. The rest either "
-            + "declare no packages, already use PackageReference, or depend on something "
-            + "with no path to modern .NET.");
+            + "declare no packages or already use PackageReference.",
+        };
 
-        return new ConversionOutcome("packages", patch.ToString(), notes, []);
+        return new ConversionOutcome("packages", patch.ToString(), notes, [], Group(raised));
     }
 
     private static ConversionOutcome SdkStyle(string rootPath)
@@ -74,7 +90,7 @@ public static class Conversions
         var conversion = new SdkStyleConversion();
 
         var patch = new System.Text.StringBuilder();
-        var notes = new List<string>();
+        var raised = new List<(string Project, Caveat Caveat)>();
         var refusals = new List<string>();
 
         foreach (var project in survey.Projects)
@@ -84,7 +100,7 @@ public static class Conversions
             if (verdict.Proposal is { } proposal)
             {
                 patch.Append(proposal.Patch);
-                notes.AddRange(proposal.Caveats.Select(c => $"{proposal.Project}: {c}"));
+                raised.AddRange(proposal.Caveats.Select(c => (proposal.Project, c)));
             }
             else
             {
@@ -92,10 +108,12 @@ public static class Conversions
             }
         }
 
-        notes.Insert(0,
-            $"{survey.Projects.Count - refusals.Count} converted, {refusals.Count} refused.");
+        var notes = new List<string>
+        {
+            $"{survey.Projects.Count - refusals.Count} converted, {refusals.Count} refused.",
+        };
 
-        return new ConversionOutcome("sdk", patch.ToString(), notes, refusals);
+        return new ConversionOutcome("sdk", patch.ToString(), notes, refusals, Group(raised));
     }
 
     private static ConversionOutcome Versions(string rootPath)
@@ -109,7 +127,7 @@ public static class Conversions
             [
                 $"{survey.Packages.Count} distinct package(s), none pinned to more than one "
                 + "version. Nothing to unify, and it was checked.",
-            ], []);
+            ], [], []);
         }
 
         var refusals = unification.Judge(survey)
@@ -117,7 +135,9 @@ public static class Conversions
             .Select(v => $"{v.PackageId}: {string.Join("; ", v.Blockers)}")
             .ToList();
 
-        return new ConversionOutcome("versions", proposal.Patch, proposal.Caveats, refusals);
+        return new ConversionOutcome(
+            "versions", proposal.Patch, [], refusals,
+            Group(proposal.Caveats.Select(c => (string.Empty, c))));
     }
 
     private static ConversionOutcome Configuration(string rootPath)
@@ -126,7 +146,9 @@ public static class Conversions
         var survey = migration.Survey(rootPath);
         var proposal = migration.Propose(survey, rootPath);
 
-        var notes = new List<string>(proposal?.Caveats ?? ["No appSettings or connectionStrings found."]);
+        var notes = new List<string>();
+
+        if (proposal is null) notes.Add("No appSettings or connectionStrings found.");
 
         // Reported whether or not a patch came out. These are the reason to run
         // this against a codebase nobody has decided to port yet.
@@ -157,7 +179,9 @@ public static class Conversions
                 + ConfigurationMigration.Verdict(isStatic: false));
         }
 
-        return new ConversionOutcome("config", proposal?.Patch ?? string.Empty, notes, refusals);
+        return new ConversionOutcome(
+            "config", proposal?.Patch ?? string.Empty, notes, refusals,
+            Group(proposal?.Caveats.Select(c => (string.Empty, c)) ?? []));
     }
 
     /* ---- the command ---- */
@@ -203,8 +227,76 @@ public static class Conversions
         Console.Out.Write(outcome.Patch);
 
         foreach (var note in outcome.Notes) Console.Error.WriteLine(note);
+
+        // Decisions first, and never mixed in with the rest. On nopCommerce
+        // 3.90 the caveats came to roughly two hundred lines for thirty-one
+        // projects, the same eight sentences over and over, and the one line
+        // that mattered, that PackageReference wants a target this solution
+        // does not have, was printed thirty-one times among them. A decision
+        // repeated thirty-one times is one decision and thirty pieces of noise.
+        Say(outcome.Decisions, "Yours to decide");
+        Say(outcome.Consequences, "Done, and worth reading");
+
         foreach (var refusal in outcome.Refusals) Console.Error.WriteLine($"  {refusal}");
     }
+
+    /// <summary>
+    /// The same caveat from many projects, said once.
+    ///
+    /// Grouped by <see cref="Caveat.About"/> rather than by the sentence,
+    /// because the sentence carries counts and package names and no two
+    /// projects write it the same way. Where the sentences do differ, one is
+    /// shown and the line says so: a reader who is told twenty-nine projects
+    /// said this needs to know whether they said the same thing.
+    /// </summary>
+    internal static IReadOnlyList<Repeated> Group(IEnumerable<(string Project, Caveat Caveat)> raised)
+    {
+        return raised
+            .GroupBy(entry => entry.Caveat.About, StringComparer.Ordinal)
+            .Select(group =>
+            {
+                var texts = group.Select(entry => entry.Caveat.Says)
+                    .Distinct(StringComparer.Ordinal).ToList();
+
+                var projects = group.Select(entry => entry.Project)
+                    .Where(name => name.Length > 0)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+                return new Repeated(group.First().Caveat, projects) { Varies = texts.Count > 1 };
+            })
+            .OrderByDescending(entry => entry.Projects.Count)
+            .ToList();
+    }
+
+    private static void Say(IEnumerable<Repeated> raised, string heading)
+    {
+        var all = raised.ToList();
+        if (all.Count == 0) return;
+
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"  {heading}");
+
+        foreach (var one in all)
+        {
+            var who = one.Projects.Count switch
+            {
+                0 => string.Empty,
+                1 => $"{one.Projects[0]}: ",
+                _ => $"{one.Projects.Count} project(s){(one.Varies ? ", one shown" : "")}: ",
+            };
+
+            Console.Error.WriteLine($"    {who}{one.What.Says}");
+
+            if (one.Projects.Count > 1)
+                Console.Error.WriteLine($"      {Named(one.Projects)}");
+        }
+    }
+
+    private static string Named(IReadOnlyList<string> projects) =>
+        projects.Count <= 4
+            ? string.Join(", ", projects)
+            : string.Join(", ", projects.Take(4)) + $", and {projects.Count - 4} more";
 
     private static void Summarise(string rootPath)
     {

@@ -84,7 +84,7 @@ public class SdkStyleConversionTests : IDisposable
         var proposal = new SdkStyleConversion().Propose(Project("Sample", Clean), _root).Proposal!;
 
         Assert.DoesNotContain("+    <Compile Include=", proposal.Patch);
-        Assert.Contains(proposal.Caveats, c => c.Contains("includes them from the folder"));
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("includes them from the folder"));
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class SdkStyleConversionTests : IDisposable
         Assert.True(verdict.Convertible);
         Assert.NotNull(verdict.Proposal);
         Assert.Contains(verdict.Proposal.Caveats,
-            c => c.Contains("not the future of the project"));
+            c => c.Says.Contains("not the future of the project"));
     }
 
     [Fact]

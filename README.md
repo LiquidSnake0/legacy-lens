@@ -1060,6 +1060,15 @@ dropped one package their target made transitive, and wrote publishing metadata.
 projects that PackageReference wants 4.6.1 where the solution targets 4.5.1.
 That is what nopCommerce did.
 
+**And the notes beside a patch are for a person.** They used to be about two
+hundred lines for thirty-one projects: eight sentences repeated once per
+project, with the line that decides the shape of the work printed thirty-one
+times among them. A decision repeated thirty-one times is one decision and
+thirty pieces of noise. Each caveat now carries a key, so the same one from
+thirty-one projects is one line, and a nature, so what nobody else can settle
+prints first and apart from what the patch did. Eleven lines, and five named
+decisions across all four conversions.
+
 **On the ceiling.** By weight of that codebase, project files and config are 3.9
 per cent of the lines, Razor views are 20 per cent and came through half a per
 cent apart, and C# source is 76 per cent. So "almost everything automated" is
