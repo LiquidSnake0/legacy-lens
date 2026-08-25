@@ -154,6 +154,23 @@ jobs:
                     -d '{"name":"Bad","repositoryUrl":"ext::sh -c touch /tmp/pwned"}')"
           test ! -e /tmp/pwned
 
+          # The one capability that runs code, off unless the operator turned
+          # it on. Asserted here because it is a property of the shipped
+          # default rather than of any one line: a server that starts running
+          # what it is handed because somebody flipped a default is the
+          # regression worth catching in CI rather than in the wild.
+          expect "running code is refused unless allowed" 403 \
+            "$(call -X POST http://127.0.0.1:5199/api/equivalence \
+                    -H 'content-type: application/json' \
+                    -d '{"before":"a.cs","after":"b.cs"}')"
+
+          # A project whose folder is not there names the mistake now, rather
+          # than being created happily and failing on every question after.
+          expect "a folder that is not there is refused" 400 \
+            "$(call -X POST http://127.0.0.1:5199/api/workspaces \
+                    -H 'content-type: application/json' \
+                    -d '{"name":"Typo","rootPath":"/no/such/folder"}')"
+
           # Indexing as a job. No model here, so it fails, and failing as a
           # reported state rather than as an exception on a thread nobody
           # watches is exactly what is being checked.

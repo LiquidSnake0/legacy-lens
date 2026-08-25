@@ -52,6 +52,10 @@ services:
       CHAT_MODEL: ${CHAT_MODEL:-qwen2.5-coder:3b}
       INDEX_PATH: /data/index.db
       CLONE_PATH: /repos
+      # Off unless the .env says otherwise. Comparing the behaviour of two
+      # versions means running both, and this is the only thing here that runs
+      # anything. A deployment anybody can reach should not.
+      ALLOW_RUNNING_CODE: ${ALLOW_RUNNING_CODE:-false}
     volumes:
       - index-data:/data
       # Where cloned repositories land, and where a folder from the host can be

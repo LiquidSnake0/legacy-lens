@@ -1284,10 +1284,12 @@ counted, which is the competitor this project exists to be different from.
 ### What it does not promise
 
 **A compiled projection is not a passing test.** It proves the code is valid,
-not that it behaves the same. That needs the characterization net from M8:
-record the behaviour, transform, replay, and discard the transformation if
-anything moved. Until those two are wired together, Mutate produces a plan and a
-sketch, not a migration.
+not that it behaves the same. That is now wired to the characterization net, and
+M12 below is what came of it: both versions called with the same values, and the
+differences printed with the inputs that produced them. What it changes is
+narrower than it sounds, and the honest half is there rather than here: on a
+controller importing `System.Web` there is no behaviour to record at all, and
+the answer is *not checked* with the reason.
 
 **No architecture is recommended in the abstract.** The tool does not say
 "microservices". It says which projects depend on nothing but themselves, which
@@ -1316,6 +1318,107 @@ worse than offering none.
 on top of M9, days. Mutate is the milestone: the usage surface first, then the
 catalogue, then the projection loop, and the catalogue is written by hand and
 keeps being written.
+
+---
+
+## M12. Nothing moved ✅
+
+*The sentence M11 was not allowed to say.*
+
+A projection ends on a claim it earned: **compiles against .NET 10, invents
+nothing**. That is a statement about the code being valid. It says nothing about
+what the code does, and a file can be perfectly valid and quietly return
+something else. Every migration tool in this space stops at the first sentence
+and lets the reader hear the second.
+
+So both versions are compiled into their own load context, called with the same
+values, and the results compared.
+
+**The same values, not equivalent ones.** One set of arguments is built and
+handed to both, which is why a parameter of a type the file declares itself is
+refused: recompiled into the other assembly it is a different type with the same
+name, and rebuilding an equivalent object there would be comparing two objects
+rather than one. Any difference found could as easily be the rebuild's.
+
+**A method that disagrees with itself is dropped, not reported.** Both calls go
+through M8's observer, which runs each one twice and keeps the result only if
+the two runs agree. Without that, every method reading a clock is a behaviour
+change and the report is noise nobody reads twice. The other half of that rule
+earns its place too: a rewrite that *starts* reading a clock is reported,
+because the original was steady and now it is not.
+
+---
+
+### The values are read from the code
+
+The first live run, on a file written to look ordinary, reported a rewrite of
+`years >= 3` into `years > 3` as **unchanged over six calls**. The invented
+values are 0, 1, -1, 42 and the two extremes. None of them separates the two.
+
+The boundary was written down three lines away the whole time.
+
+Every number and short string a file mentions is now offered back to it as an
+argument, each number with the two either side of it, because an off-by-one
+lives beside a constant rather than on it. Ranked by how often the file says
+them and by size after that.
+
+**Sorted the way they print instead, "1000" comes before "7"**, and the boundary
+falls off the end of the eight that are kept: a file with three configuration
+numbers and one limit kept the configuration and dropped the limit. That was a
+bug this found in itself, and it survived a first mutation run because the test
+written for it had too few numbers to overflow the cap.
+
+They are taken in turn with the invented ones rather than appended, because the
+limit caps rows and not candidates: appended, a smaller case budget silently
+switched off reading the code and nothing said so.
+
+What that buys, measured on the same file:
+
+| | |
+|---|---|
+| `amount * 20 / 100` → `amount / 5` | identical until `int.MaxValue`, where it overflows. Caught, and not planted |
+| `years >= 3` → `years > 3` | caught at 3, because the file said 3 |
+| `ArgumentNullException.ThrowIfNull` for a hand-written throw | same exception, same inputs. Reported unchanged |
+
+---
+
+### Where it reaches, said plainly
+
+Behaviour can only be compared where both versions run here, and a controller
+importing `System.Web` does not compile on modern .NET at all. **On the files the
+projection starts from, this will usually answer *not checked*.**
+
+That is not a gap to be apologised for; it is the finding. What the check
+reaches is code that has already been pulled out from behind the framework: the
+services, the calculators, the validators. Which is the order M10's seams exist
+to encourage, and this is what makes each step of it safe.
+
+**Zero methods compared is not success.** It is the most likely outcome on a file
+whose work happens through a framework, and reporting it as a pass would be the
+worst thing in this repository. The refusals travel with the report rather than
+being available on request, and they are counted in methods: a refusal is
+recorded per call, so one unsteady method contributed fourteen of them and the
+claim announced that fourteen methods were passed over. Found by reading it back.
+
+---
+
+### Running code, which is a different kind of capability
+
+Everything else here reads. It parses files that do not build, it compiles a
+rewrite without running it, and none of that can do anything to the machine.
+This executes, and on a rewrite a model wrote that is executing something nobody
+has read.
+
+The **command** needs nothing turned on: somebody typing it against two paths
+they chose has already made the decision. The **route** is off unless the
+operator sets `ALLOW_RUNNING_CODE`, and the published image does not, so a demo
+anybody can reach cannot be talked into running anything. That is a setting on
+the process rather than a dialog, because the person who deploys is the person
+who knows whose code it is.
+
+**Effort:** the engine is days. The honesty around it, which is the part that
+took the work, is the refusals, the counting and the two live runs that found
+what the tests did not.
 
 ---
 

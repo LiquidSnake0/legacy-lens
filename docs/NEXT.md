@@ -62,6 +62,41 @@ straightforward and turns a full re-run into seconds.
 
 ---
 
+## 7. Comparing behaviour out of process
+
+The behaviour check runs the code it was handed, inside the API process, and is
+off unless the operator sets `ALLOW_RUNNING_CODE`. That setting is the honest
+boundary and not a sandbox: with it on, a file that is run can do whatever the
+API can.
+
+A short-lived child process would bound it properly, with its own timeout, no
+shared state and a crash that takes nothing with it. It costs a serialisation
+format for the report and a second entry point, which is why it is here and not
+in M12. Anyone running this against code they did not write should keep the
+setting off and use the command instead.
+
+## 8. Checking a rewrite somebody wrote by hand
+
+The behaviour check is useful without any model at all: two paths, the same
+values, and a verdict. That is the case where it bites hardest, because a
+hand-written rewrite of a service is exactly the code that still runs here.
+
+Today it is a command and a route, and the browser only reaches it under a
+projection, where the original usually does not compile and the answer is
+*not checked*. A panel taking two paths would put the useful case in front of
+the people who need it.
+
+## 9. Reading the code's own values into the characterization tests
+
+M12 offers a file's own constants back to it as arguments, and it finds
+boundaries the invented values never reach. The characterization net generates
+its cases the same way and does not do this yet.
+
+Not simply switched on: that net writes a test file somebody has to read and
+commit, so every extra case costs a reader rather than a few milliseconds. Worth
+measuring what it catches before deciding how many cases a generated file should
+carry.
+
 ## Known approximations
 
 Written down because they are deliberate, and because someone reading the code

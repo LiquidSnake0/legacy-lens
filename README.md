@@ -753,9 +753,78 @@ The right one is *did it invent anything*, and that needs three answers:
 
 On Orchard's smallest controller, with a 1.5B model running locally: **nothing
 invented, first attempt**, thirteen Orchard types correctly recognised as the
-project's own. What comes back is labelled for exactly what was checked:
-*nothing invented, behaviour not verified.* Proving behaviour needs the
-characterization tests above, which is a larger promise.
+project's own.
+
+### And whether it still does the same thing
+
+Compiling proves the code is valid. It says nothing about what the code *does*,
+and a file can be perfectly valid and quietly return something else. So both
+versions are called with the same values and the results compared.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- equivalence Before.cs After.cs
+```
+
+The same values, not equivalent ones: one set of arguments is built and handed
+to both, so a difference is the code's and not the input's. Each call goes
+through the same observer as the characterization tests, which runs it twice and
+keeps the result only if both runs agree, so a method reading a clock is dropped
+rather than reported as a change. A rewrite that *starts* reading one is
+reported, because the original was steady and now it is not.
+
+**The values a file mentions are offered back to it as arguments.** Invented
+values find the boundaries somebody thought of in advance: empty, zero,
+negative, the extremes. They do not find the boundary this particular code turns
+on, and that one is written down a few lines away. A rewrite turning `years >= 3`
+into `years > 3` was reported as unchanged over six calls, because 3 is not a
+number any generator invents. Each constant now brings the two either side of it.
+
+Measured on a file written to look ordinary, rewritten with three changes that
+each look like tidying:
+
+```
+  MOVED  Invoice.WithTax(Int32)  (11 call(s))
+         (2147483647)
+           was  2147483647
+           now  -1717986920
+   same  Invoice.Reference(String)  (6 call(s))
+  MOVED  Invoice.Discount(Decimal, Int32)  (11 call(s))
+         (-1m, 3)
+           was  -0.9m
+           now  -1m
+
+  2 of 3 method(s) over 28 call(s) returned something different.
+```
+
+`amount * 20 / 100` rewritten as `amount / 5` is the same arithmetic until
+`int.MaxValue`, where it overflows. That consequence was not intended when the
+file was written, which is the point: it is the kind nobody intends. `years >= 3`
+rewritten as `> 3` is caught at 3, because the file said 3. And
+`ArgumentNullException.ThrowIfNull` replacing a hand-written throw is reported as
+unchanged, which is the other half of being useful.
+
+**Where this reaches, and where it does not.** Behaviour can only be compared
+where both versions run here, and a controller importing `System.Web` does not
+compile on modern .NET at all. So on the files the projection starts from, this
+will usually answer *not checked*, and say why. What it reaches is the code that
+has already been pulled out from behind the framework: the services, the
+calculators, the validators. That is the order the seams above exist to
+encourage, and this is what makes each step of it safe.
+
+**What it refuses to say matters more than what it says.** Zero methods compared
+is not success. The methods that were passed over are counted and named beside
+the result, never behind a toggle: eleven methods matched says nothing until you
+know how many were never called.
+
+![The behaviour check under a projection: what was compared, and why it was not](docs/behaviour.png)
+
+**Running code is opt-in, and off by default.** Everything else in this tool
+reads. This is the one capability that executes something, and on a rewrite a
+model wrote that is executing code nobody has read. The command needs nothing
+turned on, because somebody typing it against two paths they chose has already
+decided. The HTTP route needs `ALLOW_RUNNING_CODE=true` on the server, and the
+published image does not set it, so a deployment anybody can reach cannot be
+talked into running anything.
 
 ### What it cannot decide for you
 
@@ -930,10 +999,10 @@ claim this project is built to avoid.
 ## Development
 
 ```bash
-dotnet test                                   # 456 tests, no network, ~4 s
+dotnet test                                   # 497 tests, no network, ~5 s
 dotnet run --project src/LegacyLens.Api
 
-cd web && npm test                            # 131 tests, no network, ~5 s
+cd web && npm test                            # 142 tests, no network, ~5 s
 ```
 
 Requires the .NET 10 SDK and Node 20+.
@@ -947,8 +1016,8 @@ Working, in two halves.
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
 
-**Question answering** needs an index and a local model. 456 unit tests covering
-every layer, plus 131 in the browser, no network and no model in either, and the
+**Question answering** needs an index and a local model. 497 unit tests covering
+every layer, plus 142 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no
