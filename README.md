@@ -1026,7 +1026,7 @@ Requires the .NET 10 SDK and Node 20+.
 
 ## Status
 
-Working, in two halves.
+Working, in halves that need different things of the machine.
 
 **Structural analysis** reads project files and folder layout, involves no model
 at all, and answers in milliseconds: 300,000 lines of nopCommerce in 219 ms.
@@ -1038,9 +1038,16 @@ pipeline has been run end to end against a real repository: this one.
 **The assessment** sits on the first half and inherits its speed: no model, no
 index, no compilation, and a 414,611-line solution documented in two seconds.
 
-Indexing its own 42 source files produced 281 chunks in four minutes on a laptop
-CPU, and it answers questions about itself correctly, citing lines that hold
-what the answer claims. That is the screenshot at the top of this file.
+It answers questions about itself correctly, citing lines that hold what the
+answer claims: that is the screenshot at the top of this file. Indexing its own
+`src` produced 369 chunks from 60 files, and editing nine of them re-indexed
+those nine and nothing else. The figures for a whole index are in
+[Indexing at scale](#indexing-at-scale) above.
+
+**Rewrites are checked rather than described.** A projection compiles before
+anyone is shown it, and where both versions run on this runtime they are called
+with the same values and compared. Where they cannot be, it says so instead of
+claiming a pass.
 
 The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
