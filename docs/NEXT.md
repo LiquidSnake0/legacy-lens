@@ -75,7 +75,7 @@ format for the report and a second entry point, which is why it is here and not
 in M12. Anyone running this against code they did not write should keep the
 setting off and use the command instead.
 
-## 9. Reading the code's own values into the characterization tests
+## 8. Reading the code's own values into the characterization tests
 
 M12 offers a file's own constants back to it as arguments, and it finds
 boundaries the invented values never reach. The characterization net generates
