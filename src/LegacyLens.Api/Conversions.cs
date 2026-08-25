@@ -70,8 +70,11 @@ public static class Conversions
 
         var notes = new List<string>
         {
-            $"{converted} of {survey.Projects.Count} project(s) converted. The rest either "
+            $"{converted} of {survey.Projects.Count} project(s) have a patch. The rest either "
             + "declare no packages or already use PackageReference.",
+
+            "A patch, and not a build. These apply cleanly and nobody here has restored or "
+            + "compiled the result, which needs the toolchain the solution targets.",
         };
 
         return new ConversionOutcome("packages", patch.ToString(), notes, [], Caveats.Group(raised));
@@ -103,7 +106,10 @@ public static class Conversions
 
         var notes = new List<string>
         {
-            $"{survey.Projects.Count - refusals.Count} converted, {refusals.Count} refused.",
+            $"{survey.Projects.Count - refusals.Count} patched, {refusals.Count} refused.",
+
+            "A patch, and not a build. These apply cleanly and nobody here has restored or "
+            + "compiled the result, which needs the toolchain the solution targets.",
         };
 
         return new ConversionOutcome("sdk", patch.ToString(), notes, refusals, Caveats.Group(raised));

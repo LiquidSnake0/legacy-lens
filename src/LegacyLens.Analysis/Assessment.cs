@@ -380,7 +380,9 @@ public class Assessor
                 "Only the file format is old, and the conversion is a tool run and a review. "
               + "It is worth doing first because it shrinks what everything after this has to "
               + "work through. Some of these still depend on packages with no path forward: "
-              + "that is a separate problem and the format change does not pretend to fix it.",
+              + "that is a separate problem and the format change does not pretend to fix it. "
+              + "What comes out is a patch that applies, and whether the solution restores and "
+              + "compiles afterwards is for the build to say, not for this.",
                 Count(convertible.Count, "project"),
                 convertible.Take(10).Select(v => v.Project).ToList()));
         }

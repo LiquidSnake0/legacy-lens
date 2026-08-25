@@ -1141,10 +1141,21 @@ format change to any project that could not port, which are two unrelated
 questions. The team settled that one by putting all twenty-six projects into the
 SDK format and leaving them on `net461` with EF6.
 
-**Three of thirty-one became twenty-nine of thirty-one**, and `git apply --check`
-accepts the patch against the real tree. The two it still refuses are the two web
-applications, for reasons that are real, and those are exactly the two projects
-where a person should be deciding.
+**Three of thirty-one became twenty-nine of thirty-one.** The two it still
+refuses are the two web applications, for reasons that are real, and those are
+exactly the two projects where a person should be deciding.
+
+**What that sentence means, exactly.** Twenty-nine project files get a patch,
+`git apply` takes all of them against the real tree, and the files that come out
+are SDK-format with their package references intact. That is what has been
+shown.
+
+**Nobody has built the result.** A patch applying is not a solution restoring,
+and it is not a solution compiling. nopCommerce 3.90 targets .NET Framework, so
+checking it needs a Windows toolchain this repository has not had, and until it
+does, *converts* here means *produces a patch that applies* and nothing more.
+The gap between those two readings is the one thing in this document most
+likely to be heard as a promise it has not earned.
 
 **The two conversions have to compose.** The SDK conversion drops references
 pointing into the packages folder because PackageReference replaces them, so it

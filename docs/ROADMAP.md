@@ -2152,6 +2152,13 @@ for them goes with them.
 
 `git apply --check` accepts the twenty-nine-project patch against the real tree.
 
+**And that is all it says.** A patch applying is not a solution restoring and
+not a solution compiling. nopCommerce 3.90 targets .NET Framework, so the build
+needs a Windows toolchain this repository has not had. Everywhere *converted*
+appears in this milestone it means *has a patch that applies*, which is a
+weaker claim than a reader will hear, and the weaker one is the only one that
+has been earned.
+
 **The two it still refuses are `Nop.Web` and `Nop.Admin`**, the two web
 applications, and for reasons that are real: genuinely custom build targets, a
 project flavour, and the `Microsoft.WebApplication.targets` imports. Those are
@@ -2688,6 +2695,43 @@ refuses to merge and leaves the decision to a person, which is the shape this
 tool already has. And Arch's answer to *this needs a human* is a news post
 written by a maintainer, which is `features.json` exactly. **Nobody automated
 that, in twenty years, at distribution scale.**
+
+---
+
+## Saying what was shown, and not what a reader will hear ✅
+
+*A correction, not a milestone.*
+
+M21 and M22 report **29 project files out of 31** and **31 out of 31**. What was
+shown is that the patches apply: `git apply` takes them against the real
+nopCommerce 3.90 tree and the files that come out are SDK-format with their
+package references intact.
+
+**Nobody has built the result.** A patch applying is not a solution restoring
+and it is not a solution compiling. nopCommerce 3.90 targets .NET Framework, so
+the check needs a Windows toolchain this repository has not had.
+
+A reader hears *converted* as *it builds*, and the distance between those two
+was the largest gap here between what this says and what it has shown. It is
+worse than an unverified claim, because the evidence beside it is real and
+carries the sentence further than it can go.
+
+So the wording says what happened, everywhere it appears:
+
+- the command prints `29 patched, 2 refused`, followed by *a patch, and not a
+  build. These apply cleanly and nobody here has restored or compiled the
+  result, which needs the toolchain the solution targets*;
+- the report's repair step ends *what comes out is a patch that applies, and
+  whether the solution restores and compiles afterwards is for the build to
+  say, not for this*;
+- the README and the two milestones carry the same, in the paragraph where the
+  number is.
+
+And the sentence is pinned by a test rather than left to survive the next edit.
+
+This changes no behaviour and no measurement. It changes what the numbers are
+allowed to mean, which is the part that would have cost something in front of
+somebody deciding whether to pay for it.
 
 ---
 

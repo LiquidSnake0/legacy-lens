@@ -166,3 +166,52 @@ public class ConversionOrderTests : IDisposable
         Assert.True(new SdkStyleConversion().Propose(blocked, _root).Convertible);
     }
 }
+
+/// <summary>
+/// What the conversion is allowed to claim.
+///
+/// It prints a patch. `git apply` takes it. Neither of those is a solution
+/// restoring, and neither is a solution compiling: nopCommerce 3.90 targets
+/// .NET Framework and checking that needs a toolchain this repository has not
+/// had.
+///
+/// A reader hears *converted* as *it builds*. The distance between those two is
+/// the largest gap in this repository between what it says and what it has
+/// shown, so the sentence that closes it is pinned here rather than left to
+/// survive the next edit.
+/// </summary>
+public class ConversionClaimTests
+{
+    private static readonly string Says =
+        "A patch, and not a build. These apply cleanly and nobody here has restored or "
+      + "compiled the result, which needs the toolchain the solution targets.";
+
+    [Theory]
+    [InlineData("sdk")]
+    [InlineData("packages")]
+    public void The_conversion_says_it_produced_a_patch_and_not_a_build(string kind)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"lens-claim-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(Path.Combine(root, "App"));
+
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "App", "App.csproj"), """
+                <?xml version="1.0" encoding="utf-8"?>
+                <Project ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+                  <PropertyGroup>
+                    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+                  </PropertyGroup>
+                </Project>
+                """);
+
+            var outcome = LegacyLens.Api.Conversions.For(kind, root);
+
+            Assert.Contains(outcome.Notes, note => note.Contains(Says, StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+}
