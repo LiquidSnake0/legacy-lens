@@ -206,16 +206,17 @@ public class ApiSurface
         string rootPath, Func<string, IReadOnlySet<string>>? claimed)
     {
         var read = Read(rootPath);
+        var owners = Owners.Under(rootPath);
 
         return Namespaces.Keys
-            .Select(package => Of(read, package, claimed?.Invoke(package)))
+            .Select(package => Of(read, package, claimed?.Invoke(package), owners))
             .Where(surface => surface.Used)
             .OrderByDescending(surface => surface.Uses)
             .ToList();
     }
 
     public UsageSurface Of(string rootPath, string package, IReadOnlySet<string>? claimed) =>
-        Of(Read(rootPath), package, claimed);
+        Of(Read(rootPath), package, claimed, Owners.Under(rootPath));
 
     /// <summary>
     /// How many files import anything under each of these namespaces.
@@ -302,7 +303,10 @@ public class ApiSurface
     /// estimate by guessing is worse than one that leaves noise in.
     /// </summary>
     private static UsageSurface Of(
-        IReadOnlyList<ParsedFile> parsed, string package, IReadOnlySet<string>? claimed = null)
+        IReadOnlyList<ParsedFile> parsed,
+        string package,
+        IReadOnlySet<string>? claimed = null,
+        Owners? owners = null)
     {
         if (!Namespaces.TryGetValue(package, out var namespaces))
         {
@@ -344,6 +348,20 @@ public class ApiSurface
             {
                 if (Builtin.Contains(name) || TestScaffolding.Contains(name)
                     || local.Contains(name)) continue;
+
+                // Somebody else's, and the packages themselves say so.
+                //
+                // Everything else here infers ownership from what a file
+                // imports, which is cheap and wrong in a measurable way: on
+                // nopCommerce 3.90 `ExcelWorksheet`, `PayPalException` and
+                // nineteen other names were counted as ASP.NET MVC's work
+                // because they sit in files that import it.
+                //
+                // pacman does not infer. It ships an index built from the
+                // packages, and answers exactly. A restored `packages` folder
+                // is that index, already on disk. Where it is there the answer
+                // is a fact; where it is not, nothing changes.
+                if (owners is not null && owners.BelongsElsewhere(name, package)) continue;
 
                 // A name the framework being migrated to still supplies under
                 // System.* is not this package's, whatever a file happens to

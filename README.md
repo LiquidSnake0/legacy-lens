@@ -884,6 +884,28 @@ decisions:
 One sentence covers 596 calls and thirty sentences cover ninety-six. The unit of
 decision is the feature, not the type.
 
+### Ownership is looked up, not inferred
+
+A type is counted as a package's when it appears in a file importing that
+package. Cheap, no compilation, works on a solution that does not build. Also a
+guess: twenty-one of the forty-four types nobody could account for on
+nopCommerce were third-party names counted as ASP.NET MVC's work.
+
+`pacman -Qo` does not guess, it reads an index built from the packages
+themselves. A restored `packages` folder is that index and it is already on
+disk: nopCommerce 3.90 commits sixty-three packages and five hundred and three
+assemblies. Reading their type definitions is exact and offline.
+
+| `Microsoft.AspNet.Mvc` on nopCommerce 3.90 | before | after |
+|---|---|---|
+| uses attributed to the package | 4,324 | **4,283** |
+| distinct types | 101 | **79** |
+| unknown to the catalogue | 54 types | **33 types** |
+
+`ExcelWorksheet` is EPPlus, `ContainerBuilder` is Autofac, `IsoDateTimeConverter`
+is Newtonsoft. **Orchard did not move by one digit**, because it commits no
+assemblies. Exact where it is available and silent where it is not.
+
 ### And what is left comes to questions, not to names
 
 Forty-four types modern .NET does not have is a list to look up. It is not

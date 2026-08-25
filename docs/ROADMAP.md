@@ -2599,6 +2599,75 @@ the next real gain is.
 
 ---
 
+## M28. Do not infer ownership, look it up ✅
+
+*Borrowed from pacman, and it turned out to be sitting on disk already.*
+
+Everything here infers which package a type belongs to from what a file
+imports. That is cheap, needs no compilation and works on a solution that does
+not build, which is why it is what it is. It is also a guess, and M27 measured
+the cost: **twenty-one of the forty-four types nobody could account for were
+third-party names**, counted as ASP.NET MVC's work because they sit in files
+that import it.
+
+`pacman -Qo /usr/bin/git` answers `git 2.55.0-1`, and `pacman -F` answers for
+packages that are not even installed, because the distribution ships an index
+built from the packages themselves. **The methodology transfers exactly: do not
+infer ownership, look it up.**
+
+And the index is already there. nopCommerce 3.90 commits its restored
+`packages` folder: **sixty-three packages, five hundred and three assemblies**.
+Reading the type definitions out of them is exact, offline, and needs nothing
+compiled.
+
+### Measured
+
+| nopCommerce 3.90, `Microsoft.AspNet.Mvc` | before | after |
+|---|---|---|
+| uses attributed to the package | 4,324 | **4,283** |
+| distinct types | 101 | **79** |
+| unknown to the catalogue | 54 types, 274 calls | **33 types, 239 calls** |
+| covered by the successor | 77% | **78%** |
+
+`ExcelWorksheet` is EPPlus. `PayPalException` is PayPal. `IsoDateTimeConverter`
+is Newtonsoft.Json, `ContainerBuilder` is Autofac, `ProfilingActionFilter` is
+MiniProfiler.Mvc4. None of them was ever ASP.NET MVC's.
+
+**Orchard did not move by one digit**, 3,619 uses of 185 types before and after,
+because it commits no assemblies. Exact where it is available and silent where
+it is not: a tool that answered anyway would be back to guessing with more
+machinery.
+
+### Two details that were not obvious
+
+**The folder the source walker refuses to enter is the one this wants.** It
+skips `packages` because it holds other people's code and counting it as the
+codebase's would make every measurement a measurement of somebody else's work.
+That is exactly why this reads it: the question here is *whose* work a name is.
+
+**A forwarded type is still the package's.** ASP.NET MVC 5 forwards
+`TagBuilder` and `HtmlString` to System.Web.WebPages, so reading definitions
+alone said MVC has no `TagBuilder`. True of the file, false of the package, and
+it would have thrown away a correspondence four migrations had confirmed. The
+index reads exported types too, and a name two packages expose belongs to
+neither exclusively.
+
+### What did not transfer, and it is most of pacman
+
+`replaces` and `provides` work because **a maintainer declares them** and the
+unit is a whole package swapped wholesale. Pacman never asks whether a call site
+still compiles. Everything hard here is inside the files, and nobody declares
+anything about a codebase's use of an API.
+
+Two things confirmed the design rather than changing it. A `.pacnew` file is
+what pacman leaves when both upstream and the local admin changed a config: it
+refuses to merge and leaves the decision to a person, which is the shape this
+tool already has. And Arch's answer to *this needs a human* is a news post
+written by a maintainer, which is `features.json` exactly. **Nobody automated
+that, in twenty years, at distribution scale.**
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
