@@ -1045,6 +1045,21 @@ accepts the patch against the real tree. The two it still refuses are the two we
 applications, for reasons that are real, and those are exactly the two projects
 where a person should be deciding.
 
+**The two conversions have to compose.** The SDK conversion drops references
+pointing into the packages folder because PackageReference replaces them, so it
+has to run second. The packages conversion was declining most projects for the
+same reason its neighbour had just stopped using, which would have left
+twenty-six of those twenty-nine project files unrestorable. Both now cover
+everything, the order is printed, and a test applies both patches with git and
+reads the file that comes out.
+
+Held against what the team wrote, the remaining differences are four decisions
+and no missing work: they moved the target to `net461`, bumped package versions,
+dropped one package their target made transitive, and wrote publishing metadata.
+**The tool produces the first of those on its own**, warning on all thirty-one
+projects that PackageReference wants 4.6.1 where the solution targets 4.5.1.
+That is what nopCommerce did.
+
 **On the ceiling.** By weight of that codebase, project files and config are 3.9
 per cent of the lines, Razor views are 20 per cent and came through half a per
 cent apart, and C# source is 76 per cent. So "almost everything automated" is

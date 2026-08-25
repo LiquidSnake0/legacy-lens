@@ -2191,6 +2191,71 @@ with nothing attached. The load is the uncertainty per decision, not the count.
 
 ---
 
+## M22. The two conversions that have to compose ✅
+
+*M21 raised one of them and broke the pair.*
+
+The SDK conversion drops references pointing into the packages folder and says
+PackageReference will replace them, so run on its own it produces a project file
+with no packages in it. That was survivable while it offered three projects. It
+offered twenty-nine after M21, and the packages conversion offered three,
+**declining the rest silently on a bare `return null`** for the same reason the
+SDK conversion had just stopped using: a dependency with no path to modern .NET.
+
+So twenty-six of the twenty-nine would have come out unrestorable, and the
+advice printed beside them, *convert packages first*, could not be followed.
+
+A package with no future still has to be declared, and declaring it the modern
+way costs nothing. Demoted to a caveat, as next door: **3 of 31 becomes 31 of
+31.**
+
+### Checked by running both, with real git
+
+On the actual nopCommerce 3.90 tree: `packages`, applied, then `sdk`, applied.
+`Nop.Data.csproj` comes out as
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net451</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="EntityFramework" Version="6.1.3" />
+    <PackageReference Include="EntityFramework.SqlServerCompact" Version="6.1.3" />
+    <PackageReference Include="Microsoft.SqlServer.Compact" Version="4.0.8876.1" />
+  </ItemGroup>
+  ...
+```
+
+Complete, and the packages.config is gone. The order is now printed by the
+command rather than left to be discovered, and there is a test that applies both
+patches with git and reads the file that comes out.
+
+### Held against what the team wrote
+
+Their `Nop.Data.csproj` in 4.00 differs in exactly four places, and every one of
+them is a decision rather than missing work:
+
+| | this tool | the team |
+|---|---|---|
+| target | `net451`, faithful to the original | `net461` |
+| package versions | 6.1.3, faithful | 6.2.0 |
+| `EntityFramework` | declared | dropped, transitive on their target |
+| package metadata | none | copyright, description, licence, repository |
+
+**And the tool produced their first decision on its own.** The packages
+conversion warns, on all thirty-one projects, that the solution targets v4.5.1
+and PackageReference wants 4.6.1. nopCommerce 3.90 is v4.5.1 and 4.00 is
+`net461`. The target bump was not housekeeping, it was the prerequisite, and
+this says so before anybody has moved.
+
+That is the shape argued for at the end of M21: everything mechanical done, and
+what remains handed over named, with its reason attached. It is currently said
+thirty-one times as a footnote, which is one decision printed as thirty-one
+pieces of noise, and that is the next thing worth fixing.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
