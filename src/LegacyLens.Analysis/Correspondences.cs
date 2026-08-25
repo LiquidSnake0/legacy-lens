@@ -12,18 +12,28 @@ public record Correspondence(
     /// <summary>The recorded counterpart turns up in the finished code.</summary>
     bool CounterpartSeen,
     /// <summary>A type of the same name turns up under the successor.</summary>
-    bool SameNameSeen)
+    bool SameNameSeen,
+    /// <summary>The framework confirms a type of that name inside the successor's namespaces.</summary>
+    string? InSuccessor = null)
 {
     /// <summary>
     /// A correspondence the catalogue does not have and the finished code does.
     ///
-    /// The old code used this name, nobody wrote down what replaces it, and the
-    /// successor turns out to have one of the same name. That is a candidate
-    /// somebody can check in a minute, not an answer: a name surviving into an
-    /// unrelated namespace is the trap M13 exists to catch, and this only looks
-    /// inside the successor for exactly that reason.
+    /// The old code used this name, nobody wrote down what replaces it, the
+    /// finished code has one of the same name where the successor is imported,
+    /// **and the framework confirms a type of that name inside the successor's
+    /// own namespaces**.
+    ///
+    /// The last condition is what makes this a measurement rather than a guess,
+    /// and it is not decoration. A file importing two packages cannot be split
+    /// between them by syntax alone, so the first two conditions on their own
+    /// offered `SqlConnection`, `PayPalException` and `ExcelWorksheet` as
+    /// correspondences for ASP.NET MVC. Asking the framework whether
+    /// `Microsoft.AspNetCore.Mvc` actually contains a `SqlConnection` answers
+    /// that in a way nothing about the source text can.
     /// </summary>
-    public bool Candidate => Recorded is null && !RecordedAsNone && SameNameSeen;
+    public bool Candidate =>
+        Recorded is null && !RecordedAsNone && SameNameSeen && InSuccessor is not null;
 }
 
 /// <summary>
@@ -84,6 +94,12 @@ public sealed class Correspondences
 
             var written = names.TryGetValue(successor, out var under) ? under : new HashSet<string>();
 
+            // Whether the framework itself carries the successor at all. Where
+            // it does not, nothing below can be confirmed and nothing is
+            // offered: a package this runtime has never loaded cannot be asked
+            // what it contains.
+            var carried = FrameworkTypes.Carries(successor);
+
             var entry = _catalogue.For(surface.Package)
                 .FirstOrDefault(candidate => candidate.Package == successor);
 
@@ -107,7 +123,8 @@ public sealed class Correspondences
                     recorded,
                     none,
                     recorded is not null && Seen(written, recorded),
-                    Seen(written, use.Name)));
+                    Seen(written, use.Name),
+                    carried ? FrameworkTypes.Under(use.Name, successor).FirstOrDefault() : null));
             }
         }
 

@@ -106,12 +106,16 @@ public class UnlistedTests
         var catalogue = Successors.Load();
         var before = catalogue.For("Microsoft.AspNet.Mvc").FirstOrDefault();
 
-        Read("Microsoft.AspNetCore.Mvc", Use("TagBuilder"));
+        // `ActionContext` rather than `TagBuilder`: the latter is in the
+        // catalogue now, put there by reading four finished migrations, which
+        // is a different thing from a reading writing itself back at run time
+        // and would have made this assertion pass for the wrong reason.
+        Read("Microsoft.AspNetCore.Mvc", Use("ActionContext"));
 
         var after = Successors.Load().For("Microsoft.AspNet.Mvc").FirstOrDefault();
 
         Assert.Equal(before?.Types.Count, after?.Types.Count);
-        Assert.False(after?.Types.ContainsKey("TagBuilder"));
+        Assert.False(after?.Types.ContainsKey("ActionContext"));
     }
 
     [Fact]

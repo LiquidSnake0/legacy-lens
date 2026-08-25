@@ -1016,15 +1016,26 @@ actually used: **137 of 195 turned up in the finished code**. A counterpart that
 does not appear is not a wrong entry, because the team may never have needed it,
 so the two are reported apart and the second is never called an error.
 
-The other half is what the catalogue is missing: **110 names** the old code
-used, nobody wrote down, and the successor has under the same name. `TagBuilder`,
-`ViewContext`, `ModelBindingContext`, `HelperResult`. Types that kept their name
-and changed namespace, which is transcription rather than judgement, and
-transcription is what leaves a hundred types in the column nobody has looked at.
+The other half is what the catalogue was missing, and it is in it now.
 
-Candidates for a person to sign, never entries written back by a machine. A name
-surviving into an unrelated namespace is a trap, which is why only the
-successor's own namespace is looked in.
+A candidate has to be a name the old code used, that nobody wrote down, that the
+finished code has where the successor is imported, **and that the framework
+confirms exists inside the successor's own namespaces**. That last question is
+what separates a measurement from a guess: a file importing two packages cannot
+be split between them by syntax alone, and without it the list offered
+`SqlConnection` and `ExcelWorksheet` as correspondences for ASP.NET MVC.
+
+Across the four migrations that left **15 distinct correspondences**, every one a
+real MVC type that changed namespace, `TagBuilder`, `ViewContext`,
+`ModelBindingContext` and the rest. They are recorded as **observed** rather than
+written, each with where it was seen, so a reader can tell *somebody believes
+this* from *four teams did this*. Where the two overlap the written entry wins.
+
+The catalogue's marked score went from 137 of 195 to **167 of 235**, and on
+Orchard the successor now covers **79 per cent** of the calls against 76.
+Orchard's *still to decide* did not move, 121 before and after: what this cleared
+was the pile that was probably fine anyway, and nothing about reading four
+migrations brings back a type that no longer exists.
 
 **Going down a level found a defect in the level above.** The candidate list
 came back full of nopCommerce's own attributes. C# declares

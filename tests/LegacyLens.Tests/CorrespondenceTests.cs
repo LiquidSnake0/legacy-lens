@@ -106,26 +106,29 @@ public class CorrespondenceTests : IDisposable
         // Most of a framework move is transcription: the type kept its name and
         // changed namespace. Read out of a real migration, those are candidates
         // for a person to sign.
+        // `ActionContext` rather than `TagBuilder`: the latter was the example
+        // here until four real migrations put it into the catalogue, which is
+        // the whole point of this and also what made this fixture stop testing
+        // anything.
         Write(_before, "Helper.cs", """
             using System.Web.Mvc;
 
             public class Helper
             {
-                public TagBuilder Build() => null;
+                public ActionContext Where() => null;
             }
             """);
 
         Write(_after, "Helper.cs", """
             using Microsoft.AspNetCore.Mvc;
-            using Microsoft.AspNetCore.Mvc.Rendering;
 
             public class Helper
             {
-                public TagBuilder Build() => null;
+                public ActionContext Where() => null;
             }
             """);
 
-        var found = Of("TagBuilder");
+        var found = Of("ActionContext");
 
         Assert.Null(found.Recorded);
         Assert.True(found.SameNameSeen);

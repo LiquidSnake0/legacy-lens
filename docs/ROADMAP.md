@@ -2374,6 +2374,76 @@ nothing to decide*, which is never true.
 
 ---
 
+## M25. What four migrations taught the catalogue ✅
+
+*M20 found 110 correspondences the catalogue was missing. I asked the reader to
+sign them. That was the wrong call.*
+
+The rule that a correspondence is a judgement somebody signs exists because a
+**guessed** one is dangerous: `System.Web.HttpContext` and its modern namesake
+share a word and nothing else. These were not guessed. Four teams took the old
+type and wrote one of the same name inside the successor. That is a measurement,
+and this codebase trusts measurements over judgements everywhere else. Handing
+them back as homework was applying the rule to the wrong category.
+
+### The guard is a fact, not a signature
+
+A candidate now has to survive one more question: **does the framework itself
+contain a type of that name inside the successor's namespaces?** M13 can answer
+it from metadata this process already has loaded.
+
+It matters more than it sounds. A file importing two packages cannot be split
+between them by syntax alone, which is the approximation this repository has
+always declared, and without the question the candidate list offered
+`SqlConnection`, `PayPalException` and `ExcelWorksheet` as correspondences for
+ASP.NET MVC. Asking whether `Microsoft.AspNetCore.Mvc` actually contains a
+`SqlConnection` settles that in a way nothing about the source text can.
+
+**21 candidates on nopCommerce became 7.** Across four migrations, 110 became
+**15 distinct correspondences**, every one of them a real MVC type that changed
+namespace.
+
+| | migrations | |
+|---|---|---|
+| `TagBuilder`, `ViewContext`, `ModelBindingContext` | 4 | |
+| `ActionDescriptor`, `ModelMetadata` | 3 | |
+| `HelperResult`, `ActionMethodSelectorAttribute` | 2 | |
+| `MvcForm`, `FormMethod`, `EmptyModelMetadataProvider`, `IModelBinderProvider`, `RequireHttpsAttribute`, `ParameterDescriptor`, `SelectListGroup`, `ValidateAntiForgeryTokenAttribute` | 1 | |
+
+### Written down as measured, not as believed
+
+The catalogue carries them in an `observed` block beside the hand-written
+`types`, each with where it was seen. Both are used the same way and only one of
+them can be checked against anything, so a reader can tell **"somebody believes
+this"** from **"four teams did this"**. Where the two overlap the written entry
+wins: that is somebody having looked at that case on purpose, and a measurement
+overwriting it would be the tool deciding it knows better.
+
+### Measured after
+
+| | before | after |
+|---|---|---|
+| correspondences the catalogue records for MVC | 75 | 75 written + **15 observed** |
+| confirmed against the four migrations | 137 of 195 | **167 of 235** |
+| candidates still outstanding | 110 | **0** |
+| Orchard, covered by the successor | 76% | **79%** |
+| Orchard, unknown types / calls | 138 / 884 | **127 / 768** |
+| Orchard, leads worth checking | 17 | **6** |
+
+**And Orchard's "still to decide" did not move: 121 before, 121 after.** That is
+the honest half. The additions cleared the pile of things that were probably
+fine anyway. The hundred and twenty-one that are genuinely a trap or genuinely
+gone are untouched, because nothing about reading four migrations makes a type
+that no longer exists come back.
+
+### Two tests stopped testing anything
+
+Both used `TagBuilder` as their example of a type the catalogue does not have,
+and four migrations put it in. They name `ActionContext` now, which is still
+absent, and say why the example had to change.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

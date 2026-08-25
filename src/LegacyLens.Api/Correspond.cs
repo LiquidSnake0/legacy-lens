@@ -35,6 +35,23 @@ internal static class Correspond
             return 2;
         }
 
+        // The same list as data, ready to merge into the catalogue. Printed
+        // rather than written: this tool proposes and a person applies, and a
+        // program editing its own catalogue is the one place that rule would be
+        // easiest to lose.
+        if (arguments.Contains("--catalogue", StringComparer.Ordinal))
+        {
+            foreach (var package in found.Where(c => c.Candidate).GroupBy(c => c.Package, StringComparer.Ordinal))
+            {
+                Console.Out.WriteLine($"{package.Key}:");
+
+                foreach (var one in package.OrderByDescending(c => c.Uses))
+                    Console.Out.WriteLine($"  {one.Type}\t{one.InSuccessor}\t{one.Uses}");
+            }
+
+            return 0;
+        }
+
         Console.WriteLine();
         Console.WriteLine($"  {Path.GetFileName(Path.TrimEndingDirectorySeparator(paths[0]))}"
                         + $" -> {Path.GetFileName(Path.TrimEndingDirectorySeparator(paths[1]))}");

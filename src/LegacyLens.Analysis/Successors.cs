@@ -15,7 +15,24 @@ namespace LegacyLens.Analysis;
 public record Successor(
     string Package,
     string Note,
-    IReadOnlyDictionary<string, string?> Types);
+    IReadOnlyDictionary<string, string?> Types)
+{
+    /// <summary>
+    /// The correspondences that were read off finished migrations rather than
+    /// written from knowledge, and where each one was seen.
+    ///
+    /// Both kinds are used the same way and only one of them can be checked
+    /// against anything. Keeping them apart is what lets the tool say which is
+    /// which, and it is the difference between "somebody believes this" and
+    /// "four teams did this".
+    ///
+    /// A type here is also in <see cref="Types"/>, mapped to its own name,
+    /// because that is what was observed: the type kept its name and changed
+    /// namespace.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Observed { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+}
 
 /// <summary>What replaces what, as data rather than as code.</summary>
 public record SuccessorCatalogue(
@@ -109,12 +126,7 @@ public class Successors
 
                 var entries = value.Deserialize<List<Entry>>(Reading) ?? [];
 
-                packages[name] = entries
-                    .Select(candidate => new Successor(
-                        candidate.Package,
-                        candidate.Note ?? string.Empty,
-                        candidate.Types ?? new Dictionary<string, string?>(StringComparer.Ordinal)))
-                    .ToList();
+                packages[name] = entries.Select(Read).ToList();
             }
 
             return new SuccessorCatalogue(packages, file);
@@ -171,8 +183,34 @@ public class Successors
     public static string? Replacement(Successor candidate, string type) =>
         candidate.Types.TryGetValue(type, out var replacement) ? replacement : null;
 
+    /// <summary>
+    /// One entry, with what was written and what was measured merged into the
+    /// same map.
+    ///
+    /// An observed correspondence maps a name to itself, because that is what
+    /// was seen: the type kept its name and changed namespace. Written entries
+    /// win where the two overlap, since somebody looked at that one on purpose.
+    /// </summary>
+    private static Successor Read(Entry candidate)
+    {
+        var types = new Dictionary<string, string?>(
+            candidate.Types ?? new Dictionary<string, string?>(), StringComparer.Ordinal);
+
+        var observed = candidate.Observed ?? new Dictionary<string, string>();
+
+        foreach (var name in observed.Keys)
+            if (!types.ContainsKey(name)) types[name] = name;
+
+        return new Successor(candidate.Package, candidate.Note ?? string.Empty, types)
+        {
+            Observed = new Dictionary<string, string>(observed, StringComparer.Ordinal),
+        };
+    }
+
     private sealed record Entry(
         [property: JsonPropertyName("package")] string Package,
         [property: JsonPropertyName("note")] string? Note,
-        [property: JsonPropertyName("types")] Dictionary<string, string?>? Types);
+        [property: JsonPropertyName("types")] Dictionary<string, string?>? Types,
+        /// <summary>Name to where it was seen. Read off migrations, not written.</summary>
+        [property: JsonPropertyName("observed")] Dictionary<string, string>? Observed);
 }

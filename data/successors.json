@@ -87,6 +87,25 @@
         "ModelBinders": null,
         "ValueProviderFactories": null,
         "GlobalFilters": null
+      },
+
+      "observed": {
+        "//": "Read off finished migrations rather than written from knowledge. Each name kept its name and changed namespace, and the framework was asked whether the successor really contains it.",
+        "ModelBindingContext": "4 migration(s): nopCommerce, Umbraco, Smartstore, Orchard",
+        "TagBuilder": "4 migration(s): nopCommerce, Umbraco, Smartstore, Orchard",
+        "ViewContext": "4 migration(s): nopCommerce, Umbraco, Smartstore, Orchard",
+        "ActionDescriptor": "3 migration(s): nopCommerce, Umbraco, Smartstore",
+        "ModelMetadata": "3 migration(s): nopCommerce, Smartstore, Orchard",
+        "ActionMethodSelectorAttribute": "2 migration(s): nopCommerce, Smartstore",
+        "HelperResult": "2 migration(s): nopCommerce, Smartstore",
+        "EmptyModelMetadataProvider": "1 migration(s): Umbraco",
+        "FormMethod": "1 migration(s): Umbraco",
+        "IModelBinderProvider": "1 migration(s): Umbraco",
+        "MvcForm": "1 migration(s): Umbraco",
+        "ParameterDescriptor": "1 migration(s): Smartstore",
+        "RequireHttpsAttribute": "1 migration(s): Umbraco",
+        "SelectListGroup": "1 migration(s): Smartstore",
+        "ValidateAntiForgeryTokenAttribute": "1 migration(s): Orchard"
       }
     }
   ],
