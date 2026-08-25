@@ -147,8 +147,8 @@ public class ApiSurface
     /// same word rather than the same type still being there.
     /// </summary>
     private static bool StillSupplied(string name) =>
-        FrameworkTypes.ByName.TryGetValue(name, out var places)
-        && places.Any(full => full.StartsWith("System.", StringComparison.Ordinal));
+        FrameworkTypes.Named(name)
+            .Any(full => full.StartsWith("System.", StringComparison.Ordinal));
 
     /// <summary>
     /// Names a test framework supplies, which are never a package's API.

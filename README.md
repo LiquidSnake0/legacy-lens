@@ -857,6 +857,33 @@ On Orchard's smallest controller, with a 1.5B model running locally: **nothing
 invented, first attempt**, thirteen Orchard types correctly recognised as the
 project's own.
 
+### Four answers, not two
+
+The catalogue could say *this becomes that* and *nothing does its job*. Both
+assume the problem still exists. The third answer is the largest one on real
+code: **the framework withdrew the feature, so there is nothing to replace
+because there is nothing left to do.**
+
+`AllowHtml` and `ValidateInput` turn off ASP.NET's request validation, and
+ASP.NET Core has none. On nopCommerce 3.90 those two attributes are **596 of the
+857 calls** the tool had been reporting as types modern .NET does not have:
+seventy per cent of that pile, answered by one sentence. Every withdrawal says
+why it went, because a deletion nobody agreed to is still a change to their code.
+
+Dissected, the fifty-one types the framework does not have are not fifty-one
+decisions:
+
+| | types | calls |
+|---|---|---|
+| the tool was wrong, and could prove it | 4 | 130 |
+| third-party names the syntax cannot attribute | ~16 | ~35 |
+| **one decision: the feature went away** | **2** | **596** |
+| a genuinely different model | ~29 | ~96 |
+
+**The real architectural decisions are about two per cent of the forced work.**
+One sentence covers 596 calls and thirty sentences cover ninety-six. The unit of
+decision is the feature, not the type.
+
 ### And whether it still does the same thing
 
 Compiling proves the code is valid. It says nothing about what the code *does*,

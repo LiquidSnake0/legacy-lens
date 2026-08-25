@@ -537,6 +537,26 @@ public class ReportWriter
               + "all: unknown, which is not the same as fine."));
             report.AppendLine();
 
+            // The cheapest answer there is, and on real code the largest. A
+            // withdrawn feature leaves nothing to replace because there is
+            // nothing left to do, which is a different thing from a type with
+            // no counterpart.
+            if (best.Gone.Count > 0)
+            {
+                report.AppendLine(Wrap(
+                    $"{Assessor.Count(best.Gone.Count, "type")}, "
+                  + $"{Assessor.Count(best.UsesGone, "call")}, are deleted rather than replaced: "
+                  + "the framework withdrew the feature, so the use goes and nothing takes its "
+                  + "place. They are named, because a deletion somebody has not agreed to is "
+                  + "still a change to their code:"));
+                report.AppendLine();
+
+                foreach (var type in best.Gone.Take(TopTypes))
+                    report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
+
+                report.AppendLine();
+            }
+
             Asked(report, best);
 
             if (best.Blocked)

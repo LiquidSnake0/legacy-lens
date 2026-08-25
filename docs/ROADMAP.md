@@ -2444,6 +2444,81 @@ absent, and say why the example had to change.
 
 ---
 
+## M26. The unit of decision is the feature, not the type ✅
+
+*Fifty-one types the framework does not have. Dissected, they are not fifty-one
+decisions.*
+
+### First, a defect worth 130 calls
+
+A use written `[AcceptVerbs]` is recorded under the short spelling everywhere in
+this tool, because that is how C# is written. The framework declares
+`AcceptVerbsAttribute`. **The framework reading never applied the rule the
+reader already applies**, so:
+
+- `AcceptVerbs` and `ModelBinder` were reported as types modern .NET does not
+  have at all. Both are in `Microsoft.AspNetCore.Mvc`.
+- `UIHint` and `AttributeUsage` were counted as ASP.NET MVC's work over 119
+  uses, and they are `System.ComponentModel.DataAnnotations.UIHintAttribute` and
+  `System.AttributeUsageAttribute`. Never MVC's at all.
+
+M20 found the same rule missing on the declaration side. **Two places out of
+four had it**, and no test covered either.
+
+### Then the thing the catalogue could not say
+
+It knew two answers: *this becomes that*, and *nothing does its job*. Both assume
+the problem still exists. The third was missing and it is the largest one on real
+code: **the framework withdrew the feature, so there is nothing to replace
+because there is nothing left to do.**
+
+`AllowHtml` and `ValidateInput` turn off ASP.NET's request validation. ASP.NET
+Core has no request validation. On nopCommerce 3.90 those two attributes are
+**596 of the 857 calls** the tool reported as types modern .NET does not have:
+seventy per cent of that pile, answered by one sentence.
+
+It is kept apart from a type mapped to null, because *nothing does its job*
+leaves somebody with a problem and this does not. Pricing a deletion as a
+rewrite is the difference between an afternoon and a quarter. And every
+withdrawal has to say why it went: a deletion nobody agreed to is still a change
+to their code, and a tool that says *delete this* without saying what for has
+learned nothing from Microsoft.
+
+### Measured
+
+| nopCommerce 3.90, `Microsoft.AspNet.Mvc` | before | after |
+|---|---|---|
+| uses attributed to the package | 4,443 | **4,324** |
+| covered by the successor | 75% | **77%** |
+| deleted rather than replaced | not a category | **3 types, 597 calls** |
+| unknown to the catalogue | 59 types, 990 calls | **54 types, 274 calls** |
+| leads the framework confirms | 3 | **5** |
+
+The unknown column falls by **72 per cent of its calls**. On Orchard the same
+change takes it from 127 types and 768 calls to 121 and 696, with one withdrawn
+type over 57 calls.
+
+### What the dissection actually says
+
+Of the fifty-one, once the defect and the withdrawal are taken out:
+
+| | types | calls |
+|---|---|---|
+| the tool was wrong and could prove it | 4 | 130 |
+| the tool is wrong and cannot prove it, third-party names | ~16 | ~35 |
+| **one decision: the feature went away** | **2** | **596** |
+| a genuinely different model | ~29 | ~96 |
+
+**The real architectural decisions are about two per cent of the forced work**,
+spread over thirty types at one or two calls each. One sentence covers 596 calls
+and thirty sentences cover ninety-six.
+
+That is the finding, and it changes what to build next. **The unit of decision is
+the feature, not the type.** A catalogue that answers per type will keep
+producing fifty-one rows where there are four questions.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do

@@ -67,11 +67,46 @@ public static class FrameworkTypes
     /// </summary>
     public static IReadOnlyList<string> Under(string name, string namespacePrefix)
     {
-        if (!ByName.TryGetValue(name, out var found)) return [];
-
-        return found
+        return Named(name)
             .Where(full => full.StartsWith(namespacePrefix + ".", StringComparison.Ordinal))
             .ToList();
+    }
+
+    /// <summary>
+    /// Every full name the framework has for this, under either spelling an
+    /// attribute answers to.
+    ///
+    /// A use written `[AcceptVerbs]` is recorded under the short spelling
+    /// everywhere else in this tool, because that is how C# is written. The
+    /// framework declares `AcceptVerbsAttribute`, so asking it about the short
+    /// one on its own answers no.
+    ///
+    /// Measured on nopCommerce 3.90: `AcceptVerbs` and `ModelBinder` were
+    /// reported as types modern .NET does not have at all, and both are in
+    /// `Microsoft.AspNetCore.Mvc`. `UIHint` and `AttributeUsage` were counted as
+    /// ASP.NET MVC's work over 119 uses, and they are
+    /// `System.ComponentModel.DataAnnotations.UIHintAttribute` and
+    /// `System.AttributeUsageAttribute`, which were never MVC's at all.
+    ///
+    /// The same rule the reader already applies when it records a use, and M20
+    /// already found it missing on the declaration side. Two places out of four
+    /// had it.
+    /// </summary>
+    public static IReadOnlyList<string> Named(string name)
+    {
+        var found = new List<string>();
+
+        if (ByName.TryGetValue(name, out var direct)) found.AddRange(direct);
+
+        // One direction only. `Foo` may be the short spelling of `FooAttribute`,
+        // and `FooAttribute` is never the long spelling of anything else.
+        if (!name.EndsWith("Attribute", StringComparison.Ordinal)
+            && ByName.TryGetValue(name + "Attribute", out var suffixed))
+        {
+            found.AddRange(suffixed);
+        }
+
+        return found;
     }
 
     /// <summary>

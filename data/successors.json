@@ -89,6 +89,13 @@
         "GlobalFilters": null
       },
 
+      "removed": {
+        "//": "Deleted rather than replaced: the framework withdrew the feature, so there is nothing left for the use to do. Different from a type mapped to null, which leaves somebody with a problem.",
+        "AllowHtml": "Turns off ASP.NET's request validation for one property. ASP.NET Core has no request validation, so there is nothing to turn off. Delete the attribute; the model binder does not reject markup.",
+        "ValidateInput": "The same feature at action or controller level. ASP.NET Core never inspects a request for markup, so nothing has to be allowed through.",
+        "JsonRequestBehavior": "Existed to refuse JSON over GET, against a hijacking attack the framework no longer treats this way. ASP.NET Core's Json() takes no such argument and the call site loses the parameter."
+      },
+
       "observed": {
         "//": "Read off finished migrations rather than written from knowledge. Each name kept its name and changed namespace, and the framework was asked whether the successor really contains it.",
         "ModelBindingContext": "4 migration(s): nopCommerce, Umbraco, Smartstore, Orchard",

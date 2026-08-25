@@ -32,6 +32,27 @@ public record Successor(
     /// </summary>
     public IReadOnlyDictionary<string, string> Observed { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Types whose use is deleted rather than replaced, and why.
+    ///
+    /// The catalogue could say two things: this becomes that, and nothing does
+    /// its job. Both assume the problem still exists. A third answer was
+    /// missing and it is the largest one on real code: **the framework removed
+    /// the feature, so there is nothing to replace because there is nothing
+    /// left to do.**
+    ///
+    /// `AllowHtml` and `ValidateInput` turn off ASP.NET's request validation.
+    /// ASP.NET Core has no request validation, so they have nothing to turn
+    /// off. On nopCommerce 3.90 those two attributes are 596 of the 857 calls
+    /// the tool reported as types modern .NET does not have: **seventy per cent
+    /// of that pile, and one sentence answers all of it**.
+    ///
+    /// Kept apart from <see cref="Types"/> mapped to null, because "nothing
+    /// does its job" leaves somebody with a problem and this does not.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Removed { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 }
 
 /// <summary>What replaces what, as data rather than as code.</summary>
@@ -52,12 +73,18 @@ public record Coverage(
     /// <summary>Types the catalogue says have no replacement. The blockers.</summary>
     IReadOnlyList<ApiUse> Unavailable,
     /// <summary>Types the catalogue says nothing about. Unknown, not fine.</summary>
-    IReadOnlyList<ApiUse> Unknown)
+    IReadOnlyList<ApiUse> Unknown,
+    /// <summary>Types whose use is deleted because the feature went away.</summary>
+    IReadOnlyList<ApiUse>? Withdrawn = null)
 {
+    /// <summary>Deleted rather than replaced, because the problem went with it.</summary>
+    public IReadOnlyList<ApiUse> Gone => Withdrawn ?? [];
+
     public int UsesCovered => Covered.Sum(t => t.Uses);
     public int UsesUnavailable => Unavailable.Sum(t => t.Uses);
     public int UsesUnknown => Unknown.Sum(t => t.Uses);
-    public int Uses => UsesCovered + UsesUnavailable + UsesUnknown;
+    public int UsesGone => Gone.Sum(t => t.Uses);
+    public int Uses => UsesCovered + UsesUnavailable + UsesUnknown + UsesGone;
 
     /// <summary>
     /// Share of the calls this candidate answers for, as a percentage.
@@ -168,15 +195,20 @@ public class Successors
         var covered = new List<ApiUse>();
         var unavailable = new List<ApiUse>();
         var unknown = new List<ApiUse>();
+        var withdrawn = new List<ApiUse>();
 
         foreach (var use in surface.Types)
         {
-            if (!candidate.Types.TryGetValue(use.Name, out var replacement)) unknown.Add(use);
+            // Asked first, because a withdrawn feature is an answer and the
+            // other three all assume the problem is still there.
+            if (candidate.Removed.ContainsKey(use.Name)) withdrawn.Add(use);
+            else if (!candidate.Types.TryGetValue(use.Name, out var replacement)) unknown.Add(use);
             else if (replacement is null) unavailable.Add(use);
             else covered.Add(use);
         }
 
-        return new Coverage(candidate.Package, candidate.Note, covered, unavailable, unknown);
+        return new Coverage(
+            candidate.Package, candidate.Note, covered, unavailable, unknown, withdrawn);
     }
 
     /// <summary>What one type becomes, for a candidate that has an answer.</summary>
@@ -204,6 +236,8 @@ public class Successors
         return new Successor(candidate.Package, candidate.Note ?? string.Empty, types)
         {
             Observed = new Dictionary<string, string>(observed, StringComparer.Ordinal),
+            Removed = new Dictionary<string, string>(
+                candidate.Removed ?? new Dictionary<string, string>(), StringComparer.Ordinal),
         };
     }
 
@@ -212,5 +246,7 @@ public class Successors
         [property: JsonPropertyName("note")] string? Note,
         [property: JsonPropertyName("types")] Dictionary<string, string?>? Types,
         /// <summary>Name to where it was seen. Read off migrations, not written.</summary>
-        [property: JsonPropertyName("observed")] Dictionary<string, string>? Observed);
+        [property: JsonPropertyName("observed")] Dictionary<string, string>? Observed,
+        /// <summary>Name to why the feature went away. Deleted, not replaced.</summary>
+        [property: JsonPropertyName("removed")] Dictionary<string, string>? Removed);
 }

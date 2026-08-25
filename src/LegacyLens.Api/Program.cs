@@ -130,6 +130,21 @@ if (args is ["surface", var surfaceTarget, ..])
                     Console.Out.WriteLine($"       {use.Uses,5}  {use.Name} ({use.Files} file(s))");
             }
 
+            // Printed before the unknown column, because it is the cheapest
+            // answer there is: the feature went away, so the use is deleted and
+            // nothing takes its place. On nopCommerce three attributes account
+            // for 597 calls this way.
+            if (coverage.Gone.Count > 0)
+            {
+                Console.Out.WriteLine(
+                    $"     {coverage.Gone.Count} type(s), {coverage.UsesGone} call(s), are deleted "
+                    + "rather than replaced: the framework withdrew the feature, so there is "
+                    + "nothing left for the use to do:");
+
+                foreach (var use in coverage.Gone.Take(6))
+                    Console.Out.WriteLine($"       {use.Uses,5}  {use.Name} ({use.Files} file(s))");
+            }
+
             if (coverage.Unknown.Count > 0)
             {
                 Console.Out.WriteLine(

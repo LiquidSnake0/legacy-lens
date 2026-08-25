@@ -162,6 +162,52 @@ public class UnlistedTests
     }
 
     [Fact]
+    public void An_attribute_is_found_under_the_name_it_is_written_with()
+    {
+        // A use written `[AcceptVerbs]` is recorded under the short spelling
+        // everywhere else in this tool, because that is how C# is written. The
+        // framework declares `AcceptVerbsAttribute`, so asking it about the
+        // short one on its own answers no.
+        //
+        // Measured on nopCommerce 3.90: AcceptVerbs and ModelBinder were
+        // reported as types modern .NET does not have at all, and both are in
+        // Microsoft.AspNetCore.Mvc. The same rule M20 found missing on the
+        // declaration side; two places out of four had it.
+        var reading = Read("Microsoft.AspNetCore.Mvc", Use("AcceptVerbs"));
+
+        var found = Assert.Single(reading.Of(Standing.InSuccessor));
+
+        Assert.EndsWith("AcceptVerbsAttribute", found.Where);
+        Assert.Empty(reading.Of(Standing.Gone));
+    }
+
+    [Fact]
+    public void And_a_framework_attribute_is_never_a_dead_package_s_work()
+    {
+        // The other half of the same defect, and the more expensive one.
+        // `UIHint` is System.ComponentModel.DataAnnotations.UIHintAttribute and
+        // was counted as ASP.NET MVC's work over 110 uses on nopCommerce,
+        // because the exclusion looked for a name the framework spells
+        // differently.
+        Assert.NotEmpty(FrameworkTypes.Named("UIHint"));
+        Assert.Contains(FrameworkTypes.Named("UIHint"),
+            full => full.StartsWith("System.", StringComparison.Ordinal));
+
+        Assert.NotEmpty(FrameworkTypes.Named("AttributeUsage"));
+    }
+
+    [Fact]
+    public void One_direction_only()
+    {
+        // `Foo` may be the short spelling of `FooAttribute`. `FooAttribute` is
+        // never the long spelling of anything else, and looking for
+        // `FooAttributeAttribute` would be inventing a name.
+        Assert.Equal(
+            FrameworkTypes.ByName.TryGetValue("AcceptVerbsAttribute", out var direct) ? direct.Count : 0,
+            FrameworkTypes.Named("AcceptVerbsAttribute").Count);
+    }
+
+    [Fact]
     public void A_build_that_cannot_read_the_framework_says_so_rather_than_answering()
     {
         // Found by running the desktop build. A single-file publish embeds its
