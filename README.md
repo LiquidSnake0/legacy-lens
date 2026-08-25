@@ -946,6 +946,40 @@ why the setting stays off by default. A real sandbox is a container per
 comparison, and that belongs to whoever runs this against code they did not
 write.
 
+### Marked against a migration that already happened
+
+Nobody can evaluate a migration tool, because there is no correct answer to
+compare it against. A codebase that exists in both states removes that problem.
+
+```bash
+dotnet run --project src/LegacyLens.Api -- hindsight /repos/before /repos/after
+```
+
+Measured on **nopCommerce 3.90 to 4.00**, a real port of a 250,000-line
+commercial product: 425 files on `System.Web` became two, 416 arrived on ASP.NET
+Core, and the line count moved three per cent, which is what separates a port
+from a rewrite.
+
+| package | before | proposed | covered | became | |
+|---|---|---|---|---|---|
+| `Microsoft.AspNet.Mvc` | 4,860 uses | `Microsoft.AspNetCore.Mvc` | 68% | ported | agreed |
+| `Microsoft.AspNet.WebPages` | 72 uses, 4 files | `…Mvc.Razor` | 8% | ported | **disagreed** |
+| `Newtonsoft.Json` | 33 uses | `System.Text.Json` | 6% | kept, grew to 92 | agreed |
+
+Two of three, on three claims, which is thin and is reported as a count rather
+than a rate for that reason. **The miss is the useful part**: WebPages was
+covered 8 per cent and ported anyway, because it was four files. Coverage says
+how much of a move is a substitution and nothing about how much there is to
+move.
+
+A package the catalogue is silent about is never scored, in either direction.
+
+**And the pair says something about migrating at all.** That team changed one
+thing. They moved the web framework and kept the ORM, the container, the JSON
+serialiser and the runtime: 4.00 still targets `net461` and still imports
+`System.Data.Entity`. A professional team on a quarter of a million lines did it
+in one slice and moved the runtime later.
+
 ### What it cannot decide for you
 
 Some of what decides a migration is not in the repository. How many machines

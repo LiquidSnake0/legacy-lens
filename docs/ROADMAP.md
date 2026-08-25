@@ -1881,6 +1881,72 @@ task.
 
 ---
 
+## M18. Marked against a migration that already happened ✅
+
+*Nobody can evaluate a migration tool. This one can be.*
+
+There is no correct answer to compare a migration tool against, which is why
+every tool in this space is sold on adjectives. A codebase that exists in both
+states removes the problem: the tool says something before the fact, and the
+finished code says what the team did.
+
+`hindsight <before> <after>` reads syntax on both sides and compiles nothing, so
+it runs on a legacy tree that does not build, which is every legacy tree.
+
+### The pair had to be verified before it could mark anything
+
+**nopCommerce 3.90 to 4.00 is a real port.** 31 projects on `v4.5.1`, none
+SDK-style, 425 files importing `System.Web` and none importing ASP.NET Core,
+becoming 26 projects all SDK-style, two files left on `System.Web` and 416 on
+ASP.NET Core. 252,270 lines becoming 260,319: **three per cent**, which is the
+signature of a port rather than a rewrite, and what makes the correspondence
+meaningful down to the file.
+
+**eShopModernizing is not a framework-migration oracle**, and was proposed as
+one here before being measured. Every one of its *Modernized* solutions still
+targets .NET Framework 4.7.2 with zero files importing ASP.NET Core: Microsoft's
+"modernizing" there means containers and Azure services, not a port. Marking a
+tool against it would have measured the wrong decision. A pair has to be checked
+for what kind of migration it was before it can mark anything.
+
+### What the tool said, and what the team did
+
+| package | before | proposed | covered | became | |
+|---|---|---|---|---|---|
+| `Microsoft.AspNet.Mvc` | 4,860 uses, 338 files | `Microsoft.AspNetCore.Mvc` | 68% | ported, 328 files | agreed |
+| `Microsoft.AspNet.WebPages` | 72 uses, 4 files | `Microsoft.AspNetCore.Mvc.Razor` | 8% | ported, 4 files | **disagreed** |
+| `Newtonsoft.Json` | 33 uses, 8 files | `System.Text.Json` | 6% | kept, 92 uses | agreed |
+| `EntityFramework` | 74 uses | nothing recorded | | kept, 67 uses | not scored |
+| `Autofac` | 46 uses | nothing recorded | | kept, 28 uses | not scored |
+
+**Two of three.** Three claims on one product is thin, and the rate is reported
+as a count rather than a percentage for that reason.
+
+**The miss is the useful part.** `Microsoft.AspNet.WebPages` was covered 8 per
+cent and ported anyway, because it was four files. The coverage number says how
+much of a move is a substitution and says nothing about how much there is to
+move, and a dependency small enough gets rewritten whatever the number says.
+Coverage without volume is half a judgement.
+
+**A package the catalogue is silent about is never scored**, neither in the
+numerator nor the denominator. It also names the gaps: `EntityFramework` has no
+successor recorded, and EF6 to EF Core is among the most common migrations
+there is.
+
+### What the pair says about migrating at all
+
+The team changed exactly one thing. They moved the web framework and kept the
+ORM, the container, the JSON serialiser and the runtime: version 4.00 still
+targets `net461`, and 22 files still import `System.Data.Entity` with none
+importing EF Core. A professional team on a 250,000-line commercial product did
+it in one slice, on .NET Framework, and moved the runtime later.
+
+That is the strangler fig performed by people who had to ship, and it is the
+direct answer to anyone expecting a codebase to arrive on modern .NET in one
+move.
+
+---
+
 ## Deliberately out of scope
 
 **Writing features, and open-ended refactoring.** Cursor, Copilot and aider do
