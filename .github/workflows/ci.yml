@@ -23,7 +23,19 @@ jobs:
 
       - run: dotnet build --no-restore --configuration Release
 
-      - run: dotnet test --no-build --configuration Release --verbosity normal
+      # `--logger trx` and the upload below exist because a run went red and
+      # nothing here could say which test. The console output is not kept, the
+      # API does not expose it without a token, and the failure did not
+      # reproduce locally in Release even under load. A red build that cannot
+      # name its own failure costs more than the failure.
+      - run: dotnet test --no-build --configuration Release --verbosity normal --logger 'trx;LogFileName=tests.trx'
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+          retention-days: 30
 
   # The assessment, regenerated on every commit so that it stops being a
   # snapshot somebody produced once and never refreshed. It runs against this
