@@ -617,9 +617,20 @@ machine work. What it does **not** do is unblock the port:
 
 | | |
 |---|---|
-| References with a path to modern .NET | 356 (**49%**) |
-| References bound to `System.Web` | 366 (**51%**) |
+| References confirmed to run on modern .NET | 120 (**17%**) |
+| References bound to `System.Web` | 359 (**50%**) |
+| References not classified either way | 243 (**34%**) |
 | Projects held back by a dead end | **73 of 89** |
+
+The three-way split corrects a two-way one written here earlier, which read
+356 portable against 366 blocked. Both figures came from a hand count that was
+wrong twice over. It treated the `Owin` package as a dead end, when `Owin` is
+the interface definitions and runs anywhere; only `Microsoft.Owin.Host.SystemWeb`
+is bound to `System.Web`. And it folded every unrecognised package into
+"portable", which is the exact mistake the `Unknown` category exists to
+prevent: a quote built on unknowns counted as fine is a quote that discovers
+the problem after the price is agreed. A third of this estate is genuinely not
+classified, and saying so is the point.
 
 Four packages account for almost all of it, each present in 73 projects:
 `Microsoft.AspNet.Mvc`, `Microsoft.AspNet.Razor`, `Microsoft.AspNet.WebPages`
@@ -1332,7 +1343,7 @@ are therefore one component that does not know it. Those are read from the
 dependency graph. What to do with them is a decision that depends on team size,
 traffic and who is on call, and none of that is in the code.
 
-**No estimate in days.** Volume and shape, measured: 366 `System.Web` references
+**No estimate in days.** Volume and shape, measured: 359 `System.Web` references
 across 73 projects, and whether 200 of them sit in twelve files or are spread
 evenly, which is the difference between three weeks and six months. The price is
 set by a person, because it depends on who does the work. A tool that announces
