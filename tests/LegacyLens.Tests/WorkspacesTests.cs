@@ -258,4 +258,51 @@ public class WorkspacesTests : IDisposable
         Assert.Equal(1, workspaces.Count(Workspaces.Default));
         Assert.Single(workspaces.All());
     }
+
+    /* ---- where a citation is on disk ---- */
+
+    // The chunks carry paths relative to the root, which is what keeps an index
+    // readable outside the container that built it. An editor needs the other
+    // thing: the absolute path, which only the workspace row knows.
+
+    [Fact]
+    public void A_chunks_path_is_resolved_under_the_workspace_root()
+    {
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"));
+
+        var located = workspaces.Locate(alpha.Id, Path.Combine("src", "A.cs"));
+
+        Assert.Equal(Path.Combine(Path.GetTempPath(), "alpha", "src", "A.cs"), located);
+    }
+
+    [Fact]
+    public void A_workspace_without_a_root_locates_nothing()
+    {
+        // An index built before workspaces existed, or one filled through
+        // /api/ingest alone, has a root of empty. Null rather than a path
+        // relative to wherever the API happens to be running: an editor link
+        // that opens the wrong file is worse than no link.
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var nowhere = workspaces.Create("Nowhere", string.Empty);
+
+        Assert.Null(workspaces.Locate(nowhere.Id, "src/A.cs"));
+        Assert.Null(workspaces.Locate("never-existed", "src/A.cs"));
+    }
+
+    [Fact]
+    public void A_path_that_would_leave_the_root_locates_nothing()
+    {
+        // Nothing indexed is written that way, since the walker produces every
+        // path relative to the root. The check is for the query string, which
+        // anybody can type.
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"));
+
+        Assert.Null(workspaces.Locate(alpha.Id, Path.Combine("..", "etc", "passwd")));
+        Assert.Null(workspaces.Locate(alpha.Id, Path.Combine(Path.GetTempPath(), "elsewhere", "A.cs")));
+    }
 }

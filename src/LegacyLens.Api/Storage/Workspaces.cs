@@ -272,6 +272,32 @@ public class Workspaces
         All().FirstOrDefault(w => w.Id.Equals(id, StringComparison.Ordinal));
 
     /// <summary>
+    /// Where an indexed file is on disk, so an editor can be pointed at it.
+    ///
+    /// Chunks carry paths relative to the root, which is what keeps an index
+    /// readable outside the container that built it. An editor link needs the
+    /// other thing, and only the workspace row knows it. Null when the
+    /// workspace has no root, since a path resolved against wherever the API
+    /// happens to run would open the wrong file, and null for a path that
+    /// would leave the root: nothing indexed is written that way, and the
+    /// query string is typed by anybody.
+    /// </summary>
+    public string? Locate(string id, string relativePath)
+    {
+        var root = Find(id)?.RootPath;
+        if (string.IsNullOrWhiteSpace(root)) return null;
+
+        var top = Path.GetFullPath(root);
+        var full = Path.GetFullPath(Path.Combine(top, relativePath));
+
+        var inside = full.StartsWith(
+            top.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar,
+            StringComparison.Ordinal);
+
+        return inside ? full : null;
+    }
+
+    /// <summary>
     /// Removes the workspace and everything indexed under it.
     ///
     /// The chunks go first. A workspace row deleted on its own would leave

@@ -426,17 +426,26 @@ app.MapPost("/api/ask/stream", async (
 app.MapGet("/api/excerpt", async (
     string path, int line, IVectorStore store, CancellationToken ct, string? workspace = null) =>
 {
-    var chunk = await store.ExcerptAsync(path, line, workspace ?? Workspaces.Default, ct);
+    var id = workspace ?? Workspaces.Default;
+    var chunk = await store.ExcerptAsync(path, line, id, ct);
 
-    return chunk is null
-        ? Results.NotFound(new { error = $"No indexed chunk at {path}:{line}." })
-        : Results.Ok(new
-        {
-            filePath = chunk.FilePath,
-            startLine = chunk.StartLine,
-            endLine = chunk.EndLine,
-            content = chunk.Content,
-        });
+    if (chunk is null)
+        return Results.NotFound(new { error = $"No indexed chunk at {path}:{line}." });
+
+    // Where the file is on disk, for the editor link. The text still comes
+    // from the index, and the file is not read: the reader is shown what the
+    // model saw, and handed the path to the file as it is now.
+    var absolutePath = await WithConnection(store,
+        () => new Workspaces(store.Connection).Locate(id, chunk.FilePath));
+
+    return Results.Ok(new
+    {
+        filePath = chunk.FilePath,
+        startLine = chunk.StartLine,
+        endLine = chunk.EndLine,
+        content = chunk.Content,
+        absolutePath,
+    });
 });
 
 // The assessment, as the document rather than as JSON.
