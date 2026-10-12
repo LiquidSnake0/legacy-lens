@@ -325,6 +325,12 @@ export interface Excerpt {
   startLine: number;
   endLine: number;
   content: string;
+  /**
+   * Where the file is on the machine the API runs on, for an editor link.
+   * Null when the index does not know its root, which is the case for an
+   * index built before workspaces existed.
+   */
+  absolutePath: string | null;
 }
 
 /** One of the finitely many places a dilemma can end. */

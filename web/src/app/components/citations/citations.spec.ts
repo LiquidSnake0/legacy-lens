@@ -119,7 +119,72 @@ describe('Citations', () => {
   it('numbers the excerpt from the line the chunk starts at', () => {
     const app = build().componentInstance;
 
-    expect(app.numbers({ ...engine, content: 'a\nb\nc' })).toEqual([84, 85, 86]);
+    expect(app.numbers({ ...engine, content: 'a\nb\nc', absolutePath: null })).toEqual([84, 85, 86]);
+  });
+
+  it('links the open excerpt to the editor, at the line it starts on', () => {
+    const fixture = build();
+    const app = fixture.componentInstance;
+
+    app.toggle(engine);
+    http.expectOne((r) => r.url.endsWith('/excerpt')).flush({
+      ...engine,
+      content: 'public decimal Price()',
+      absolutePath: '/home/me/app/Billing/PriceEngine.cs',
+    });
+    fixture.detectChanges();
+
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('a.editor');
+    expect(link?.getAttribute('href')).toBe('vscode://file/home/me/app/Billing/PriceEngine.cs:84');
+  });
+
+  it('offers no editor link when the index does not know where the file is', () => {
+    // An index built before workspaces existed has no root, so the API sends
+    // null rather than a guess. A link that opens the wrong file is worse
+    // than no link.
+    const fixture = build();
+    const app = fixture.componentInstance;
+
+    app.toggle(engine);
+    http.expectOne((r) => r.url.endsWith('/excerpt')).flush({
+      ...engine,
+      content: 'public decimal Price()',
+      absolutePath: null,
+    });
+    fixture.detectChanges();
+
+    expect(app.editorUrl()).toBeNull();
+    expect(fixture.nativeElement.querySelector('a.editor')).toBeNull();
+  });
+
+  it('escapes what a browser would misread in a path', () => {
+    // A hash ends a URL early and a space is not allowed in one. Each
+    // segment is escaped on its own, so the slashes stay slashes.
+    const app = build().componentInstance;
+
+    app.toggle(engine);
+    http.expectOne((r) => r.url.endsWith('/excerpt')).flush({
+      ...engine,
+      content: '',
+      absolutePath: '/home/me/my app/#1/A.cs',
+    });
+
+    expect(app.editorUrl()).toBe('vscode://file/home/me/my%20app/%231/A.cs:84');
+  });
+
+  it('writes a Windows path the way the editor reads it', () => {
+    // Forward slashes, and the drive colon left alone: that is the form the
+    // editor documents, and the API may well be running on Windows.
+    const app = build().componentInstance;
+
+    app.toggle(engine);
+    http.expectOne((r) => r.url.endsWith('/excerpt')).flush({
+      ...engine,
+      content: '',
+      absolutePath: 'C:\\src\\app\\A.cs',
+    });
+
+    expect(app.editorUrl()).toBe('vscode://file/C:/src/app/A.cs:84');
   });
 
   it('shows no score for a chunk matched by term alone', () => {

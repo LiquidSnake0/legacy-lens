@@ -4,7 +4,8 @@
 
     <p class="note">
       Reconstructed from the chunks actually retrieved, not parsed from the
-      model's answer. Click one to read the text the answer was written from.
+      model's answer. Click one to read the text the answer was written from,
+      or to open the file in your editor.
       Entries marked <em>exact</em> were matched by term rather than by
       meaning, and carry no similarity score.
     </p>
@@ -44,6 +45,13 @@
               } @else if (excerptError()) {
                 <p class="failed">{{ excerptError() }}</p>
               } @else if (excerpt(); as text) {
+                @if (editorLink(); as link) {
+                  <p class="editor-row">
+                    <a class="editor" [href]="link" [title]="text.absolutePath">
+                      Open in VS Code
+                    </a>
+                  </p>
+                }
                 <pre><code>@for (line of text.content.split('\n'); track $index) {<span class="line"><span class="gutter">{{ text.startLine + $index }}</span>{{ line }}
 </span>}</code></pre>
               }

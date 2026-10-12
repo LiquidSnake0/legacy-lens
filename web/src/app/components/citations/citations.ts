@@ -1,4 +1,5 @@
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 
 import { LensService } from '../../services/lens';
 import { Citation, Excerpt } from '../../models/lens';
@@ -17,6 +18,7 @@ import { Citation, Excerpt } from '../../models/lens';
 })
 export class Citations {
   private readonly lens = inject(LensService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   /** Signal input: the parent passes the list, this component never fetches. */
   readonly sources = input.required<Citation[]>();
@@ -39,6 +41,41 @@ export class Citations {
   readonly excerpt = signal<Excerpt | null>(null);
   readonly loadingExcerpt = signal(false);
   readonly excerptError = signal<string | null>(null);
+
+  /**
+   * The editor link for the open excerpt: vscode://file/<path>:<line>.
+   *
+   * Null when there is no excerpt, or when the index does not know where its
+   * root is. Each segment of the path is escaped on its own, so a space or a
+   * hash in a folder name cannot end the URL early, while the slashes stay
+   * slashes and a Windows drive keeps its colon, which is the form the editor
+   * documents.
+   */
+  readonly editorUrl = computed<string | null>(() => {
+    const excerpt = this.excerpt();
+    if (!excerpt?.absolutePath) return null;
+
+    const path = excerpt.absolutePath
+      .replace(/\\/g, '/')
+      .replace(/^\//, '')
+      .split('/')
+      .map((segment) => encodeURIComponent(segment).replace(/%3A/gi, ':'))
+      .join('/');
+
+    return `vscode://file/${path}:${excerpt.startLine}`;
+  });
+
+  /**
+   * The same link, vouched for.
+   *
+   * Angular marks any scheme it does not know as unsafe, and vscode: is one.
+   * Nothing in this URL came from the model or from the reader: it is the
+   * workspace root joined to a path the indexer wrote, escaped above.
+   */
+  readonly editorLink = computed<SafeUrl | null>(() => {
+    const url = this.editorUrl();
+    return url === null ? null : this.sanitizer.bypassSecurityTrustUrl(url);
+  });
 
   /**
    * Opens a citation, or closes it if it was already open.
