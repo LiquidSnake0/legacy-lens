@@ -50,7 +50,9 @@ public class Observer
     /// <summary>
     /// How long a single call is given. A method that has not returned by then
     /// is abandoned rather than waited out, because legacy code contains loops
-    /// whose exit condition was an operator watching a screen.
+    /// whose exit condition was an operator watching a screen. It is wall-clock
+    /// time, so a call gets a second attempt before it is refused as too slow:
+    /// see <see cref="Observe"/>.
     /// </summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(2);
 
@@ -67,6 +69,16 @@ public class Observer
         MethodInfo method, object? instance, object?[] arguments)
     {
         var (first, failure) = Once(method, instance, arguments);
+
+        // The first call into a method pays for its JIT, and on a busy machine
+        // that alone can outlast the budget. A call that was slow once is
+        // given one more chance before it is refused: the second attempt has
+        // the method compiled and the budget to itself, so a method that is
+        // merely cold returns, and a method that never returns is still
+        // abandoned, one budget later than before.
+        if (first is null && failure == SkipReason.TooSlow)
+            (first, failure) = Once(method, instance, arguments);
+
         if (first is null) return (null, failure);
 
         var (second, _) = Once(method, instance, arguments);
