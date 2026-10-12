@@ -21,11 +21,16 @@ score for that query, which adapts to how hard the question is.
 
 ## 2. Opening a citation
 
-The frontend exists now (Angular 22, in `web/`), and it shows each citation with
-its path, line range and score. What it does not do is open them: clicking a
-citation should show the excerpt, or hand off to an editor via a `vscode://`
-link. Right now the reader has to find the file themselves, which is most of the
-friction left in the loop.
+**Done.** Clicking a citation shows the excerpt in place, served from the index
+rather than from disk so the reader sees what the model saw, and the panel
+carries a `vscode://file/<path>:<line>` link that opens the file in an editor.
+The absolute path comes from the workspace root, so an index built before
+workspaces existed, which has none, shows the excerpt and no link.
+
+What is left is the link itself when the API runs in a container: the path it
+knows is the container's, and the editor is on the host. Mounting the
+repository at the same path on both sides is the workaround until the
+workspace records where the code lives on the host as well.
 
 ## 3. Reranking
 

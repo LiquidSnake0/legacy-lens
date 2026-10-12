@@ -726,7 +726,8 @@ passes it through to the API. One origin, so no CORS is involved at all, and
 The answer streams in token by token, because generation on a CPU takes tens of
 seconds and a blank screen for that long reads as a crash. The citations appear
 before the first word: retrieval finishes long before generation does, and
-clicking one shows the text the answer was written from.
+clicking one shows the text the answer was written from, with a `vscode://`
+link that opens the file at that line.
 
 Angular 22, standalone components, signals for local state, reactive forms for
 the question. It talks to the same HTTP API as the curl commands above, so
