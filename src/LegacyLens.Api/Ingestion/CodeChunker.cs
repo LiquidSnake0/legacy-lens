@@ -34,7 +34,7 @@ public class CodeChunker
         // survives the round trip, so a citation still matches the file byte
         // for byte on Windows-authored source.
         var lines = content.Split('\n');
-        var depths = BraceDepths(lines);
+        var depths = BraceScanner.Depths(filePath, lines);
         var chunks = new List<Chunk>();
 
         var start = 0;
@@ -125,35 +125,6 @@ public class CodeChunker
         }
 
         return lines[index].TrimEnd().EndsWith('}') ? 1 : 0;
-    }
-
-    /// <summary>
-    /// Brace depth after each line.
-    ///
-    /// This counts braces inside string literals and comments, so it is wrong.
-    /// It does not need to be right: it is picking a plausible place to cut, not
-    /// parsing the language. A real parser is the alternative, and it costs one
-    /// implementation per language in a tool whose whole point is reading code
-    /// nobody wants to touch.
-    /// </summary>
-    private static int[] BraceDepths(string[] lines)
-    {
-        var depths = new int[lines.Length];
-        var depth = 0;
-
-        for (var i = 0; i < lines.Length; i++)
-        {
-            foreach (var character in lines[i])
-            {
-                if (character == '{') depth++;
-                else if (character == '}') depth--;
-            }
-
-            if (depth < 0) depth = 0;
-            depths[i] = depth;
-        }
-
-        return depths;
     }
 
     /// <summary>

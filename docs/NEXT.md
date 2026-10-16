@@ -64,10 +64,15 @@ and the reach is the point.
 Written down because they are deliberate, and because someone reading the code
 will find them anyway.
 
-- **Brace counting ignores strings and comments.** `CodeChunker` counts `{` and
-  `}` wherever they appear. It is picking somewhere plausible to cut, not
-  parsing; a real parser costs one implementation per language, in a tool whose
-  purpose is reading code in languages nobody chose.
+- **Braces are counted by a small lexer, not a parser.** `BraceScanner` skips
+  strings, character literals, comments, C# verbatim and raw strings,
+  preprocessor directives, JavaScript template literals and regular
+  expressions, CSS block comments, Python docstrings and VB comments. Measured on
+  the ten repositories under `repos/` (34 725 files): files whose depth returns
+  to zero at the end went from 34 603 to 34 722; 122 fixed, 3 made worse (two
+  minified Vue bundles and one Razor view mixing C# and JavaScript). C# files are
+  all balanced. Still approximate: interpolation holes inside C# strings, Rust
+  lifetimes, and a slash after a closing bracket in JavaScript.
 - **Indentation-based languages chunk poorly.** Python has no braces, so the
   boundary quality heuristic falls back to blank lines alone. Tracking
   indentation depth would fix it.
