@@ -97,7 +97,12 @@ public class Observer
         // A thread that will not stop cannot be killed in .NET, so the timeout
         // abandons the wait rather than the work. The process this runs in is a
         // short-lived command, which is what makes that acceptable.
-        var call = Task.Run(() =>
+        //
+        // Each call gets a thread of its own rather than one from the shared
+        // pool: an abandoned call keeps running, and on a small machine a few
+        // of them were enough to leave the next call queued behind them until
+        // its own budget ran out before it had even started.
+        var call = Task.Factory.StartNew(() =>
         {
             try
             {
@@ -111,7 +116,7 @@ public class Observer
             {
                 thrown = exception;
             }
-        });
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         if (!call.Wait(Timeout)) return (null, SkipReason.TooSlow);
 
