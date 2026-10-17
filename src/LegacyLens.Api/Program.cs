@@ -17,6 +17,31 @@ if (args is ["report", var target, ..])
     return;
 }
 
+// How well the brace scanner reads a corpus: files whose depth returns to zero
+// at the end, and the ones that do not, by name. This is the figure quoted in
+// docs/NEXT.md, re-taken after every change to the scanner. `--write` keeps
+// one line per file so two runs can be compared with diff; `--ext` narrows
+// the extensions.
+if (args is ["balance", var balanceRoot, ..])
+{
+    var options = args.Skip(2).ToArray();
+    var extensions = options.SkipWhile(o => o != "--ext").Skip(1).FirstOrDefault()?.Split(',');
+    var output = options.SkipWhile(o => o != "--write").Skip(1).FirstOrDefault();
+
+    try
+    {
+        var report = BraceBalance.Measure(balanceRoot, extensions);
+        if (output is not null) File.WriteAllLines(output, BraceBalance.Rows(report));
+        Console.Out.Write(BraceBalance.Summary(report));
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        Console.Error.WriteLine(ex.Message);
+        Environment.ExitCode = 1;
+    }
+    return;
+}
+
 // Characterization: record what a compiled assembly does, as tests known to
 // pass. A command and never a route, because it loads someone's assembly and
 // calls into it. Writing the files takes a second argument, so that pointing it

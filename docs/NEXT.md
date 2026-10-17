@@ -83,6 +83,14 @@ will find them anyway.
   those extensions rather than what the ingestion keeps, 36 519 of 36 520
   balance; the one left is the Razor view, where a C# string sits inside a
   JavaScript string and no lexer that knows one language can read the other.
+  That figure is taken with
+  `dotnet run --project src/LegacyLens.Api -- balance /abs/path/to/repos`,
+  which counts every .cs, .cshtml, .css, .js and .ts file under the path
+  (`--ext .cs,.js` narrows it), prints the balanced count per extension and
+  names the files that end above depth zero; `--write before.tsv` keeps one
+  line per file (path, final depth, a stable fingerprint of every line's
+  depth) so that `diff before.tsv after.tsv` shows exactly which files a
+  change to the scanner read differently, balanced or not.
   C# files are all balanced. The holes of a C# interpolated string ($"...", $@"...",
   $$"""...""") are read as code again, so a quote inside a hole no longer
   ends the string and the braces inside it balance; the same ten repositories
