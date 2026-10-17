@@ -146,4 +146,76 @@ public class BraceScannerTests
         // A base64 image may contain "//"; the closing brace after it is real.
         Assert.Equal(0, FinalDepth("a.css", "li:before{content:url(data:image/png;base64,AB//CD)}\n.x{color:red}"));
     }
+
+    // ---- indentation, for languages that have no braces ------------------
+
+    [Fact]
+    public void Python_depth_is_the_indentation_of_the_code_that_follows()
+    {
+        // The blank line between the two functions is at depth zero: a cut
+        // there separates two top-level definitions. The line before it is
+        // too, because what follows it is top-level code.
+        Assert.Equal([1, 0, 0, 1, 0],
+            Depths("a.py", "def a():\n    x = 1\n\ndef b():\n    y = 2"));
+    }
+
+    [Fact]
+    public void Python_blank_line_inside_a_class_is_one_level_deep()
+    {
+        var source = string.Join('\n',
+            "class A:",
+            "    def m(self):",
+            "        pass",
+            "",
+            "    def n(self):",
+            "        pass");
+        Assert.Equal([1, 2, 1, 1, 2, 0], Depths("a.py", source));
+    }
+
+    [Fact]
+    public void Python_docstring_and_comment_lines_take_the_level_of_the_code_after_them()
+    {
+        var source = string.Join('\n',
+            "def a():",
+            "    \"\"\"",
+            "    not code: {",
+            "    \"\"\"",
+            "    # neither is this",
+            "    return 1");
+        Assert.Equal([1, 1, 1, 1, 1, 0], Depths("a.py", source));
+    }
+
+    [Fact]
+    public void Indentation_unit_is_read_from_the_file()
+    {
+        // Two-space YAML and tab-indented Python both count one level per step.
+        Assert.Equal([1, 2, 2, 0], Depths("a.yml", "a:\n  b:\n    c: 1\n    d: 2"));
+        Assert.Equal([1, 1, 0], Depths("a.py", "def a():\n\tx = 1\n\treturn x"));
+    }
+
+    [Fact]
+    public void A_continuation_line_does_not_redefine_the_unit()
+    {
+        // The argument aligned under the bracket sits at width 10; the unit
+        // stays four because four is the width that repeats.
+        var source = string.Join('\n',
+            "def a():",
+            "    call(one,",
+            "          two)",
+            "    return 1",
+            "",
+            "def b():",
+            "    pass");
+        var depths = Depths("a.py", source);
+        Assert.Equal(0, depths[4]);
+        Assert.Equal(1, depths[0]);
+    }
+
+    [Fact]
+    public void Braces_and_indentation_add_up_in_python()
+    {
+        // A blank line inside a dictionary literal is not a seam, even at the
+        // top level: the open brace still counts.
+        Assert.Equal([1, 1, 0], Depths("a.py", "x = {\n\n}"));
+    }
 }

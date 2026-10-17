@@ -73,9 +73,15 @@ will find them anyway.
   minified Vue bundles and one Razor view mixing C# and JavaScript). C# files are
   all balanced. Still approximate: interpolation holes inside C# strings, Rust
   lifetimes, and a slash after a closing bracket in JavaScript.
-- **Indentation-based languages chunk poorly.** Python has no braces, so the
-  boundary quality heuristic falls back to blank lines alone. Tracking
-  indentation depth would fix it.
+- **Indentation stands in for braces in Python, Ruby and YAML.** The depth
+  after a line is the indentation level of the next line of code, so a blank
+  line between two top-level definitions is at depth zero and one inside a
+  body is not. The unit (four spaces, two, a tab) is read from the file: the
+  largest divisor of the narrowest indentation that most indented lines are a
+  multiple of, so a continuation line aligned under a bracket does not
+  redefine it. Still approximate: a line continued inside open brackets looks
+  one level deeper than it is, and a file mixing tabs and spaces counts a tab
+  as four.
 - **Brute-force similarity search.** Deliberate up to roughly a million vectors
  , see the README. `IVectorStore` exists so that changing it is a new class.
 - **The over-fetch multiplier in `Retriever` is currently free.** The store

@@ -152,4 +152,39 @@ public class CodeChunkerTests
         Assert.Contains("Billing/PriceEngine.cs", chunk.EmbeddingText);
         Assert.Contains("ApplyDiscounts", chunk.EmbeddingText);
     }
+
+    [Theory]
+    [InlineData(500)]
+    [InlineData(700)]
+    [InlineData(900)]
+    [InlineData(1200)]
+    [InlineData(1500)]
+    public void Python_is_cut_between_definitions_not_inside_them(int maxChars)
+    {
+        // Without braces, every blank line used to look equally good, and the
+        // chunker took the latest one in its window: often the blank line
+        // just before a function's return. Indentation tells the two apart.
+        var functions = Enumerable.Range(0, 20).Select(n => string.Join('\n',
+            $"def f{n}(items):",
+            "    total = 0",
+            "    for item in items:",
+            "        total += item.price",
+            "    if total > 100:",
+            "        total *= 0.9",
+            "",
+            "    return total"));
+        var source = string.Join("\n\n", functions);
+        var lines = source.Split('\n');
+
+        var chunks = new CodeChunker(maxChars, overlapLines: 0).Split("prices.py", source);
+
+        Assert.True(chunks.Count > 1);
+        foreach (var chunk in chunks.SkipLast(1))
+        {
+            // The line after a cut is a top-level definition or the blank
+            // line before one, never an indented line.
+            var next = lines[chunk.EndLine];
+            Assert.True(next.Length == 0 || next.StartsWith("def "), $"cut after line {chunk.EndLine} lands on: '{next}'");
+        }
+    }
 }

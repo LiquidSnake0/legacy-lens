@@ -9,9 +9,21 @@ namespace LegacyLens.Api.Ingestion;
 /// too deep. This is a small lexer, not a parser: it knows how each family of
 /// languages writes strings and comments, and nothing else. Anything it
 /// misreads costs a slightly worse cut, never a lost line.
+///
+/// Languages without braces, Python above all, carry their structure in the
+/// indentation instead. For those the depth after a line is the indentation
+/// level of the next line of code: cutting there lands exactly where the
+/// author dedented, a blank line between two top-level functions is at depth
+/// zero and a blank line inside a body is not.
 /// </summary>
 internal static class BraceScanner
 {
+    /// <summary>Files whose structure is written in indentation rather than braces.</summary>
+    private static readonly HashSet<string> IndentedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".py", ".rb", ".yml", ".yaml",
+    };
+
     private enum Family { CLike, Css, Hash, Basic }
 
     public static int[] Depths(string filePath, string[] lines)
@@ -25,6 +37,10 @@ internal static class BraceScanner
         var depths = new int[lines.Length];
         var depth = 0;
 
+        // Whether a line starts in code rather than inside a multi-line string
+        // or comment; only those lines say anything about indentation.
+        var startsInCode = new bool[lines.Length];
+
         // What is still open at the end of a line. Line comments and ordinary
         // strings end with their line; these are the constructs that do not.
         var inBlockComment = false;
@@ -36,6 +52,7 @@ internal static class BraceScanner
         {
             var line = lines[row];
             var i = 0;
+            startsInCode[row] = !inBlockComment && closing is null;
 
             // #region application/* is a directive, not code: its /* would
             // open a comment that never closes.
@@ -149,7 +166,81 @@ internal static class BraceScanner
             depths[row] = depth;
         }
 
+        if (IndentedExtensions.Contains(extension)) AddIndentation(lines, startsInCode, depths);
+
         return depths;
+    }
+
+    /// <summary>
+    /// Adds the indentation level of the next line of code to every line's
+    /// depth. A blank line, a comment or a line inside a docstring takes the
+    /// level of whatever code follows it, because that is what a cut after it
+    /// would separate.
+    /// </summary>
+    private static void AddIndentation(string[] lines, bool[] startsInCode, int[] depths)
+    {
+        var widths = new int[lines.Length];
+        var isCode = new bool[lines.Length];
+        for (var row = 0; row < lines.Length; row++)
+        {
+            if (!startsInCode[row]) continue;
+            var width = LeadingWidth(lines[row], out var rest);
+            if (rest.Length == 0 || rest[0] == '#') continue;
+            widths[row] = width;
+            isCode[row] = true;
+        }
+
+        var unit = IndentUnit(widths, isCode);
+
+        var level = 0;
+        for (var row = lines.Length - 1; row >= 0; row--)
+        {
+            depths[row] += level;
+            if (isCode[row]) level = widths[row] / unit;
+        }
+    }
+
+    /// <summary>
+    /// Width of the leading whitespace, a tab counting as four, and the line
+    /// after it.
+    /// </summary>
+    private static int LeadingWidth(string line, out string rest)
+    {
+        var width = 0;
+        var i = 0;
+        for (; i < line.Length; i++)
+        {
+            if (line[i] == ' ') width++;
+            else if (line[i] == '\t') width += 4;
+            else break;
+        }
+        rest = line[i..].TrimEnd();
+        return width;
+    }
+
+    /// <summary>
+    /// How wide one level of indentation is in this file: the largest divisor
+    /// of the narrowest indentation that most indented lines are a multiple
+    /// of. The narrowest width alone would do, except that a continuation
+    /// line aligned under an opening bracket can be narrower than a level and
+    /// must not redefine it.
+    /// </summary>
+    private static int IndentUnit(int[] widths, bool[] isCode)
+    {
+        var indented = new List<int>();
+        for (var row = 0; row < widths.Length; row++)
+        {
+            if (isCode[row] && widths[row] > 0) indented.Add(widths[row]);
+        }
+        if (indented.Count == 0) return 4;
+
+        var narrowest = indented.Min();
+        for (var unit = narrowest; unit > 1; unit--)
+        {
+            if (narrowest % unit != 0) continue;
+            if (indented.Count(w => w % unit == 0) * 2 > indented.Count) return unit;
+        }
+        return 1;
     }
 
     /// <summary>
