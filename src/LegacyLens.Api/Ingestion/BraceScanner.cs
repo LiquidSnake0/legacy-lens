@@ -166,10 +166,16 @@ internal static class BraceScanner
                 }
                 if (javascript && c == '`')
                 {
-                    // JavaScript template literal. Whatever sits inside ${...}
-                    // is balanced by construction, so skipping it whole costs
-                    // nothing.
-                    frames.Push(new Frame { Closing = "`", Escapes = true, MultiLine = true });
+                    // JavaScript template literal. Its ${...} holes are code,
+                    // and that code may hold another template literal: read
+                    // as one string up to the next backtick, a nested
+                    // template ended the outer one early and the braces after
+                    // it were counted. Seen in both Vue bundles under repos/.
+                    frames.Push(new Frame
+                    {
+                        Closing = "`", Escapes = true, MultiLine = true,
+                        HoleBraces = 1, HolePrefix = '$',
+                    });
                     i++;
                     continue;
                 }

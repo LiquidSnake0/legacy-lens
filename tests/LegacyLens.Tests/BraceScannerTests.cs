@@ -205,6 +205,37 @@ public class BraceScannerTests
         Assert.Equal([1, 1, 1, 1, 0], Depths("A.cs", source));
     }
 
+    [Fact]
+    public void Nested_template_literals_do_not_end_each_other()
+    {
+        // From vue.global.js: a template literal whose hole holds two more.
+        // Read as a plain string up to the next backtick, the outer one ended
+        // at `$event` and the `{` in the last piece was counted as code.
+        var source = string.Join('\n',
+            "function f(isInline, multi) {",
+            "  return [`${isInline ? `$event` : `${``}(...args)`} => ${multi ? `{` : `(`}`, exp];",
+            "}");
+        Assert.Equal([1, 1, 0], Depths("v.js", source));
+    }
+
+    [Fact]
+    public void Template_literal_hole_spanning_lines_is_still_code()
+    {
+        var source = string.Join('\n',
+            "const s = `a ${",
+            "  items.map(i => { return i; }).join(\"`\")",
+            "} b`;",
+            "function g() {",
+            "}");
+        Assert.Equal([0, 0, 0, 1, 0], Depths("v.js", source));
+    }
+
+    [Fact]
+    public void Escaped_dollar_brace_in_a_template_literal_is_not_a_hole()
+    {
+        Assert.Equal(0, FinalDepth("v.js", "function f() {\n  return `\\${not} {`;\n}"));
+    }
+
     // ---- indentation, for languages that have no braces ------------------
 
     [Fact]

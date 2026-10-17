@@ -70,13 +70,21 @@ will find them anyway.
   expressions, CSS block comments, Python docstrings and VB comments. Measured on
   the ten repositories under `repos/` (34 725 files): files whose depth returns
   to zero at the end went from 34 603 to 34 722; 122 fixed, 3 made worse (two
-  minified Vue bundles and one Razor view mixing C# and JavaScript). C# files are
-  all balanced. The holes of a C# interpolated string ($"...", $@"...",
+  Vue bundles and one Razor view mixing C# and JavaScript). The Vue bundles
+  were nested template literals, `${a ? `x` : `y`}`, read as one string up to
+  the next backtick; the holes of a template literal are now code, like those
+  of a C# interpolated string, and both bundles balance. Walking every file of
+  those extensions rather than what the ingestion keeps, 36 519 of 36 520
+  balance; the one left is the Razor view, where a C# string sits inside a
+  JavaScript string and no lexer that knows one language can read the other.
+  C# files are all balanced. The holes of a C# interpolated string ($"...", $@"...",
   $$"""...""") are read as code again, so a quote inside a hole no longer
   ends the string and the braces inside it balance; the same ten repositories
   showed nine files whose line-by-line depth changed, all of them verbatim
   interpolated strings holding a quoted call. Still approximate: Rust
-  lifetimes, and a slash after a closing bracket in JavaScript.
+  lifetimes, and a slash after a closing bracket in JavaScript, which is read
+  as division; `if (x) /re/.test(s)` would start a regular expression. Not
+  seen in the corpus.
 - **Indentation stands in for braces in Python, Ruby and YAML.** The depth
   after a line is the indentation level of the next line of code, so a blank
   line between two top-level definitions is at depth zero and one inside a
