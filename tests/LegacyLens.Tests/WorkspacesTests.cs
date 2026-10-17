@@ -305,4 +305,48 @@ public class WorkspacesTests : IDisposable
         Assert.Null(workspaces.Locate(alpha.Id, Path.Combine("..", "etc", "passwd")));
         Assert.Null(workspaces.Locate(alpha.Id, Path.Combine(Path.GetTempPath(), "elsewhere", "A.cs")));
     }
+
+    [Fact]
+    public void A_workspace_with_a_host_path_locates_the_file_on_the_host()
+    {
+        // The API reads /repos/alpha inside its container; the editor is on
+        // the host, where the same folder is somewhere else entirely.
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"), "/home/me/code/alpha");
+
+        Assert.Equal("/home/me/code/alpha/src/A.cs", workspaces.LocateOnHost(alpha.Id, "src/A.cs"));
+        Assert.Equal("/home/me/code/alpha", workspaces.Find(alpha.Id)!.HostPath);
+    }
+
+    [Fact]
+    public void A_host_path_written_the_windows_way_gets_a_windows_link()
+    {
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"), @"C:\src\alpha\");
+
+        Assert.Equal(@"C:\src\alpha\src\A.cs", workspaces.LocateOnHost(alpha.Id, "src/A.cs"));
+    }
+
+    [Fact]
+    public void Without_a_host_path_the_host_location_is_the_api_location()
+    {
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"), "   ");
+
+        Assert.Null(workspaces.Find(alpha.Id)!.HostPath);
+        Assert.Equal(workspaces.Locate(alpha.Id, "src/A.cs"), workspaces.LocateOnHost(alpha.Id, "src/A.cs"));
+    }
+
+    [Fact]
+    public void A_host_path_does_not_let_a_path_leave_the_root()
+    {
+        using var store = Store();
+        var workspaces = new Workspaces(store.Connection);
+        var alpha = workspaces.Create("Alpha", Path.Combine(Path.GetTempPath(), "alpha"), "/home/me/code/alpha");
+
+        Assert.Null(workspaces.LocateOnHost(alpha.Id, Path.Combine("..", "etc", "passwd")));
+    }
 }

@@ -2,8 +2,17 @@ using Microsoft.Data.Sqlite;
 
 namespace LegacyLens.Api.Storage;
 
-/// <summary>One indexed project.</summary>
-public record Workspace(string Id, string Name, string RootPath, DateTimeOffset CreatedAt, int Chunks);
+/// <summary>
+/// One indexed project.
+///
+/// <paramref name="RootPath"/> is where the API reads the code; inside a
+/// container that is the container's path. <paramref name="HostPath"/> is
+/// where the same code lives on the machine the editor runs on, when that is
+/// a different place, and null when it is the same one.
+/// </summary>
+public record Workspace(
+    string Id, string Name, string RootPath, DateTimeOffset CreatedAt, int Chunks,
+    string? HostPath = null);
 
 /// <summary>
 /// Which project a chunk belongs to.
@@ -45,9 +54,14 @@ public class Workspaces
                 id         TEXT PRIMARY KEY,
                 name       TEXT NOT NULL,
                 root_path  TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                host_path  TEXT NULL
             );
             """);
+
+        // An index that predates the column keeps its rows and gets no host
+        // path, which is what it had: the link falls back to the API's path.
+        AddNullableColumnIfAbsent("workspaces", "host_path");
 
         // The ledger creates this too, but only when an ingestion runs. A
         // workspace created and deleted without ever being indexed would
@@ -201,6 +215,12 @@ public class Workspaces
             """);
     }
 
+    private void AddNullableColumnIfAbsent(string table, string column)
+    {
+        if (Columns(table).Any(c => c.Name.Equals(column, StringComparison.OrdinalIgnoreCase))) return;
+        Execute($"ALTER TABLE {table} ADD COLUMN {column} TEXT NULL;");
+    }
+
     private void AddColumnIfAbsent(string table, string column)
     {
         using var columns = _connection.CreateCommand();
@@ -216,18 +236,20 @@ public class Workspaces
         Execute($"ALTER TABLE {table} ADD COLUMN {column} TEXT NOT NULL DEFAULT '{Default}';");
     }
 
-    public Workspace Create(string name, string rootPath)
+    public Workspace Create(string name, string rootPath, string? hostPath = null)
     {
         var id = Guid.NewGuid().ToString("N")[..12];
         var now = DateTimeOffset.UtcNow;
+        hostPath = string.IsNullOrWhiteSpace(hostPath) ? null : hostPath.Trim();
 
         Execute("""
-            INSERT INTO workspaces (id, name, root_path, created_at)
-            VALUES ($id, $name, $root, $now);
+            INSERT INTO workspaces (id, name, root_path, created_at, host_path)
+            VALUES ($id, $name, $root, $now, $host);
             """,
-            ("$id", id), ("$name", name), ("$root", rootPath), ("$now", now.ToString("O")));
+            ("$id", id), ("$name", name), ("$root", rootPath), ("$now", now.ToString("O")),
+            ("$host", (object?)hostPath ?? DBNull.Value));
 
-        return new Workspace(id, name, rootPath, now, 0);
+        return new Workspace(id, name, rootPath, now, 0, hostPath);
     }
 
     /// <summary>
@@ -250,10 +272,10 @@ public class Workspaces
         // count is a second copy of a fact the chunks already carry, and the
         // two disagree the first time an ingestion fails halfway.
         command.CommandText = """
-            SELECT w.id, w.name, w.root_path, w.created_at, COUNT(c.id)
+            SELECT w.id, w.name, w.root_path, w.created_at, COUNT(c.id), w.host_path
             FROM workspaces w
             LEFT JOIN chunks c ON c.workspace_id = w.id
-            GROUP BY w.id, w.name, w.root_path, w.created_at
+            GROUP BY w.id, w.name, w.root_path, w.created_at, w.host_path
             ORDER BY w.created_at DESC;
             """;
 
@@ -262,7 +284,8 @@ public class Workspaces
         {
             found.Add(new Workspace(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2),
-                DateTimeOffset.Parse(reader.GetString(3)), reader.GetInt32(4)));
+                DateTimeOffset.Parse(reader.GetString(3)), reader.GetInt32(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5)));
         }
 
         return found;
@@ -295,6 +318,29 @@ public class Workspaces
             StringComparison.Ordinal);
 
         return inside ? full : null;
+    }
+
+    /// <summary>
+    /// The same file, as the editor will find it.
+    ///
+    /// When the workspace records where the code lives on the host, the
+    /// relative path is joined to that instead, with the host's own separator:
+    /// an API in a Linux container serving an editor on Windows writes the
+    /// link with backslashes. The relative path is still checked against the
+    /// root the API knows, since the host root is not there to check it
+    /// against. Without a host path this is <see cref="Locate"/>.
+    /// </summary>
+    public string? LocateOnHost(string id, string relativePath)
+    {
+        var inside = Locate(id, relativePath);
+        if (inside is null) return null;
+
+        var host = Find(id)?.HostPath;
+        if (string.IsNullOrWhiteSpace(host)) return inside;
+
+        var separator = host.Contains('\\') && !host.Contains('/') ? '\\' : '/';
+        var tail = relativePath.Replace('\\', '/').Replace('/', separator).TrimStart(separator);
+        return host.TrimEnd('/', '\\') + separator + tail;
     }
 
     /// <summary>

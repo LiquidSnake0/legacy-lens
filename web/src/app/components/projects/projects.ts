@@ -43,6 +43,7 @@ export class Projects {
   readonly form = this.builder.nonNullable.group({
     name: ['', [Validators.required, Validators.minLength(2)]],
     rootPath: [''],
+    hostPath: [''],
     repositoryUrl: [''],
     token: [''],
   });
@@ -98,7 +99,13 @@ export class Projects {
               // Sent with this one call. Nothing here keeps a copy.
               ...(value.token.trim() ? { token: value.token.trim() } : {}),
             }
-          : { rootPath: value.rootPath.trim() }),
+          : {
+              rootPath: value.rootPath.trim(),
+              // Where the same folder is on this machine, when the API runs
+              // in a container and the editor does not. Left out when empty:
+              // the link then uses the path the API knows.
+              ...(value.hostPath.trim() ? { hostPath: value.hostPath.trim() } : {}),
+            }),
       })
       .subscribe({
         next: (created) => {

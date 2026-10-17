@@ -62,6 +62,7 @@ export class LensService {
   createWorkspace(body: {
     name: string;
     rootPath?: string;
+    hostPath?: string;
     repositoryUrl?: string;
     token?: string;
   }): Observable<Workspace> {

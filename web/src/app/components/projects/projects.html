@@ -58,6 +58,19 @@
           A path the API can see. Running in Docker, that is a path inside the
           container: whatever you mounted at <code>/repos</code>.
         </p>
+
+        <label for="project-host-path">Same folder on this machine <span class="optional">optional</span></label>
+        <input
+          id="project-host-path"
+          type="text"
+          formControlName="hostPath"
+          placeholder="/home/me/code/billing"
+        />
+        <p class="field-note">
+          Only when the API runs in a container and your editor does not: the
+          link on a citation opens the file here rather than at the path
+          inside the container.
+        </p>
       } @else {
         <label for="project-url">Repository URL</label>
         <input

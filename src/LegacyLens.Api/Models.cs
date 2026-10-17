@@ -139,7 +139,8 @@ public record CreateWorkspaceRequest(
     string Name,
     string? RootPath = null,
     string? RepositoryUrl = null,
-    string? Token = null);
+    string? Token = null,
+    string? HostPath = null);
 
 /// <summary>The decisions a codebase raises, and what has been said about them.</summary>
 public record DiagnoseRequest(string Path, string? Workspace = null);

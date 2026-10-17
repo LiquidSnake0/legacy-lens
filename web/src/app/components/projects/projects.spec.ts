@@ -82,7 +82,7 @@ describe('Projects', () => {
   it('will not create a project with no name', () => {
     const app = build().componentInstance;
 
-    app.form.setValue({ name: '', rootPath: '/repos/x', repositoryUrl: '', token: '' });
+    app.form.setValue({ name: '', rootPath: '/repos/x', hostPath: '', repositoryUrl: '', token: '' });
     app.submit();
 
     http.expectNone(() => true);
@@ -92,7 +92,7 @@ describe('Projects', () => {
   it('will not create a folder project with no folder', () => {
     const app = build().componentInstance;
 
-    app.form.setValue({ name: 'Billing', rootPath: '   ', repositoryUrl: '', token: '' });
+    app.form.setValue({ name: 'Billing', rootPath: '   ', hostPath: '', repositoryUrl: '', token: '' });
     app.submit();
 
     http.expectNone(() => true);
@@ -103,7 +103,7 @@ describe('Projects', () => {
     const app = build().componentInstance;
     app.choose('repository');
 
-    app.form.setValue({ name: 'Billing', rootPath: '', repositoryUrl: '  ', token: '' });
+    app.form.setValue({ name: 'Billing', rootPath: '', hostPath: '', repositoryUrl: '  ', token: '' });
     app.submit();
 
     http.expectNone(() => true);
@@ -113,11 +113,33 @@ describe('Projects', () => {
   it('sends a folder as a path and nothing else', () => {
     const app = build().componentInstance;
 
-    app.form.setValue({ name: 'Billing', rootPath: '/repos/billing', repositoryUrl: '', token: '' });
+    app.form.setValue({ name: 'Billing', rootPath: '/repos/billing', hostPath: '', repositoryUrl: '', token: '' });
     app.submit();
 
     const request = http.expectOne((r) => r.url.endsWith('/workspaces') && r.method === 'POST');
     expect(request.request.body).toEqual({ name: 'Billing', rootPath: '/repos/billing' });
+
+    request.flush(created());
+  });
+
+  it('sends the folder on this machine when one is given', () => {
+    const app = build().componentInstance;
+
+    app.form.setValue({
+      name: 'Billing',
+      rootPath: '/repos/billing',
+      hostPath: '/home/me/code/billing',
+      repositoryUrl: '',
+      token: '',
+    });
+    app.submit();
+
+    const request = http.expectOne((r) => r.url.endsWith('/workspaces') && r.method === 'POST');
+    expect(request.request.body).toEqual({
+      name: 'Billing',
+      rootPath: '/repos/billing',
+      hostPath: '/home/me/code/billing',
+    });
 
     request.flush(created());
   });
@@ -129,6 +151,7 @@ describe('Projects', () => {
     app.form.setValue({
       name: 'Billing',
       rootPath: '',
+      hostPath: '',
       repositoryUrl: 'https://github.com/org/billing.git',
       token: 'ghp_secret',
     });
@@ -153,6 +176,7 @@ describe('Projects', () => {
     app.form.setValue({
       name: 'Billing',
       rootPath: '',
+      hostPath: '',
       repositoryUrl: 'https://github.com/org/billing.git',
       token: '   ',
     });
@@ -171,6 +195,7 @@ describe('Projects', () => {
     app.form.setValue({
       name: 'Billing',
       rootPath: '',
+      hostPath: '',
       repositoryUrl: 'https://github.com/org/billing.git',
       token: 'ghp_secret',
     });
@@ -186,7 +211,7 @@ describe('Projects', () => {
     const app = build().componentInstance;
     const store = TestBed.inject(WorkspaceStore);
 
-    app.form.setValue({ name: 'New', rootPath: '/repos/new', repositoryUrl: '', token: '' });
+    app.form.setValue({ name: 'New', rootPath: '/repos/new', hostPath: '', repositoryUrl: '', token: '' });
     app.submit();
     http.expectOne((r) => r.url.endsWith('/workspaces')).flush(created());
 
@@ -196,7 +221,7 @@ describe('Projects', () => {
   it('says why creating a project failed rather than staying silent', () => {
     const app = build().componentInstance;
 
-    app.form.setValue({ name: 'Billing', rootPath: '/repos/x', repositoryUrl: '', token: '' });
+    app.form.setValue({ name: 'Billing', rootPath: '/repos/x', hostPath: '', repositoryUrl: '', token: '' });
     app.submit();
 
     http.expectOne((r) => r.url.endsWith('/workspaces')).flush(

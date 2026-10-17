@@ -33,10 +33,15 @@ carries a `vscode://file/<path>:<line>` link that opens the file in an editor.
 The absolute path comes from the workspace root, so an index built before
 workspaces existed, which has none, shows the excerpt and no link.
 
-What is left is the link itself when the API runs in a container: the path it
-knows is the container's, and the editor is on the host. Mounting the
-repository at the same path on both sides is the workaround until the
-workspace records where the code lives on the host as well.
+The link when the API runs in a container is **done** too: the workspace
+records, optionally, where the same folder lives on the host (`hostPath` on
+`POST /api/workspaces`, a third field of the project form), and the excerpt's
+`absolutePath` is built on that instead, with the host's own separator, so an
+API in a Linux container serving an editor on Windows writes a Windows link.
+The relative path is still checked against the root the API knows. Without a
+host path the link uses the API's path, which is right when both run on the
+same machine, and mounting the repository at the same path on both sides still
+works as it did.
 
 ## 3. Reranking
 

@@ -459,9 +459,11 @@ app.MapGet("/api/excerpt", async (
 
     // Where the file is on disk, for the editor link. The text still comes
     // from the index, and the file is not read: the reader is shown what the
-    // model saw, and handed the path to the file as it is now.
+    // model saw, and handed the path to the file as it is now. On the host,
+    // when the workspace knows where the code lives there: the editor is on
+    // the host, and a path inside a container opens nothing.
     var absolutePath = await WithConnection(store,
-        () => new Workspaces(store.Connection).Locate(id, chunk.FilePath));
+        () => new Workspaces(store.Connection).LocateOnHost(id, chunk.FilePath));
 
     return Results.Ok(new
     {
@@ -542,7 +544,8 @@ app.MapPost("/api/workspaces", async (
     }
 
     var created = await WithConnection(store, () =>
-        new Workspaces(store.Connection).Create(request.Name, request.RootPath ?? string.Empty));
+        new Workspaces(store.Connection).Create(
+            request.Name, request.RootPath ?? string.Empty, request.HostPath));
 
     // A repository has to be fetched before there is anything to index, and
     // that is minutes on a large one. It runs as a job for the same reason
