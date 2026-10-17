@@ -90,7 +90,11 @@ will find them anyway.
   literal. Eleven views read differently, all of them a Razor expression
   inside a quoted string, and every file of the corpus balances: 36 520 of
   36 520. Still approximate: an expression that continues on the next line
-  is read as ordinary code from there. That figure is taken with
+  is read as ordinary code from there. A Rust lifetime, 'a, is told from a
+  character literal by what follows it, and the slash after a closing
+  parenthesis is division unless that parenthesis closes the condition of
+  an if, while, for or with; neither case appears in the corpus, and the
+  figure did not move. That figure is taken with
   `dotnet run --project src/LegacyLens.Api -- balance /abs/path/to/repos`,
   which counts every .cs, .cshtml, .css, .js and .ts file under the path
   (`--ext .cs,.js` narrows it), prints the balanced count per extension and
@@ -102,10 +106,7 @@ will find them anyway.
   $$"""...""") are read as code again, so a quote inside a hole no longer
   ends the string and the braces inside it balance; the same ten repositories
   showed nine files whose line-by-line depth changed, all of them verbatim
-  interpolated strings holding a quoted call. Still approximate: Rust
-  lifetimes, and a slash after a closing bracket in JavaScript, which is read
-  as division; `if (x) /re/.test(s)` would start a regular expression. Not
-  seen in the corpus.
+  interpolated strings holding a quoted call.
 - **Indentation stands in for braces in Python, Ruby and YAML.** The depth
   after a line is the indentation level of the next line of code, so a blank
   line between two top-level definitions is at depth zero and one inside a

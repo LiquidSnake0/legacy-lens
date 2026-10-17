@@ -58,6 +58,7 @@ internal static class BraceScanner
         var preprocessed = extension is ".cs" or ".c" or ".h" or ".cc" or ".cpp" or ".cxx" or ".hpp" or ".m";
         var javascript = extension is ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx";
         var razor = extension is ".cshtml" or ".razor";
+        var rust = extension == ".rs";
 
         var depths = new int[lines.Length];
         var depth = 0;
@@ -200,6 +201,20 @@ internal static class BraceScanner
                         HoleBraces = 1, HolePrefix = '$',
                     });
                     i++;
+                    continue;
+                }
+
+                // A Rust lifetime or label, 'a, is a quote that nothing
+                // closes: read as a character literal it would swallow the
+                // line up to the next quote. A character literal has its
+                // closing quote two characters on, 'a', or starts with a
+                // backslash.
+                if (rust && c == '\'' && i + 1 < line.Length
+                    && (char.IsLetter(line[i + 1]) || line[i + 1] == '_')
+                    && !(i + 2 < line.Length && line[i + 2] == '\''))
+                {
+                    i += 2;
+                    while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_')) i++;
                     continue;
                 }
 
@@ -495,7 +510,9 @@ internal static class BraceScanner
     /// <summary>
     /// Whether a slash opens a regular expression rather than divides: it does
     /// after an operator, an opening bracket, a comma, or at the start of the
-    /// line. After a name, a number or a closing bracket it is division.
+    /// line. After a name, a number or a closing bracket it is division, with
+    /// one exception: the parenthesis that closes the condition of an if,
+    /// while, for or with, after which <c>/re/.test(s)</c> is a statement.
     /// </summary>
     private static bool StartsRegex(string line, int i)
     {
@@ -504,10 +521,34 @@ internal static class BraceScanner
         while (j >= 0 && char.IsWhiteSpace(line[j])) j--;
         if (j < 0) return true;
         if ("(,=:[!&|?{};+-*%<>~^".Contains(line[j])) return true;
+        if (line[j] == ')') return WordBefore(line, MatchingOpen(line, j)) is "if" or "while" or "for" or "with";
+        return WordBefore(line, j + 1) is "return" or "typeof" or "case" or "in" or "of";
+    }
+
+    /// <summary>The run of letters that ends just before <paramref name="end"/>, skipping spaces.</summary>
+    private static string WordBefore(string line, int end)
+    {
+        if (end < 0) return string.Empty;
+        var j = end - 1;
+        while (j >= 0 && char.IsWhiteSpace(line[j])) j--;
         var k = j;
         while (k >= 0 && char.IsLetter(line[k])) k--;
-        var word = line[(k + 1)..(j + 1)];
-        return word is "return" or "typeof" or "case" or "in" or "of";
+        return line[(k + 1)..(j + 1)];
+    }
+
+    /// <summary>
+    /// Index of the parenthesis that opens the one closing at
+    /// <paramref name="close"/>, or -1 when it is not on this line.
+    /// </summary>
+    private static int MatchingOpen(string line, int close)
+    {
+        var depth = 0;
+        for (var k = close; k >= 0; k--)
+        {
+            if (line[k] == ')') depth++;
+            else if (line[k] == '(' && --depth == 0) return k;
+        }
+        return -1;
     }
 
     /// <summary>Index just past a regular expression and its flags.</summary>

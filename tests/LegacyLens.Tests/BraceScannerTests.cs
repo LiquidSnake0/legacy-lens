@@ -360,4 +360,45 @@ public class BraceScannerTests
     {
         Assert.Equal(0, FinalDepth("View.cshtml", "<p>mail me @@home</p>"));
     }
+
+    // JavaScript: a slash after the parenthesis closing an if is a regular expression.
+
+    [Fact]
+    public void Regex_after_the_condition_of_an_if_is_not_division()
+    {
+        Assert.Equal([1, 0], Depths("a.js", "if (x) /\"/.test(s) {\n}"));
+    }
+
+    [Fact]
+    public void Slash_after_a_closing_parenthesis_is_still_division()
+    {
+        Assert.Equal([1, 0], Depths("a.js", "total = (a + b) / count; open({\n});"));
+    }
+
+    [Fact]
+    public void Regex_after_while_and_for_conditions_too()
+    {
+        Assert.Equal([1, 0], Depths("a.js", "while (y) /\"/.exec(s) {\n}"));
+        Assert.Equal([1, 0], Depths("a.js", "for (;;) /\"/.exec(s) {\n}"));
+    }
+
+    // Rust: a lifetime is a quote that nothing closes.
+
+    [Fact]
+    public void Rust_lifetime_is_not_a_character_literal()
+    {
+        Assert.Equal([1, 1, 0], Depths("lib.rs", "fn f<'a>(x: &'a str) -> &'a str {\n  x\n}"));
+    }
+
+    [Fact]
+    public void Rust_character_literals_are_still_skipped()
+    {
+        Assert.Equal(0, FinalDepth("lib.rs", "fn f() {\n  let a = '{'; let b = '\\''; let c = '_';\n}"));
+    }
+
+    [Fact]
+    public void Rust_label_on_a_loop_is_not_a_character_literal()
+    {
+        Assert.Equal([1, 2, 1, 0], Depths("lib.rs", "fn f() {\n  'outer: loop {\n    break 'outer; }\n}"));
+    }
 }
