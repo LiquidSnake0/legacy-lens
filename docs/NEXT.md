@@ -81,9 +81,16 @@ will find them anyway.
   the next backtick; the holes of a template literal are now code, like those
   of a C# interpolated string, and both bundles balance. Walking every file of
   those extensions rather than what the ingestion keeps, 36 519 of 36 520
-  balance; the one left is the Razor view, where a C# string sits inside a
-  JavaScript string and no lexer that knows one language can read the other.
-  That figure is taken with
+  balance; the one left was a Razor view, where a C# call with a '"'
+  character literal sat inside a JavaScript string. In a .cshtml or .razor
+  file an @ now switches to C# for the expression that follows it, wherever
+  it sits, string or not: @(...) to its closing parenthesis, a name with its
+  .members, (arguments) and [indexes], with the expression's own strings and
+  character literals read by the C# rules; @* *@ is a comment and @@ a
+  literal. Eleven views read differently, all of them a Razor expression
+  inside a quoted string, and every file of the corpus balances: 36 520 of
+  36 520. Still approximate: an expression that continues on the next line
+  is read as ordinary code from there. That figure is taken with
   `dotnet run --project src/LegacyLens.Api -- balance /abs/path/to/repos`,
   which counts every .cs, .cshtml, .css, .js and .ts file under the path
   (`--ext .cs,.js` narrows it), prints the balanced count per extension and

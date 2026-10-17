@@ -57,6 +57,7 @@ internal static class BraceScanner
         var csharp = extension == ".cs";
         var preprocessed = extension is ".cs" or ".c" or ".h" or ".cc" or ".cpp" or ".cxx" or ".hpp" or ".m";
         var javascript = extension is ".js" or ".jsx" or ".mjs" or ".cjs" or ".ts" or ".tsx";
+        var razor = extension is ".cshtml" or ".razor";
 
         var depths = new int[lines.Length];
         var depth = 0;
@@ -66,6 +67,8 @@ internal static class BraceScanner
         var startsInCode = new bool[lines.Length];
 
         var inBlockComment = false;
+        // What closes the open block comment: */ almost everywhere, *@ in Razor.
+        var commentClose = "*/";
         var frames = new Stack<Frame>();
 
         for (var row = 0; row < lines.Length; row++)
@@ -86,10 +89,10 @@ internal static class BraceScanner
             {
                 if (inBlockComment)
                 {
-                    var end = line.IndexOf("*/", i, StringComparison.Ordinal);
+                    var end = line.IndexOf(commentClose, i, StringComparison.Ordinal);
                     if (end < 0) { i = line.Length; break; }
                     inBlockComment = false;
-                    i = end + 2;
+                    i = end + commentClose.Length;
                     continue;
                 }
 
@@ -124,12 +127,32 @@ internal static class BraceScanner
 
                 var c = line[i];
 
+                // Razor: an @ switches to C# for the expression that follows
+                // it, wherever it sits, including inside a quoted string of
+                // the markup or of a script block. The expression's own
+                // strings and character literals are read by the C# rules,
+                // so a '"' inside it neither ends the surrounding string nor
+                // starts one. The one view under repos/ that would not
+                // balance held exactly that: a JavaScript string with
+                // @T("...").EncodeJsString('"', false) inside.
+                if (razor && c == '@' && i + 1 < line.Length)
+                {
+                    var next = line[i + 1];
+                    if (next == '*') { inBlockComment = true; commentClose = "*@"; i += 2; continue; }
+                    if (next == '@') { i += 2; continue; }
+                    if (next == '(' || char.IsLetter(next) || next == '_')
+                    {
+                        i = SkipRazorExpression(line, i);
+                        continue;
+                    }
+                }
+
                 // Comments.
                 if ((family == Family.CLike || family == Family.Css) && c == '/' && i + 1 < line.Length)
                 {
                     // CSS has no line comments: a base64 image may contain //.
                     if (line[i + 1] == '/' && family == Family.CLike) break;
-                    if (line[i + 1] == '*') { inBlockComment = true; i += 2; continue; }
+                    if (line[i + 1] == '*') { inBlockComment = true; commentClose = "*/"; i += 2; continue; }
                 }
                 if (javascript && c == '/' && StartsRegex(line, i))
                 {
@@ -183,7 +206,7 @@ internal static class BraceScanner
                 // Strings and character literals that end with their line.
                 if (c == '"' || (c == '\'' && family != Family.Basic))
                 {
-                    i = SkipQuoted(line, i, c, backslashEscapes: family != Family.Basic);
+                    i = SkipQuoted(line, i, c, backslashEscapes: family != Family.Basic, razor);
                     continue;
                 }
 
@@ -381,18 +404,89 @@ internal static class BraceScanner
     /// language this scanner does not know, and either way the rest of the
     /// line is not worth counting.
     /// </summary>
-    private static int SkipQuoted(string line, int start, char quote, bool backslashEscapes)
+    private static int SkipQuoted(string line, int start, char quote, bool backslashEscapes, bool razor = false)
     {
         var i = start + 1;
         while (i < line.Length)
         {
             if (backslashEscapes && line[i] == '\\') { i += 2; continue; }
+            if (razor && line[i] == '@' && i + 1 < line.Length
+                && (line[i + 1] == '(' || char.IsLetter(line[i + 1]) || line[i + 1] == '_'))
+            {
+                // C# inside the string: its quotes are its own.
+                i = SkipRazorExpression(line, i);
+                continue;
+            }
             if (line[i] == quote)
             {
                 // VB writes a quote inside a string as two quotes.
                 if (!backslashEscapes && i + 1 < line.Length && line[i + 1] == quote) { i += 2; continue; }
                 return i + 1;
             }
+            i++;
+        }
+        return line.Length;
+    }
+
+    /// <summary>
+    /// Index just past a Razor expression starting at the @ at
+    /// <paramref name="at"/>: @(...) up to its closing parenthesis, or a name
+    /// followed by any run of .member, (arguments) and [index]. The
+    /// parentheses and brackets are balanced with C# strings and character
+    /// literals read as such, and braces inside them are arguments, not
+    /// structure. The expression ends with its line: a call continued on the
+    /// next line is read as ordinary code from there.
+    ///
+    /// A keyword such as @if or @foreach stops at the space after it, so the
+    /// block it opens is counted by the ordinary rules; @{ is not an
+    /// expression and its braces count the same way.
+    /// </summary>
+    private static int SkipRazorExpression(string line, int at)
+    {
+        var i = at + 1;
+        if (i < line.Length && line[i] == '(') return SkipBalanced(line, i, '(', ')');
+
+        while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_')) i++;
+        while (i < line.Length)
+        {
+            if (line[i] == '.' && i + 1 < line.Length && (char.IsLetter(line[i + 1]) || line[i + 1] == '_'))
+            {
+                i++;
+                while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_')) i++;
+                continue;
+            }
+            if (line[i] == '(') { i = SkipBalanced(line, i, '(', ')'); continue; }
+            if (line[i] == '[') { i = SkipBalanced(line, i, '[', ']'); continue; }
+            break;
+        }
+        return i;
+    }
+
+    /// <summary>
+    /// Index just past the bracket matching the one at <paramref name="open"/>,
+    /// reading C# strings, verbatim strings and character literals on the way
+    /// so that a bracket inside one of them does not count. The end of the
+    /// line when nothing matches.
+    /// </summary>
+    private static int SkipBalanced(string line, int open, char opening, char closing)
+    {
+        var depth = 0;
+        var i = open;
+        while (i < line.Length)
+        {
+            var c = line[i];
+            if (c == '@' && i + 1 < line.Length && line[i + 1] == '"')
+            {
+                i = SkipQuoted(line, i + 1, '"', backslashEscapes: false);
+                continue;
+            }
+            if (c == '"' || c == '\'')
+            {
+                i = SkipQuoted(line, i, c, backslashEscapes: true);
+                continue;
+            }
+            if (c == opening) depth++;
+            else if (c == closing && --depth == 0) return i + 1;
             i++;
         }
         return line.Length;

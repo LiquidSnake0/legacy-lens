@@ -307,4 +307,57 @@ public class BraceScannerTests
         // top level: the open brace still counts.
         Assert.Equal([1, 1, 0], Depths("a.py", "x = {\n\n}"));
     }
+
+    // Razor: @ switches to C# for the expression that follows, wherever it is.
+
+    [Fact]
+    public void Razor_expression_inside_a_script_string_keeps_its_quotes_to_itself()
+    {
+        // The one view under repos/ that did not balance: a JavaScript string
+        // holding a C# call with a '"' character literal.
+        Assert.Equal(0, FinalDepth("Confirm.cshtml",
+            "<script>\n"
+            + "  $.throbber.show({ white: true, message: '@T(\"Checkout.OrderCompletes\").ToString().EncodeJsString('\"', false)' });\n"
+            + "</script>"));
+    }
+
+    [Fact]
+    public void Razor_code_block_counts_its_braces()
+    {
+        Assert.Equal([1, 1, 0, 0], Depths("View.cshtml",
+            "@{\n  var terms = T(\"{0}\");\n}\n<p>@terms</p>"));
+    }
+
+    [Fact]
+    public void Razor_explicit_expression_in_an_attribute_is_not_structure()
+    {
+        Assert.Equal(0, FinalDepth("View.cshtml",
+            "<input class=\"a\" @(Model.On ? \"checked='checked' {\" : \"\") />"));
+    }
+
+    [Fact]
+    public void Razor_comment_spanning_lines_is_skipped()
+    {
+        Assert.Equal(0, FinalDepth("View.cshtml", "@* draft:\n@if (x) {\n*@\n<p>done</p>"));
+    }
+
+    [Fact]
+    public void Razor_keyword_block_is_counted_and_its_strings_are_not()
+    {
+        Assert.Equal([0, 1, 0], Depths("View.cshtml",
+            "@if (Model.Name == \"}\")\n{\n}"));
+    }
+
+    [Fact]
+    public void Razor_implicit_expression_with_arguments_holding_braces_is_not_structure()
+    {
+        Assert.Equal(0, FinalDepth("View.cshtml",
+            "@Html.RenderAction(\"X\", new { step = 1 })\n@Model.Items[0].Name"));
+    }
+
+    [Fact]
+    public void Doubled_at_is_a_literal_at()
+    {
+        Assert.Equal(0, FinalDepth("View.cshtml", "<p>mail me @@home</p>"));
+    }
 }
