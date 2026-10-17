@@ -15,9 +15,15 @@ Seven questions against a 21-file repository is thin, and the number is tied to
 `nomic-embed-text`. Repeat the measurement on a large legacy codebase, and again
 after any change of embedding model.
 
-If the two clusters ever overlap, an absolute floor cannot separate them and a
-relative one is needed as well, discard anything below some fraction of the best
-score for that query, which adapts to how hard the question is.
+If the two clusters ever overlap, an absolute floor cannot separate them. A
+relative one now sits beside it: a vector-only hit below `Retriever.RelativeFloor`
+(0.7) of the best score of the query is dropped too. With the seven calibration
+questions it changes nothing, the cut lands under 0.52 whenever the best hit is
+0.68 or less; it bites only when one excerpt is clearly ahead, which is when
+the middling ones dilute the answer. The fraction is a guess that keeps the
+measured answers; measure it together with the absolute floor on the large
+codebase, and the questions that need it are the ones where the best hit is
+high and the second cluster is close behind.
 
 ## 2. Opening a citation
 

@@ -31,6 +31,22 @@ public class Retriever
     /// </summary>
     public const float MinimumScore = 0.52f;
 
+    /// <summary>
+    /// A vector-only hit scoring below this fraction of the best score of the
+    /// query is dropped as well. The absolute floor assumes the two clusters
+    /// never overlap; this one does not. When a question has a strong answer
+    /// in the code, the excerpts that score well below it are the ones the
+    /// embedding found vaguely related, and showing them next to the strong
+    /// one dilutes the answer. When nothing scores high, this cut sits under
+    /// the absolute floor and changes nothing.
+    ///
+    /// Not measured yet: 0.7 keeps everything the seven calibration questions
+    /// returned (0.59 to 0.68 against a best of 0.68) and bites only once the
+    /// best hit is clearly ahead. Recalibrate with the absolute floor, on a
+    /// large codebase.
+    /// </summary>
+    public const float RelativeFloor = 0.7f;
+
     /// <summary>Stops one verbose file from crowding out the one that holds the answer.</summary>
     public const int MaxChunksPerFile = 3;
 
@@ -113,8 +129,14 @@ public class Retriever
     /// <summary>
     /// Pure, so it can be tested without a model or a database.
     /// </summary>
-    public static IReadOnlyList<SearchHit> Rank(IReadOnlyList<SearchHit> candidates, int topK)
+    public static IReadOnlyList<SearchHit> Rank(
+        IReadOnlyList<SearchHit> candidates, int topK, float relativeFloor = RelativeFloor)
     {
+        // The relative cut is measured against the best scored hit of this
+        // query; a text-only hit has no score and cannot set it.
+        var best = candidates.Count == 0 ? 0f : candidates.Max(hit => hit.Score);
+        var floor = Math.Max(MinimumScore, best * relativeFloor);
+
         // The order of these steps is load-bearing.
         //
         // Capping per file has to happen before the global cut, not after:
@@ -135,7 +157,7 @@ public class Retriever
             // and applying it to chunks BOTH searches found would be worse
             // still, since agreement between two independent rankings is the
             // strongest evidence available.
-            .Where(hit => hit.Source != MatchSource.Vector || hit.Score >= MinimumScore)
+            .Where(hit => hit.Source != MatchSource.Vector || hit.Score >= floor)
             .GroupBy(hit => hit.Chunk.FilePath, StringComparer.Ordinal)
             .SelectMany(file => file
                 .OrderByDescending(hit => hit.Score)

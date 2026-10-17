@@ -1434,7 +1434,10 @@ claiming a pass.
 
 The retrieval floor was set by measurement rather than intuition, the method
 and the numbers are in `Retriever.MinimumScore`. On seven questions it now
-answers the four that the code covers and declines the three it does not.
+answers the four that the code covers and declines the three it does not. A
+second, relative floor (`Retriever.RelativeFloor`) drops what scores well below
+the best hit of a query; it is inert on those seven questions and not yet
+measured beyond them.
 
 Every push to `main` publishes both container images, after everything above is
 green, and deploys them to a server if one is configured. Nothing is configured
