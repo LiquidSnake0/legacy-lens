@@ -71,7 +71,11 @@ will find them anyway.
   the ten repositories under `repos/` (34 725 files): files whose depth returns
   to zero at the end went from 34 603 to 34 722; 122 fixed, 3 made worse (two
   minified Vue bundles and one Razor view mixing C# and JavaScript). C# files are
-  all balanced. Still approximate: interpolation holes inside C# strings, Rust
+  all balanced. The holes of a C# interpolated string ($"...", $@"...",
+  $$"""...""") are read as code again, so a quote inside a hole no longer
+  ends the string and the braces inside it balance; the same ten repositories
+  showed nine files whose line-by-line depth changed, all of them verbatim
+  interpolated strings holding a quoted call. Still approximate: Rust
   lifetimes, and a slash after a closing bracket in JavaScript.
 - **Indentation stands in for braces in Python, Ruby and YAML.** The depth
   after a line is the indentation level of the next line of code, so a blank

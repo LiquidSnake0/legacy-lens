@@ -26,6 +26,30 @@ internal static class BraceScanner
 
     private enum Family { CLike, Css, Hash, Basic }
 
+    /// <summary>
+    /// What is open at the end of a line and does not end with it: a
+    /// multi-line string, or a hole in an interpolated string where code is
+    /// being read again. The frames stack: a hole may hold a string that
+    /// holds another hole.
+    /// </summary>
+    private sealed class Frame
+    {
+        /// <summary>Delimiter that closes the string; null for a hole.</summary>
+        public string? Closing;
+        public bool Escapes;
+        public bool DoubledQuote;
+        /// <summary>Braces that open a hole in this string; 0 when it has no holes.</summary>
+        public int HoleBraces;
+        /// <summary>Character before the brace that opens a hole: '$' in JavaScript, none in C#.</summary>
+        public char HolePrefix = '\0';
+        /// <summary>Unmatched braces of the code inside a hole.</summary>
+        public int Depth;
+        /// <summary>Whether this survives the end of the line.</summary>
+        public bool MultiLine;
+
+        public bool IsHole => Closing is null;
+    }
+
     public static int[] Depths(string filePath, string[] lines)
     {
         var family = FamilyOf(filePath);
@@ -41,22 +65,18 @@ internal static class BraceScanner
         // or comment; only those lines say anything about indentation.
         var startsInCode = new bool[lines.Length];
 
-        // What is still open at the end of a line. Line comments and ordinary
-        // strings end with their line; these are the constructs that do not.
         var inBlockComment = false;
-        string? closing = null;       // delimiter of an open multi-line string
-        var escapes = false;          // whether a backslash escapes inside it
-        var doubledQuote = false;     // whether "" escapes inside it (C# @"...")
+        var frames = new Stack<Frame>();
 
         for (var row = 0; row < lines.Length; row++)
         {
             var line = lines[row];
             var i = 0;
-            startsInCode[row] = !inBlockComment && closing is null;
+            startsInCode[row] = !inBlockComment && frames.Count == 0;
 
             // #region application/* is a directive, not code: its /* would
             // open a comment that never closes.
-            if (preprocessed && !inBlockComment && closing is null && line.TrimStart().StartsWith('#'))
+            if (preprocessed && !inBlockComment && frames.Count == 0 && line.TrimStart().StartsWith('#'))
             {
                 depths[row] = depth;
                 continue;
@@ -73,18 +93,29 @@ internal static class BraceScanner
                     continue;
                 }
 
-                if (closing is not null)
+                var top = frames.Count > 0 ? frames.Peek() : null;
+
+                if (top is { IsHole: false })
                 {
-                    if (escapes && line[i] == '\\') { i += 2; continue; }
-                    if (doubledQuote && line[i] == '"' && i + 1 < line.Length && line[i + 1] == '"')
+                    // Inside a string: look for its end, an escape, or a hole.
+                    if (top.Escapes && line[i] == '\\') { i += 2; continue; }
+                    if (top.DoubledQuote && line[i] == '"' && i + 1 < line.Length && line[i + 1] == '"')
                     {
                         i += 2;
                         continue;
                     }
-                    if (string.CompareOrdinal(line, i, closing, 0, closing.Length) == 0)
+                    var consumed = 0;
+                    if (top.HoleBraces > 0 && OpensHole(line, i, top, out consumed))
                     {
-                        i += closing.Length;
-                        closing = null;
+                        i += consumed;
+                        frames.Push(new Frame { MultiLine = top.MultiLine });
+                        continue;
+                    }
+                    if (consumed > 0) { i += consumed; continue; }
+                    if (string.CompareOrdinal(line, i, top.Closing, 0, top.Closing!.Length) == 0)
+                    {
+                        i += top.Closing.Length;
+                        frames.Pop();
                         continue;
                     }
                     i++;
@@ -110,32 +141,27 @@ internal static class BraceScanner
                 if (family == Family.Hash && c == '#') break;
                 if (family == Family.Basic && c == '\'') break;
 
-                // Strings that may span lines.
-                var quotes = Run(line, i, '"');
-                if (quotes >= 3 && (csharp || family == Family.Hash))
+                // Strings.
+                if (csharp && StartsCSharpString(line, i, out var frame, out var prefix))
                 {
-                    // C# raw string literal, or a Python docstring: closed by
-                    // the same run of quotes, escapes not interpreted.
-                    closing = new string('"', quotes);
-                    escapes = family == Family.Hash;
-                    doubledQuote = false;
+                    // Whatever sits inside a hole is code again: braces count,
+                    // and a quote inside it does not end the string.
+                    frames.Push(frame);
+                    i += prefix;
+                    continue;
+                }
+                var quotes = Run(line, i, '"');
+                if (quotes >= 3 && family == Family.Hash)
+                {
+                    // A Python docstring: closed by the same run of quotes.
+                    frames.Push(new Frame { Closing = new string('"', quotes), Escapes = true, MultiLine = true });
                     i += quotes;
                     continue;
                 }
                 if (family == Family.Hash && Run(line, i, '\'') >= 3)
                 {
-                    closing = "'''";
-                    escapes = true;
-                    doubledQuote = false;
+                    frames.Push(new Frame { Closing = "'''", Escapes = true, MultiLine = true });
                     i += 3;
-                    continue;
-                }
-                if (csharp && IsVerbatimStart(line, i, out var prefix))
-                {
-                    closing = "\"";
-                    escapes = false;
-                    doubledQuote = true;
-                    i += prefix;
                     continue;
                 }
                 if (javascript && c == '`')
@@ -143,9 +169,7 @@ internal static class BraceScanner
                     // JavaScript template literal. Whatever sits inside ${...}
                     // is balanced by construction, so skipping it whole costs
                     // nothing.
-                    closing = "`";
-                    escapes = true;
-                    doubledQuote = false;
+                    frames.Push(new Frame { Closing = "`", Escapes = true, MultiLine = true });
                     i++;
                     continue;
                 }
@@ -157,14 +181,36 @@ internal static class BraceScanner
                     continue;
                 }
 
-                if (c == '{') depth++;
-                else if (c == '}') depth--;
+                if (c == '{')
+                {
+                    if (top is not null) top.Depth++; else depth++;
+                }
+                else if (c == '}')
+                {
+                    if (top is not null)
+                    {
+                        if (top.Depth > 0) top.Depth--;
+                        else
+                        {
+                            // The hole closes; its string is the frame below.
+                            frames.Pop();
+                            i += frames.Peek().HoleBraces;
+                            continue;
+                        }
+                    }
+                    else depth--;
+                }
                 i++;
             }
+
+            // A string that ends with its line takes any hole open inside it
+            // down with it.
+            while (frames.Count > 0 && !frames.Peek().MultiLine) frames.Pop();
 
             if (depth < 0) depth = 0;
             depths[row] = depth;
         }
+
 
         if (IndentedExtensions.Contains(extension)) AddIndentation(lines, startsInCode, depths);
 
@@ -244,6 +290,86 @@ internal static class BraceScanner
     }
 
     /// <summary>
+    /// Whether an opening brace at <paramref name="i"/> opens a hole in the
+    /// interpolated string <paramref name="s"/>. In $"..." a single brace
+    /// opens a hole and "{{" is a literal brace; in $$"""...""" two braces
+    /// open a hole and one is literal; in a JavaScript template literal the
+    /// brace must follow a dollar sign. <paramref name="consumed"/> is how
+    /// many characters were recognised either way, so a literal doubled
+    /// brace is not read twice.
+    /// </summary>
+    private static bool OpensHole(string line, int i, Frame s, out int consumed)
+    {
+        consumed = 0;
+        if (s.HolePrefix != '\0')
+        {
+            if (line[i] != s.HolePrefix || i + 1 >= line.Length || line[i + 1] != '{') return false;
+            consumed = 2;
+            return true;
+        }
+        if (line[i] != '{') return false;
+        var run = Run(line, i, '{');
+        if (run >= 2 * s.HoleBraces)
+        {
+            // Literal braces, written doubled.
+            consumed = 2 * s.HoleBraces;
+            return false;
+        }
+        if (run < s.HoleBraces) { consumed = run; return false; }
+        consumed = s.HoleBraces;
+        return true;
+    }
+
+    /// <summary>
+    /// A C# string that is not a plain "..." one: verbatim, raw, interpolated,
+    /// or a combination. Those are the ones whose rules SkipQuoted does not
+    /// know. Plain strings and character literals stay with SkipQuoted.
+    /// </summary>
+    private static bool StartsCSharpString(string line, int i, out Frame frame, out int prefix)
+    {
+        frame = null!;
+        prefix = 0;
+        var dollars = Run(line, i, '$');
+        var j = i + dollars;
+        var verbatim = j < line.Length && line[j] == '@';
+        if (verbatim) j++;
+        if (dollars == 0 && verbatim && j < line.Length && line[j] == '$')
+        {
+            // @$"..." is the same string as $@"...".
+            dollars = Run(line, j, '$');
+            j += dollars;
+        }
+        if (j >= line.Length || line[j] != '"') return false;
+
+        var quotes = Run(line, j, '"');
+        if (quotes >= 3 && !verbatim)
+        {
+            // Raw: closed by the same run of quotes, escapes not interpreted,
+            // holes opened by as many braces as there were dollar signs.
+            frame = new Frame
+            {
+                Closing = new string('"', quotes), MultiLine = true,
+                HoleBraces = dollars,
+            };
+            prefix = j + quotes - i;
+            return true;
+        }
+        if (!verbatim && dollars == 0) return false;
+
+        frame = new Frame
+        {
+            Closing = "\"",
+            Escapes = !verbatim,
+            DoubledQuote = verbatim,
+            MultiLine = verbatim,
+            HoleBraces = dollars > 0 ? 1 : 0,
+        };
+        prefix = j + 1 - i;
+        return true;
+    }
+
+
+    /// <summary>
     /// Index just past the closing quote, or the end of the line when the
     /// literal is not closed on it: an unterminated string is a typo or a
     /// language this scanner does not know, and either way the rest of the
@@ -304,17 +430,6 @@ internal static class BraceScanner
             i++;
         }
         return line.Length;
-    }
-
-    /// <summary>@"...", $@"..." or @$"...": the quote is escaped by doubling it.</summary>
-    private static bool IsVerbatimStart(string line, int i, out int prefix)
-    {
-        prefix = 0;
-        if (line[i] == '@' && i + 1 < line.Length && line[i + 1] == '"') prefix = 2;
-        else if (i + 2 < line.Length && line[i + 2] == '"' &&
-                 ((line[i] == '$' && line[i + 1] == '@') || (line[i] == '@' && line[i + 1] == '$')))
-            prefix = 3;
-        return prefix > 0;
     }
 
     private static int Run(string line, int i, char c)

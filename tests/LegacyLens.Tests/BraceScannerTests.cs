@@ -147,6 +147,64 @@ public class BraceScannerTests
         Assert.Equal(0, FinalDepth("a.css", "li:before{content:url(data:image/png;base64,AB//CD)}\n.x{color:red}"));
     }
 
+    // ---- holes in interpolated strings --------------------------------------
+
+    [Fact]
+    public void Quote_inside_an_interpolation_hole_does_not_end_the_string()
+    {
+        // Read as a plain string, the quote in the hole ended it early and the
+        // rest of the line, the block that follows included, was lost.
+        var source = string.Join('\n',
+            "void M() {",
+            "    var s = $\"{(flag ? \"on\" : \"off\")}\"; if (s.Length > 0) {",
+            "    }",
+            "}");
+        Assert.Equal([1, 2, 1, 0], Depths("A.cs", source));
+    }
+
+    [Fact]
+    public void Braces_inside_a_hole_are_code_and_balance()
+    {
+        Assert.Equal(0, FinalDepth("A.cs", "void M() {\n    var s = $\"{new { A = 1 }.A} {d[\"k\"]}\";\n}"));
+    }
+
+    [Fact]
+    public void Doubled_braces_in_an_interpolated_string_are_literal()
+    {
+        Assert.Equal(0, FinalDepth("A.cs", "void M() {\n    var s = $\"{{not a hole}} {x}\";\n}"));
+    }
+
+    [Fact]
+    public void Interpolated_strings_nest()
+    {
+        Assert.Equal(0, FinalDepth("A.cs", "void M() {\n    var s = $\"{(a ? $\"{b}\" : \"c\")}\";\n}"));
+    }
+
+    [Fact]
+    public void Verbatim_interpolated_string_keeps_its_holes_and_doubled_quotes()
+    {
+        var source = string.Join('\n',
+            "void M() {",
+            "    var s = $@\"\"\"{Path.Combine(\"a\", \"b\")}\"\"",
+            "      {{literal}} {x}\";",
+            "}");
+        Assert.Equal(0, FinalDepth("A.cs", source));
+    }
+
+    [Fact]
+    public void Raw_interpolated_string_opens_holes_with_as_many_braces_as_dollars()
+    {
+        // With two dollar signs a single brace is literal JSON and a pair
+        // opens a hole; the hole holds a string with a brace of its own.
+        var source = string.Join('\n',
+            "void M() {",
+            "    var json = $$\"\"\"",
+            "        { \"count\": {{Count(\"}\")}} }",
+            "        \"\"\";",
+            "}");
+        Assert.Equal([1, 1, 1, 1, 0], Depths("A.cs", source));
+    }
+
     // ---- indentation, for languages that have no braces ------------------
 
     [Fact]
