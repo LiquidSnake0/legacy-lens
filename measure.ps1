@@ -131,8 +131,10 @@ function Tally([string] $name) {
 
     $built = @($lines | Where-Object { $_ -match '^\s*\S+ -> .+\.(dll|exe)\s*$' }).Count
 
+    # NuGet's own errors carry no code, and a tally that only counted coded ones
+    # reported "0 errors" under a build that had failed.
     $errors = @($lines |
-        Where-Object { $_ -match ':\s*error\s+([A-Z]+\d+)\s*:' } |
+        Where-Object { $_ -match ':\s*error\s*([A-Z]+\d+)?\s*:' } |
         Sort-Object -Unique)
 
     $failing = @($errors |
@@ -152,7 +154,7 @@ function Tally([string] $name) {
         Say "|---|---|---|"
 
         $errors |
-            ForEach-Object { if ($_ -match ':\s*error\s+([A-Z]+\d+)\s*:\s*(.*)$') { [pscustomobject]@{ Code = $Matches[1]; Text = $Matches[2] } } } |
+            ForEach-Object { if ($_ -match ':\s*error\s*([A-Z]+\d+)?\s*:\s*(.*)$') { [pscustomobject]@{ Code = $(if ($Matches[1]) { $Matches[1] } else { '(no code)' }); Text = $Matches[2] } } } |
             Group-Object Code |
             Sort-Object Count -Descending |
             ForEach-Object {
@@ -300,9 +302,15 @@ Step 'Does it restore and build after' {
 
     Push-Location $sln.DirectoryName
     try {
-        $restore = @('restore', $sln.FullName)
-        if ($FrameworkRoot) { $restore += "-p:TargetFrameworkRootPath=$FrameworkRoot" }
-        Native 'after-restore' 'dotnet' $restore 10 | Out-Null
+        # Restored by the MSBuild that builds it, not by the .NET SDK. A project
+        # the SDK conversion refused keeps the old format with PackageReference
+        # in it, and for those the restore has to come from the same toolchain:
+        # `dotnet restore` leaves out the `win` runtime the old targets ask the
+        # assets file for, and every such project then failed with NuGet's
+        # "doesn't list 'win' as a RuntimeIdentifier" (M31's first run).
+        $restore = @($sln.FullName, '/t:Restore', '/v:minimal', '/nologo')
+        if ($FrameworkRoot) { $restore += "/p:TargetFrameworkRootPath=$FrameworkRoot" }
+        Native 'after-restore' 'msbuild' $restore 10 | Out-Null
         Say ""
         $code = Native 'after-build' 'msbuild' (MSBuildArguments $sln.FullName) 30
         Tally 'after-build'
@@ -376,13 +384,23 @@ Step 'What characterization reaches on a real Framework estate' {
     foreach ($project in Get-ChildItem -Path $Repo -Recurse -Filter *.csproj) {
         $text = Get-Content $project.FullName -Raw
         $name = if ($text -match '<AssemblyName>\s*([^<\s]+)\s*</AssemblyName>') { $Matches[1] } else { $project.BaseName }
-        $names[$name] = $true
+        $names[$name] = $project.DirectoryName
     }
 
+    # The newest copy, preferring one under the project's own folder. A copy
+    # elsewhere sits next to whatever its host chose to copy with it: Nop.Data
+    # gave 4 callable methods on one run and 0 on the next, once the plugins
+    # stopped copying what the web application already has (M31).
     $found = Get-ChildItem -Path $Repo -Recurse -Filter *.dll |
         Where-Object { $_.FullName -notmatch '\\(obj|packages)\\' -and $names.ContainsKey($_.BaseName) } |
         Group-Object BaseName |
-        ForEach-Object { $_.Group | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } |
+        ForEach-Object {
+            $own = $names[$_.Name] + '\'
+            $_.Group |
+                Sort-Object @{ Expression = { $_.FullName.StartsWith($own, [StringComparison]::OrdinalIgnoreCase) }; Descending = $true },
+                            @{ Expression = 'LastWriteTime'; Descending = $true } |
+                Select-Object -First 1
+        } |
         Sort-Object Name
 
     $assemblies = @($found | Select-Object -First $Assemblies)
@@ -396,8 +414,11 @@ Step 'What characterization reaches on a real Framework estate' {
 
     foreach ($assembly in $assemblies) {
         $stem = Join-Path $Out "characterize-$($assembly.BaseName)"
+        # The tests kept, as files, and not only their count. Two runs of the
+        # same build kept 8, 7, 1 and 8 on Orchard.Core in M30, and a count
+        # cannot say which tests came and went; the files can be compared.
         $process = Start-Process -FilePath $Lens `
-            -ArgumentList @('characterize', "`"$($assembly.FullName)`"") `
+            -ArgumentList @('characterize', "`"$($assembly.FullName)`"", '--out', "`"$stem.tests`"") `
             -RedirectStandardOutput "$stem.out.txt" -RedirectStandardError "$stem.err.txt" `
             -NoNewWindow -PassThru
 

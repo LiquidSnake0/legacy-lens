@@ -73,8 +73,11 @@ public static class Conversions
             $"{converted} of {survey.Projects.Count} project(s) have a patch. The rest either "
             + "declare no packages or already use PackageReference.",
 
-            "A patch, and not a build. These apply cleanly and nobody here has restored or "
-            + "compiled the result, which needs the toolchain the solution targets.",
+            "A patch, and not a build of this solution. Applied in order, the two conversions "
+            + "have been built on Orchard and nopCommerce 3.90 and both compiled (M31); this "
+            + "solution has not been, and that needs the toolchain it targets. Restore with "
+            + "msbuild -t:Restore rather than dotnet restore while any project keeps the old "
+            + "format: the .NET SDK leaves out the runtime those projects ask for.",
         };
 
         return new ConversionOutcome("packages", patch.ToString(), notes, [], Caveats.Group(raised));
@@ -108,8 +111,11 @@ public static class Conversions
         {
             $"{survey.Projects.Count - refusals.Count} patched, {refusals.Count} refused.",
 
-            "A patch, and not a build. These apply cleanly and nobody here has restored or "
-            + "compiled the result, which needs the toolchain the solution targets.",
+            "A patch, and not a build of this solution. Applied in order, the two conversions "
+            + "have been built on Orchard and nopCommerce 3.90 and both compiled (M31); this "
+            + "solution has not been, and that needs the toolchain it targets. Restore with "
+            + "msbuild -t:Restore rather than dotnet restore while any project keeps the old "
+            + "format: the .NET SDK leaves out the runtime those projects ask for.",
         };
 
         return new ConversionOutcome("sdk", patch.ToString(), notes, refusals, Caveats.Group(raised));

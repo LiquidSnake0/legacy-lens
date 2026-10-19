@@ -486,7 +486,8 @@ assembly it examined 402 members, could call 11, and kept 44 tests. The other
 parameters it has no values for, and methods returning void. On modern code that
 ratio is poor by construction, and **on a real .NET Framework estate it does not
 invert**: built on Windows and run over every assembly the solution produces, it
-keeps 393 to 400 tests on Orchard (it varies by run, see M30) and 128 on
+keeps 393 to 400 tests on Orchard (it varies by run, because of one class
+wrapping `System.Random`: see M31) and 128 on
 nopCommerce 3.90, most of them from the
 utility layer (`Orchard.Framework` 255, `Nop.Core` 93), and almost none from the
 services and controllers, which a container builds and a request feeds.
@@ -1160,16 +1161,17 @@ exactly the two projects where a person should be deciding.
 are SDK-format with their package references intact. That is what has been
 shown.
 
-**And the result does not build yet.** A patch applying is not a solution
-compiling, and that has now been measured on a Windows runner (M30). Both
-solutions build as they stand; both patches apply; the converted solution
-restores; and the build fails on two causes, both in the SDK conversion. Every
-converted project keeps its `AssemblyInfo.cs` while the SDK generates the same
-attributes, which is `CS0579` on both codebases, and the SDK compiles every file
-in the folder, which brought back an obsolete `NopStarter.cs` the team had left
-out of `Nop.Core`. Both are mechanical, both are the next thing to fix, and
-until a build after them is green, *converts* here means *produces a patch that
-applies and restores*, and nothing more.
+**And the result builds.** A patch applying is not a solution compiling, and
+that has been measured on a Windows runner. The first build after conversion
+(M30) failed on two causes in the SDK conversion: the SDK generating the
+attributes every `AssemblyInfo.cs` already declares, and compiling a
+`NopStarter.cs` the team had left out of `Nop.Core`. With both fixed, and three
+losses no compiler sees kept as well (files copied to the output, a non-`.resx`
+embedded resource, the plugins' shared output folder), **both converted
+solutions build: Orchard 88 assemblies, nopCommerce 3.90 31, the same as before
+the patches, with no error** (M31). *Converts* now means *produces a patch that
+applies, restores with MSBuild and compiles*, on these two codebases. It does not
+yet mean *runs*: nothing here has started the converted applications.
 
 **The two conversions have to compose.** The SDK conversion drops references
 pointing into the packages folder because PackageReference replaces them, so it
@@ -1440,11 +1442,13 @@ answer claims: that is the screenshot at the top of this file. Indexing its own
 those nine and nothing else. The figures for a whole index are in
 [Indexing at scale](#indexing-at-scale) above.
 
-**Built on Windows, once.** A hosted Windows runner
+**Built on Windows.** A hosted Windows runner
 (`.github/workflows/measure-windows.yml`) builds Orchard and nopCommerce 3.90
 before and after the two conversions. Both build as they stand, both patches
-apply and restore, and neither converted solution builds yet: two causes, both
-in the SDK conversion, named in M30 of [docs/ROADMAP.md](docs/ROADMAP.md).
+apply and restore, and both converted solutions build, 88 and 31 assemblies with
+no error. The two causes that stopped them in M30 and what the builds after
+found are M31 in [docs/ROADMAP.md](docs/ROADMAP.md); the projects the conversion
+refuses, the web applications, are still a person's decision.
 
 **Rewrites are checked rather than described.** A projection compiles before
 anyone is shown it, and where both versions run on this runtime they are called
