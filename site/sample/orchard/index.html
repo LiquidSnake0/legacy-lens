@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample report: Orchard CMS, assessed by Legacy Lens</title>
+<meta name="description" content="The structural assessment Legacy Lens produces, run on Orchard CMS (414,611 lines), published unedited.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;display=swap">
+<link rel="stylesheet" href="../../assets/site.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap bar">
+    <a class="brand" href="../../">Legacy Lens</a>
+    <ul class="lang" aria-label="Language">
+      <li><a href="../../" hreflang="en" lang="en">EN</a></li>
+      <li><a href="../../fr/" hreflang="fr" lang="fr">FR</a></li>
+      <li><a href="../../de/" hreflang="de" lang="de">DE</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="frame">
+    <p class="kicker">Sample report</p>
+    <p>This is the assessment Legacy Lens writes, run on <a href="https://github.com/OrchardCMS/Orchard">Orchard CMS</a> at commit <code>e97a145c</code>, published as the tool printed it. Nothing below was edited.</p>
+    <p>Command: <code>dotnet run --project src/LegacyLens.Api -- report repos/orchard</code> · <a href="assessment.md">the Markdown as printed</a></p>
+  </div>
+  <article class="report">
+<h1>orchard</h1>
+<p>A structural assessment, generated on 2026-10-19 by Legacy Lens.</p>
+<p>Every number in this document was measured from the project files, the source text and the change history. Nothing was estimated, and no part of it was written by a language model. What could not be measured is listed at the end rather than left out.</p>
+<h2>In short</h2>
+<p>orchard is 89 projects and 414,611 lines across 6,203 source files. Everything targets v4.8. No test project references 45 of the 78 projects that ship code, covering 75,908 lines. 449 files were ranked on structure and change frequency together. The one at the top is src/Orchard.Web/Modules/Orchard.OutputCache/Filters/OutputCacheFilter.cs. 89 of 89 project files are in the pre-SDK format. 73 projects reference packages that exist only inside the .NET Framework, which no conversion tool will fix; 16 others are convertible as they stand. The work is ordered from what blocks everything else through to what may cost nothing, and starts with: classify the packages nobody has checked yet.</p>
+<h2>What this is</h2>
+<div class="table"><table><thead><tr><th>Kind</th><th class="r">Projects</th><th class="r">Lines</th><th class="r">Files</th></tr></thead><tbody><tr><td>Web application</td><td class="r">73</td><td class="r">303,718</td><td class="r">5,014</td></tr><tr><td>Class library</td><td class="r">4</td><td class="r">62,255</td><td class="r">854</td></tr><tr><td>Test project</td><td class="r">11</td><td class="r">47,570</td><td class="r">317</td></tr><tr><td>Console application</td><td class="r">1</td><td class="r">1,068</td><td class="r">18</td></tr><tr><td><strong>Total</strong></td><td class="r"><strong>89</strong></td><td class="r"><strong>414,611</strong></td><td class="r"><strong>6,203</strong></td></tr></tbody></table></div>
+<p>The projects declare 319 dependencies on each other. Project kind is decided by what sits in the folder rather than by which assemblies are referenced, because references lie and a web.config next to a Views folder does not.</p>
+<p>The 12 projects over 4,357 lines, and how they depend on each other. 77 projects are left out: the test projects, and everything smaller than that. A diagram of all 89 renders as a wall and tells a reader nothing.</p>
+<pre data-lang="mermaid"><code>graph LR
+  subgraph gModules[&quot;Modules&quot;]
+    nOrchard_Projections[&quot;Orchard.Projections&lt;br/&gt;10,790 lines&quot;]
+    nOrchard_Layouts[&quot;Orchard.Layouts&lt;br/&gt;8,983 lines&quot;]
+    nOrchard_DynamicForms[&quot;Orchard.DynamicForms&lt;br/&gt;6,247 lines&quot;]
+    nOrchard_Taxonomies[&quot;Orchard.Taxonomies&lt;br/&gt;5,967 lines&quot;]
+    nOrchard_MediaLibrary[&quot;Orchard.MediaLibrary&lt;br/&gt;5,382 lines&quot;]
+    nOrchard_Users[&quot;Orchard.Users&lt;br/&gt;5,164 lines&quot;]
+    nOrchard_AuditTrail[&quot;Orchard.AuditTrail&lt;br/&gt;4,649 lines&quot;]
+    nOrchard_Blogs[&quot;Orchard.Blogs&lt;br/&gt;4,357 lines&quot;]
+  end
+  subgraph gNHibernate[&quot;NHibernate&quot;]
+    nNHibernate_Linq[&quot;NHibernate.Linq&lt;br/&gt;5,571 lines&quot;]
+  end
+  subgraph gOrchard_Web[&quot;Orchard.Web&quot;]
+    nOrchard_Core[&quot;Orchard.Core&lt;br/&gt;13,461 lines&quot;]
+  end
+  subgraph gsrc[&quot;src&quot;]
+    nOrchard_Web[&quot;Orchard.Web&lt;br/&gt;151,915 lines&quot;]
+    nOrchard_Framework[&quot;Orchard.Framework&lt;br/&gt;55,824 lines&quot;]
+  end
+
+  nOrchard_Framework --&gt; nNHibernate_Linq
+  nOrchard_Taxonomies --&gt; nOrchard_Framework
+  nOrchard_Taxonomies --&gt; nOrchard_Core
+  nOrchard_Users --&gt; nOrchard_Framework
+  nOrchard_Users --&gt; nOrchard_Core
+  nOrchard_Blogs --&gt; nOrchard_Framework
+  nOrchard_Blogs --&gt; nOrchard_Core
+  nOrchard_AuditTrail --&gt; nOrchard_Framework
+  nOrchard_AuditTrail --&gt; nOrchard_Core
+  nOrchard_AuditTrail --&gt; nOrchard_Users
+  nOrchard_Projections --&gt; nOrchard_Framework
+  nOrchard_Projections --&gt; nOrchard_Core
+  nOrchard_DynamicForms --&gt; nOrchard_Framework
+  nOrchard_DynamicForms --&gt; nOrchard_Core
+  nOrchard_DynamicForms --&gt; nOrchard_Layouts
+  nOrchard_DynamicForms --&gt; nOrchard_Projections
+  nOrchard_DynamicForms --&gt; nOrchard_Taxonomies
+  nOrchard_DynamicForms --&gt; nOrchard_Users
+  nOrchard_MediaLibrary --&gt; nOrchard_Framework
+  nOrchard_MediaLibrary --&gt; nOrchard_Core
+  nOrchard_Layouts --&gt; nOrchard_Framework
+  nOrchard_Layouts --&gt; nOrchard_Core
+  nOrchard_Layouts --&gt; nOrchard_MediaLibrary
+  nOrchard_Layouts --&gt; nOrchard_Projections
+  nOrchard_Core --&gt; nOrchard_Framework
+  nOrchard_Web --&gt; nOrchard_Framework
+  nOrchard_Web --&gt; nOrchard_Core
+
+  classDef library fill:#f1f5f9,stroke:#64748b,color:#1e293b
+  classDef web fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+  class nNHibernate_Linq,nOrchard_Framework library
+  class nOrchard_Taxonomies,nOrchard_Users,nOrchard_Blogs,nOrchard_AuditTrail,nOrchard_Projections,nOrchard_DynamicForms,nOrchard_MediaLibrary,nOrchard_Layouts,nOrchard_Core,nOrchard_Web web
+
+  %% 77 project(s) omitted: under 4,357 lines, or test projects</code></pre>
+<p class="small">Mermaid source, as the report carries it. GitHub and most Markdown viewers draw it as a diagram.</p>
+<p>The largest projects, which is where the time goes:</p>
+<div class="table"><table><thead><tr><th>Project</th><th>Kind</th><th>Target</th><th class="r">Lines</th></tr></thead><tbody><tr><td><code>Orchard.Web</code></td><td>Web application</td><td>v4.8</td><td class="r">151,915</td></tr><tr><td><code>Orchard.Framework</code></td><td>Class library</td><td>v4.8</td><td class="r">55,824</td></tr><tr><td><code>Orchard.Framework.Tests</code></td><td>Test project</td><td>v4.8</td><td class="r">23,163</td></tr><tr><td><code>Orchard.Core</code></td><td>Web application</td><td>v4.8</td><td class="r">13,461</td></tr><tr><td><code>Orchard.Projections</code></td><td>Web application</td><td>v4.8</td><td class="r">10,790</td></tr><tr><td><code>Orchard.Specs</code></td><td>Test project</td><td>v4.8</td><td class="r">10,069</td></tr><tr><td><code>Orchard.Tests.Modules</code></td><td>Test project</td><td>v4.8</td><td class="r">9,916</td></tr><tr><td><code>Orchard.Layouts</code></td><td>Web application</td><td>v4.8</td><td class="r">8,983</td></tr><tr><td><code>Orchard.DynamicForms</code></td><td>Web application</td><td>v4.8</td><td class="r">6,247</td></tr><tr><td><code>Orchard.Taxonomies</code></td><td>Web application</td><td>v4.8</td><td class="r">5,967</td></tr></tbody></table></div>
+<h2>What will hurt</h2>
+<div class="table"><table><thead><tr><th>Finding</th><th class="r">Count</th><th>Example</th></tr></thead><tbody><tr><td>Untested project</td><td class="r">45</td><td><code>NHibernate.Linq</code>: No test project references it (5,571 lines)</td></tr><tr><td>Oversized project</td><td class="r">3</td><td><code>Orchard.Framework.Tests</code>: 23,163 lines in one project</td></tr><tr><td>Library coupled to the web stack</td><td class="r">1</td><td><code>Orchard.Framework</code>: Library depends on System.Web.Http, System.Web.Http.WebHost, System.Web.Mvc, System.Web.WebPages, System.Web.WebPages.Deployment, System.Web.WebPages.Razor</td></tr><tr><td>Referenced by nothing</td><td class="r">1</td><td><code>MSBuild.Orchard.Tasks</code>: Nothing in the solution references it</td></tr></tbody></table></div>
+<p><strong>Untested project.</strong> Changes here are verified by running the application, or not at all.</p>
+<p><strong>Oversized project.</strong> Past roughly 20,000 lines nobody holds the whole thing in their head, and every change is made without seeing the consequences.</p>
+<p><strong>Library coupled to the web stack.</strong> It cannot be unit tested without a web context, and cannot be reused from a service, a desktop client or a batch job. Usually found out the day someone tries.</p>
+<p><strong>Referenced by nothing.</strong> Either dead code, or loaded at runtime by reflection or a plugin mechanism, which the project files cannot show.</p>
+<h3>The files most likely to break</h3>
+<p>Ranked on three signals that were all already on disk: complexity from the syntax tree, change frequency from git over the full history, and whether a test appears to cover the file. The score is the geometric mean of structure and churn, so a file has to score high on both to reach the top: complicated but never touched is not urgent, and touched constantly but trivial is not dangerous. The score is a sort key, and the reasons beside it are the argument. Generated code and everything inside a test project are left out rather than ranked, because reporting that a test fixture is complicated and untested is true and useless.</p>
+<p><strong>The history window was widened.</strong> Only 102 of this directory's 11677 commits fall in the last 24 months, so the whole history was read instead. A window that recent describes a codebase that has stopped changing by its tail.</p>
+<div class="table"><table><thead><tr><th class="r">Score</th><th>File</th><th class="r">Lines</th><th class="r">Commits</th><th>Tested</th><th>Why</th></tr></thead><tbody><tr><td class="r">1.23</td><td><code>src/Orchard.Web/Modules/Orchard.OutputCache/Filters/OutputCacheFilter.cs</code></td><td class="r">705</td><td class="r">82</td><td><strong>no</strong></td><td>changed in 82 commits; no test file appears to cover it</td></tr><tr><td class="r">1.23</td><td><code>src/Orchard.Web/Core/Shapes/CoreShapes.cs</code></td><td class="r">866</td><td class="r">79</td><td><strong>no</strong></td><td>Pager_Links has a cyclomatic complexity of 34: covering its branches would take 34 tests; changed in 79 commits; no test file appears to cover it</td></tr><tr><td class="r">1.01</td><td><code>src/Orchard/ContentManagement/DefaultContentQuery.cs</code></td><td class="r">386</td><td class="r">44</td><td><strong>no</strong></td><td>nested 6 levels deep; changed in 44 commits; no test file appears to cover it</td></tr><tr><td class="r">0.98</td><td><code>src/Orchard.Web/Modules/Orchard.Taxonomies/Services/TaxonomyService.cs</code></td><td class="r">564</td><td class="r">34</td><td><strong>no</strong></td><td>changed in 34 commits; no test file appears to cover it</td></tr><tr><td class="r">0.97</td><td><code>src/Orchard/ContentManagement/DefaultHqlQuery.cs</code></td><td class="r">724</td><td class="r">28</td><td><strong>no</strong></td><td>ToHql has a cyclomatic complexity of 23: covering its branches would take 23 tests; changed in 28 commits; no test file appears to cover it</td></tr><tr><td class="r">0.97</td><td><code>src/Orchard/Data/Migration/Interpreters/DefaultDataMigrationInterpreter.cs</code></td><td class="r">407</td><td class="r">43</td><td><strong>no</strong></td><td>changed in 43 commits; no test file appears to cover it</td></tr><tr><td class="r">0.95</td><td><code>src/Orchard/ContentManagement/DefaultContentManager.cs</code></td><td class="r">780</td><td class="r">127</td><td>yes</td><td>Get has a cyclomatic complexity of 25: covering its branches would take 25 tests; nested 7 levels deep; changed in 127 commits</td></tr><tr><td class="r">0.91</td><td><code>src/Orchard.Web/Modules/Upgrade/Controllers/InfosetController.cs</code></td><td class="r">589</td><td class="r">33</td><td><strong>no</strong></td><td>changed in 33 commits; no test file appears to cover it</td></tr><tr><td class="r">0.89</td><td><code>src/Orchard.Web/Core/Contents/Controllers/AdminController.cs</code></td><td class="r">499</td><td class="r">119</td><td>yes</td><td>changed in 119 commits</td></tr><tr><td class="r">0.87</td><td><code>src/Orchard/ContentManagement/Drivers/ContentPartDriver.cs</code></td><td class="r">239</td><td class="r">47</td><td><strong>no</strong></td><td>changed in 47 commits; no test file appears to cover it</td></tr><tr><td class="r">0.87</td><td><code>src/Orchard.Web/Modules/Orchard.Blogs/Controllers/BlogPostAdminController.cs</code></td><td class="r">252</td><td class="r">48</td><td><strong>no</strong></td><td>changed in 48 commits; no test file appears to cover it</td></tr><tr><td class="r">0.86</td><td><code>src/Orchard/Environment/ShellBuilders/ShellContainerFactory.cs</code></td><td class="r">301</td><td class="r">35</td><td><strong>no</strong></td><td>CreateContainer has a cyclomatic complexity of 35: covering its branches would take 35 tests; nested 6 levels deep; changed in 35 commits; no test file appears to cover it</td></tr><tr><td class="r">0.86</td><td><code>src/Orchard.Web/Modules/Orchard.Users/Controllers/AccountController.cs</code></td><td class="r">612</td><td class="r">88</td><td>yes</td><td>changed in 88 commits</td></tr><tr><td class="r">0.85</td><td><code>src/Orchard.Web/Modules/Orchard.ContentTypes/Services/ContentDefinitionService.cs</code></td><td class="r">354</td><td class="r">46</td><td><strong>no</strong></td><td>changed in 46 commits; no test file appears to cover it</td></tr><tr><td class="r">0.85</td><td><code>src/Orchard.Web/Modules/Orchard.Azure/Services/FileSystems/AzureFileSystem.cs</code></td><td class="r">419</td><td class="r">28</td><td><strong>no</strong></td><td>changed in 28 commits; no test file appears to cover it</td></tr></tbody></table></div>
+<h2>What a move to modern .NET runs into</h2>
+<div class="table"><table><thead><tr><th></th><th class="r">Count</th></tr></thead><tbody><tr><td>Projects</td><td class="r">89</td></tr><tr><td>In the old project format</td><td class="r">89</td></tr><tr><td>Convertible as they stand</td><td class="r">16</td></tr><tr><td>Blocked by a package with no path forward</td><td class="r">73</td></tr><tr><td>Package references in total</td><td class="r">722</td></tr><tr><td>Distinct packages</td><td class="r">93</td></tr><tr><td>Pinned to more than one version</td><td class="r">0</td></tr><tr><td>Hand-written binding redirects</td><td class="r">279</td></tr></tbody></table></div>
+<p><strong>This legacy has drifted.</strong> Every package is pinned to a single version today, but 279 binding redirects were written by hand. A redirect only ever gets written because two assemblies disagreed, so they are the trace of drift that has already been paid for once. Old and drifted is a different job from old but coherent, and the difference belongs in the price rather than in the reader's head.</p>
+<p>Packages that exist only inside the .NET Framework:</p>
+<div class="table"><table><thead><tr><th>Package</th><th class="r">Projects</th></tr></thead><tbody><tr><td><code>Microsoft.AspNet.Mvc</code></td><td class="r">73</td></tr><tr><td><code>Microsoft.AspNet.Razor</code></td><td class="r">73</td></tr><tr><td><code>Microsoft.AspNet.WebPages</code></td><td class="r">73</td></tr><tr><td><code>Microsoft.Web.Infrastructure</code></td><td class="r">73</td></tr><tr><td><code>Microsoft.CodeDom.Providers.DotNetCompilerPlatform</code></td><td class="r">61</td></tr><tr><td><code>Microsoft.Owin.Host.SystemWeb</code></td><td class="r">5</td></tr><tr><td><code>Microsoft.AspNet.WebApi.WebHost</code></td><td class="r">1</td></tr></tbody></table></div>
+<p>No version of these runs on modern .NET, so no conversion tool will help. The code that calls them is rewritten, replaced, or left where it is.</p>
+<p>78 packages are reported as unclassified rather than assumed to be fine. Naming a package portable without checking is how a quote acquires the one item that doubles it.</p>
+<h2>What you actually use of what is going away</h2>
+<p>A package with no future is not a unit of work. What decides the size is how much of it this codebase touches and how few types carry it: a hundred calls through six types is an afternoon, and the same hundred spread over sixty is a rewrite. Counted from the syntax, so a type is counted where it appears in a type position in a file importing the package and nothing in the solution declares it.</p>
+<h3>Microsoft.AspNet.Mvc</h3>
+<p>3,619 uses of 185 types, across 365 files. 24 types and 134 files carry four fifths of it.</p>
+<ul><li><code>ActionResult</code> (541 uses)</li><li><code>HttpUnauthorizedResult</code> (408 uses)</li><li><code>HttpPost</code> (260 uses)</li><li><code>RouteValueDictionary</code> (194 uses)</li><li><code>SelectListItem</code> (172 uses)</li><li><code>HtmlHelper</code> (167 uses)</li><li><code>ActionName</code> (134 uses)</li><li><code>Controller</code> (131 uses)</li></ul>
+<p><strong>Microsoft.AspNetCore.Mvc</strong> covers 83% of those calls. 116 types, 543 calls, are not in the catalogue at all: unknown, which is not the same as fine.</p>
+<p>1 type, 57 calls, are deleted rather than replaced: the framework withdrew the feature, so the use goes and nothing takes its place. They are named, because a deletion somebody has not agreed to is still a change to their code:</p>
+<ul><li><code>ValidateInput</code> (57 uses)</li></ul>
+<p>Asked of the framework itself rather than of the catalogue: 7 types of that column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a lead worth checking. 10 types exist elsewhere in the framework under the same name, which nobody has recorded either way. 99 types the framework does not have at all. That leaves 109 types still to decide.</p>
+<p>Those are worth a minute each, because the framework was split up and a counterpart in a sibling package looks the same from here as a coincidence:</p>
+<ul><li><code>HttpContext</code> (8 uses) is <code>Microsoft.AspNetCore.Http.HttpContext</code></li><li><code>IRouteHandler</code> (5 uses) is <code>Microsoft.AspNetCore.Routing.IRouteHandler</code></li><li><code>VirtualPathData</code> (5 uses) is <code>Microsoft.AspNetCore.Routing.VirtualPathData</code></li><li><code>HttpRequest</code> (3 uses) is <code>Microsoft.AspNetCore.Http.HttpRequest</code></li><li><code>IRouteConstraint</code> (2 uses) is <code>Microsoft.AspNetCore.Routing.IRouteConstraint</code></li><li><code>RouteDirection</code> (2 uses) is <code>Microsoft.AspNetCore.Routing.RouteDirection</code></li><li><code>AuthenticationProperties</code> (1 use) is <code>Microsoft.AspNetCore.Authentication.AuthenticationProperties</code></li><li><code>HttpResponse</code> (1 use) is <code>Microsoft.AspNetCore.Http.HttpResponse</code></li></ul>
+<p>3 types, 5 calls, have no replacement recorded at all. Those are the ones that decide whether this is a migration or a rewrite, and they are named rather than counted:</p>
+<ul><li><code>OutputCacheAttribute</code> (3 uses)</li><li><code>HandleErrorAttribute</code> (1 use)</li><li><code>IDependencyResolver</code> (1 use)</li></ul>
+<h3>Autofac</h3>
+<p>790 uses of 99 types, across 159 files. 28 types and 67 files carry four fifths of it.</p>
+<ul><li><code>ContainerBuilder</code> (144 uses)</li><li><code>Mock</code> (127 uses)</li><li><code>ILifetimeScope</code> (60 uses)</li><li><code>IComponentRegistration</code> (34 uses)</li><li><code>HttpContextBase</code> (24 uses)</li><li><code>RequestContext</code> (22 uses)</li><li><code>HtmlString</code> (21 uses)</li><li><code>IComponentContext</code> (17 uses)</li></ul>
+<p>Nobody has recorded what replaces this. That is a gap in the catalogue rather than a statement about the package.</p>
+<h3>Newtonsoft.Json</h3>
+<p>510 uses of 23 types, across 31 files. 4 types and 2 files carry four fifths of it.</p>
+<ul><li><code>JProperty</code> (243 uses)</li><li><code>JObject</code> (114 uses)</li><li><code>JArray</code> (38 uses)</li><li><code>JToken</code> (22 uses)</li><li><code>ActionResult</code> (17 uses)</li><li><code>HttpUnauthorizedResult</code> (16 uses)</li><li><code>HtmlString</code> (12 uses)</li><li><code>HttpPost</code> (11 uses)</li></ul>
+<p><strong>System.Text.Json</strong> covers 0% of those calls. 17 types, 91 calls, are not in the catalogue at all: unknown, which is not the same as fine.</p>
+<p>Asked of the framework itself rather than of the catalogue: 0 types of that column exist inside System.Text.Json under the same name, which is a lead worth checking. 7 types exist elsewhere in the framework under the same name, which nobody has recorded either way. 10 types the framework does not have at all. That leaves 17 types still to decide.</p>
+<p>Those are worth a minute each, because the framework was split up and a counterpart in a sibling package looks the same from here as a coincidence:</p>
+<ul><li><code>ActionResult</code> (17 uses) is <code>Microsoft.AspNetCore.Mvc.ActionResult</code></li><li><code>HtmlString</code> (12 uses) is <code>Microsoft.AspNetCore.Html.HtmlString</code></li><li><code>Controller</code> (3 uses) is <code>Microsoft.AspNetCore.Mvc.Controller</code></li><li><code>FormCollection</code> (3 uses) is <code>Microsoft.AspNetCore.Http.FormCollection</code></li><li><code>JsonResult</code> (1 use) is <code>Microsoft.AspNetCore.Mvc.JsonResult</code></li><li><code>RouteData</code> (1 use) is <code>Microsoft.AspNetCore.Routing.RouteData</code></li><li><code>SelectListItem</code> (1 use) is <code>Microsoft.AspNetCore.Mvc.Rendering.SelectListItem</code></li></ul>
+<p>5 types, 418 calls, have no replacement recorded at all. Those are the ones that decide whether this is a migration or a rewrite, and they are named rather than counted:</p>
+<ul><li><code>JProperty</code> (243 uses)</li><li><code>JObject</code> (114 uses)</li><li><code>JArray</code> (38 uses)</li><li><code>JToken</code> (22 uses)</li><li><code>JValue</code> (1 use)</li></ul>
+<h3>NHibernate</h3>
+<p>462 uses of 79 types, across 58 files. 25 types and 28 files carry four fifths of it.</p>
+<ul><li><code>ICriteria</code> (76 uses)</li><li><code>ISession</code> (50 uses)</li><li><code>ICriterion</code> (30 uses)</li><li><code>Mock</code> (29 uses)</li><li><code>ISessionFactory</code> (25 uses)</li><li><code>Configuration</code> (23 uses)</li><li><code>ContainerBuilder</code> (17 uses)</li><li><code>IProjection</code> (16 uses)</li></ul>
+<p>Nobody has recorded what replaces this. That is a gap in the catalogue rather than a statement about the package.</p>
+<h3>Microsoft.AspNet.WebApi.Core</h3>
+<p>92 uses of 38 types, across 13 files. 23 types and 7 files carry four fifths of it.</p>
+<ul><li><code>ContainerBuilder</code> (8 uses)</li><li><code>ILifetimeScope</code> (6 uses)</li><li><code>IHttpController</code> (5 uses)</li><li><code>RouteCollection</code> (5 uses)</li><li><code>ConfigurationSettingsReader</code> (4 uses)</li><li><code>HttpConfiguration</code> (4 uses)</li><li><code>HttpControllerContext</code> (4 uses)</li><li><code>HttpControllerDescriptor</code> (4 uses)</li></ul>
+<p><strong>Microsoft.AspNetCore.Mvc</strong> covers 7% of those calls. 33 types, 82 calls, are not in the catalogue at all: unknown, which is not the same as fine.</p>
+<p>Asked of the framework itself rather than of the catalogue: 5 types of that column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a lead worth checking. 4 types exist elsewhere in the framework under the same name, which nobody has recorded either way. 24 types the framework does not have at all. That leaves 28 types still to decide.</p>
+<p>Those are worth a minute each, because the framework was split up and a counterpart in a sibling package looks the same from here as a coincidence:</p>
+<ul><li><code>RouteCollection</code> (5 uses) is <code>Microsoft.AspNetCore.Routing.RouteCollection</code></li><li><code>KeyedService</code> (2 uses) is <code>Microsoft.Extensions.DependencyInjection.KeyedService</code></li><li><code>RouteBase</code> (1 use) is <code>Microsoft.AspNetCore.Routing.RouteBase</code></li><li><code>RouteData</code> (1 use) is <code>Microsoft.AspNetCore.Routing.RouteData</code></li></ul>
+<p>1 type, 4 calls, have no replacement recorded at all. Those are the ones that decide whether this is a migration or a rewrite, and they are named rather than counted:</p>
+<ul><li><code>HttpConfiguration</code> (4 uses)</li></ul>
+<p>4 further catalogued package(s) are used and not listed here. The command prints all of them.</p>
+<h2>What there is to decide about the frameworks themselves</h2>
+<p>The names nothing accounts for come to 4 questions. What follows is what each one was for, what replaced it, and what there is to choose between. None of the options is a recommendation: which one is right depends on how many people, how much time, and whether the old and the new have to run side by side, and none of that is in the code.</p>
+<p><strong>The request context.</strong> 109 calls through <code>RequestContext</code>, <code>HttpContextBase</code>, <code>HttpRequestBase</code>, <code>HttpResponseBase</code>, <code>HttpCookieCollection</code>, <code>HttpContextWrapper</code>, and 3 more.</p>
+<p>System.Web wrapped the request in a family of abstract base classes so that code could be tested against them, and passed one around as the ambient state of the request. ASP.NET Core has HttpContext and its parts, injected rather than ambient, with different names and a different shape. An uploaded file is IFormFile, cookies are IRequestCookieCollection, and there is no HttpException.</p>
+<ul><li>Move the code onto the new types directly. Shortest where the class already receives the context as an argument.</li><li>Put an interface of your own in front of what you actually use, and implement it over the new types. Longest, and the only option that lets the old and the new code run side by side.</li><li>Push the context out of the class entirely and pass the values it reads. Turns a migration into a design change, which is sometimes the right trade and never a small one.</li></ul>
+<p><strong>Pipeline internals.</strong> 72 calls through <code>MvcRouteHandler</code>, <code>HttpApplication</code>, <code>MvcHandler</code>, <code>ControllerBuilder</code>, <code>ReflectedControllerDescriptor</code>.</p>
+<p>Code that reached into how MVC found controllers, resolved views or handled the application lifetime. Global.asax is the usual entry point. There is no equivalent, and that is deliberate: the pipeline is middleware you compose in Program.cs rather than handlers you replace.</p>
+<ul><li>Find what the code was working around and check whether the new pipeline does it already. Most of these predate features the framework grew.</li><li>Write it as middleware, which is where the behaviour belongs now.</li><li>Treat it as a rewrite of that concern, and price it as one. This is the group that genuinely costs.</li></ul>
+<p><strong>Areas.</strong> 7 calls through <code>IRouteWithArea</code>.</p>
+<p>An area registered itself by deriving from AreaRegistration, and the framework found it by scanning assemblies at startup. Areas still exist and there is nothing to register: a controller carries [Area] and routes name it.</p>
+<ul><li>Delete the registration classes and put [Area] on the controllers.</li><li>Ask first whether the areas earn their keep, because the routing they were working around is gone.</li></ul>
+<p><strong>Model binding extensibility.</strong> 6 calls through <code>ModelBinderDictionary</code>, <code>DefaultModelBinder</code>.</p>
+<p>Binding was extended by deriving from the default binder or replacing the metadata provider, both of which knew a great deal about the pipeline around them. ASP.NET Core binds through IModelBinder and IModelBinderProvider, registered in options. The shape is similar and the base classes are not there to derive from.</p>
+<ul><li>Write the binder against the new interfaces. Usually smaller than the original, because the default no longer has to be reimplemented around it.</li><li>Check first whether the framework now does it. Several of these existed to bind types that bind on their own today.</li></ul>
+<h2>What only you can decide</h2>
+<p>Everything below came out of preparing the mechanical work, and none of it can be settled by reading the code harder. They are listed before the order because the order assumes them.</p>
+<p><strong>73 projects, one shown.</strong> Still depends on packages with no path to modern .NET: Microsoft.AspNet.Mvc, Microsoft.AspNet.Razor, Microsoft.AspNet.WebApi.WebHost, Microsoft.AspNet.WebPages, Microsoft.Web.Infrastructure. This changes the file format and not the future of the project.</p>
+<p>Orchard.Framework, Orchard.Specs, Orchard.Tests.Modules, Orchard.Framework.Tests, Orchard.Core.Tests, Orchard.ContentTypes, and 67 more.</p>
+<p><strong>Across the solution.</strong> 1 key(s) are declared in more than one config file with different values, and the last one read wins here: aspnet:RoslynCompilerLocation. Which one was right at runtime depended on which application loaded them, and that is not something these files record.</p>
+<p><strong>Across the solution.</strong> 1 key(s) are read by the code and declared nowhere. They are not in this file either, because inventing a value is the one thing that would make it wrong.</p>
+<h2>In what order</h2>
+<p>This is a dependency order, not a schedule, and it deliberately carries no days: nothing here measured how fast anyone works. What it does carry is a property of the codebase. Work that blocks the rest comes first, because the report itself is unreliable while it stands. Mechanical work comes before decisions, because it is the half nobody has to argue about and doing it shrinks the surface the arguments are about.</p>
+<h3>1. Classify the packages nobody has checked yet</h3>
+<p><em>Needed before anyone can price the rest. 78 packages.</em></p>
+<p>These are neither known to work on modern .NET nor known to be dead ends. Each one is either a non-event or a rewrite, and which of the two decides the size of everything below. Quoting before they are classified means quoting on the assumption that none of them is a problem.</p>
+<ul><li><code>Antlr3.Runtime (22 projects)</code></li><li><code>Iesi.Collections (22 projects)</code></li><li><code>Remotion.Linq.EagerFetching (22 projects)</code></li><li><code>System.Buffers (9 projects)</code></li><li><code>System.Memory (9 projects)</code></li><li><code>System.Numerics.Vectors (9 projects)</code></li><li><code>System.Runtime.CompilerServices.Unsafe (9 projects)</code></li><li><code>System.Threading.Tasks.Extensions (8 projects)</code></li><li><code>FluentNHibernate (7 projects)</code></li><li><code>Microsoft.Owin (7 projects)</code></li></ul>
+<h3>2. Convert the project files that can take the modern format</h3>
+<p><em>Mechanical, no decision required. 13 projects.</em></p>
+<p>Only the file format is old, and the conversion is a tool run and a review. It is worth doing first because it shrinks what everything after this has to work through. Some of these still depend on packages with no path forward: that is a separate problem and the format change does not pretend to fix it. What comes out is a patch that applies, and whether the solution restores and compiles afterwards is for the build to say, not for this.</p>
+<ul><li><code>MSBuild.Orchard.Tasks</code></li><li><code>NHibernate.Linq</code></li><li><code>Orchard</code></li><li><code>Orchard.Azure.Tests</code></li><li><code>Orchard.Framework</code></li><li><code>Orchard.Messaging.Tests</code></li><li><code>Orchard.Profile</code></li><li><code>Orchard.Projections.Tests</code></li><li><code>Orchard.Specs</code></li><li><code>Orchard.Tests</code></li></ul>
+<h3>3. Retire the hand-written binding redirects</h3>
+<p><em>Mechanical, no decision required. 279 redirects.</em></p>
+<p>A redirect only ever gets written because two assemblies disagreed about a version. The project files no longer show the disagreement, which means the redirects are load-bearing: removing one at conversion time is how a migration acquires a runtime failure that nothing in the build predicted.</p>
+<h3>4. Decide what happens to the code built on System.Web</h3>
+<p><em>Needs a decision, not a tool. 73 projects.</em></p>
+<p>7 packages here exist only inside the .NET Framework. No version of them runs on modern .NET, so no conversion tool will help: the code that calls them is rewritten, replaced, or left where it is. That is a decision about the product, not about the code, and it is the one that decides whether the rest is a migration or a rewrite.</p>
+<ul><li><code>Microsoft.AspNet.Mvc (73 projects)</code></li><li><code>Microsoft.AspNet.Razor (73 projects)</code></li><li><code>Microsoft.AspNet.WebPages (73 projects)</code></li><li><code>Microsoft.Web.Infrastructure (73 projects)</code></li><li><code>Microsoft.CodeDom.Providers.DotNetCompilerPlatform (61 projects)</code></li><li><code>Microsoft.Owin.Host.SystemWeb (5 projects)</code></li><li><code>Microsoft.AspNet.WebApi.WebHost (1 project)</code></li></ul>
+<h3>5. Separate the libraries that depend on the web stack</h3>
+<p><em>Needs a decision, not a tool. 1 library.</em></p>
+<p>A library holding a web dependency cannot be tested without a web context, and cannot be reused from a service, a desktop client or a batch job. It is listed after the decision above because what the web layer becomes decides how much of this is worth untangling.</p>
+<ul><li><code>Orchard.Framework: Library depends on System.Web.Http, System.Web.Http.WebHost, System.Web.Mvc, System.Web.WebPages, System.Web.WebPages.Deployment, System.Web.WebPages.Razor</code></li></ul>
+<h3>6. Put tests around the files most likely to break</h3>
+<p><em>Never finished, only kept up. 20 files.</em></p>
+<p>No test project references 45 projects in this solution. The files below are the ones where that matters most: they rank highest on complexity and change frequency together, which is the combination that produces incidents. This is the one item here that is never finished, which is why it starts early and runs alongside the rest.</p>
+<ul><li><code>src/Orchard.Web/Modules/Orchard.OutputCache/Filters/OutputCacheFilter.cs (score 1.23)</code></li><li><code>src/Orchard.Web/Core/Shapes/CoreShapes.cs (score 1.23)</code></li><li><code>src/Orchard/ContentManagement/DefaultContentQuery.cs (score 1.01)</code></li><li><code>src/Orchard.Web/Modules/Orchard.Taxonomies/Services/TaxonomyService.cs (score 0.98)</code></li><li><code>src/Orchard/ContentManagement/DefaultHqlQuery.cs (score 0.97)</code></li><li><code>src/Orchard/Data/Migration/Interpreters/DefaultDataMigrationInterpreter.cs (score 0.97)</code></li><li><code>src/Orchard.Web/Modules/Upgrade/Controllers/InfosetController.cs (score 0.91)</code></li><li><code>src/Orchard/ContentManagement/Drivers/ContentPartDriver.cs (score 0.87)</code></li><li><code>src/Orchard.Web/Modules/Orchard.Blogs/Controllers/BlogPostAdminController.cs (score 0.87)</code></li><li><code>src/Orchard/Environment/ShellBuilders/ShellContainerFactory.cs (score 0.86)</code></li></ul>
+<h3>7. Confirm whether the unreferenced projects are dead</h3>
+<p><em>May cost nothing. 1 project.</em></p>
+<p>Nothing in the solution references these. They are either dead code, which makes them the cheapest work in this report, or they are loaded at runtime by reflection or a plugin mechanism, which project files cannot show. Someone who knows the product answers this in minutes.</p>
+<ul><li><code>MSBuild.Orchard.Tasks</code></li></ul>
+<h2>What this report does not say</h2>
+<p>Printed here rather than left for the reader to discover after acting on it. Each of these applies to this codebase; the ones that did not apply were left out.</p>
+<p><strong>Nothing was compiled.</strong> The whole report is read from project files, source text and git. That is what lets it run on a solution that does not build, which is the state most inherited code is in. The cost is that anything resolved at runtime, by reflection, dependency injection or a plugin loader, is invisible here.</p>
+<p><strong>Test coverage is a naming convention.</strong> A file is counted as tested when a test file appears to be named after it. That over-reports coverage and never under-reports it: a file called untested here is genuinely untested, while one called tested may only share a name with a test that exercises none of it.</p>
+<p><strong>Most packages are unclassified.</strong> 78 of 93 distinct packages are neither known to run on modern .NET nor known to be dead ends. They are reported as unknown rather than assumed to be fine, because a survey that quietly counts an unknown package as portable is one that discovers the problem after the price has been agreed.</p>
+<p><strong>Generated code was excluded.</strong> 31 generated files were left out of the ranking. They top every chart on size and complexity and tell a reader nothing they can act on, but they are still code that ships, and a regeneration path that no longer exists is its own problem.</p>
+<hr>
+<p>Measured in 8,320 ms, without compiling anything, without restoring a package and without contacting any service. That is what makes it usable on a solution that does not build, which is the state an inherited codebase is in on the first day. Generated by <a href="https://github.com/LiquidSnake0/legacy-lens">Legacy Lens</a>.</p>
+  </article>
+</main>
+
+<footer class="wrap foot">
+  <p><a href="../../">Legacy Lens</a> · open source under the MIT licence.</p>
+</footer>
+
+</body>
+</html>
