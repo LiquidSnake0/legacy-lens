@@ -56,7 +56,7 @@ param(
 
     # How many of the solution's own assemblies get characterized, and how long
     # each may take before it is stopped and recorded as stopped.
-    [int] $Assemblies = 30,
+    [int] $Assemblies = 200,
     [int] $MinutesPerAssembly = 5
 )
 
@@ -269,7 +269,7 @@ Step 'Apply the two conversions, in the order the tool prints' {
         Say '```'
         foreach ($kind in @('packages', 'sdk')) {
             Get-Content (Join-Path $Out "$kind.notes.txt") -ErrorAction SilentlyContinue |
-                Where-Object { $_ -match '\S' } | Select-Object -First 25 | ForEach-Object { Say $_ }
+                Where-Object { $_ -match '\S' } | Select-Object -First 15 | ForEach-Object { Say $(if ($_.Length -gt 240) { $_.Substring(0, 240) + '...' } else { $_ }) }
         }
         Say '```'
 

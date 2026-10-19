@@ -90,7 +90,9 @@ jobs:
         run: |
           $packs = 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework'
           Get-ChildItem $packs -Directory | ForEach-Object Name
-          if (Test-Path (Join-Path $packs '${{ matrix.target }}')) {
+          # A folder of that name is not a targeting pack: the image carries a
+          # v4.5.1 folder with nothing to compile against in it.
+          if (Test-Path (Join-Path $packs '${{ matrix.target }}\mscorlib.dll')) {
             "root=" | Out-File $env:GITHUB_OUTPUT -Append
             return
           }
@@ -110,6 +112,10 @@ jobs:
           }
           if ('${{ steps.refs.outputs.root }}') { $arguments.FrameworkRoot = '${{ steps.refs.outputs.root }}' }
           ./measure.ps1 @arguments
+          # A build that fails is a result the report records, not a failure
+          # of this job. The job goes red only if the script itself could not
+          # finish, which throws before this line.
+          exit 0
 
       - if: always()
         uses: actions/upload-artifact@v4
