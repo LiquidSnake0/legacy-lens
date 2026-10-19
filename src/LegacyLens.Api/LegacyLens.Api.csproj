@@ -15,6 +15,19 @@
     -->
     <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+    <!--
+      The PDF of the assessment. Held at 6.2.4 on purpose: it is the last
+      release under MIT, and from 6.5.0 the package is AGPL-3.0, which a tool
+      published under MIT and handed over as one executable cannot take.
+      Managed code only, no native library, so the single file stays one file
+      and nothing it does needs a network.
+    -->
+    <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.4" />
+    <!--
+      Pinned above what PDFsharp 6.2.4 pulls in: 8.0.1, and every release up
+      to 10.0.12, carries GHSA-2fmv-rv2c-59x7 and GHSA-846f-f764-76mx.
+    -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +41,17 @@
     <ProjectReference Include="..\LegacyLens.Characterization\LegacyLens.Characterization.csproj" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <!--
+      The typefaces the PDF is set in, inside the executable rather than looked
+      up on the machine: Montserrat and DejaVu Sans Mono are on almost no
+      Windows machine, and a report that changes face depending on where it was
+      printed is not the same document twice. Subset to Latin and Cyrillic,
+      licences beside them.
+    -->
+    <EmbeddedResource Include="Pdf/Fonts/*.ttf" LogicalName="Fonts.%(Filename)%(Extension)" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Merge stays internal: it is how retrieval works, not what it offers. -->

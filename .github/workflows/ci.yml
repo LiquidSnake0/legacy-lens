@@ -66,10 +66,21 @@ jobs:
           test -s assessment.md
           grep -q '## In what order' assessment.md
 
+      # The same document as it is handed over. Checked for being a PDF at
+      # all; what is on its pages is the suite's job (PdfReportTests).
+      - name: Generate the PDF
+        run: |
+          dotnet run --project src/LegacyLens.Api --configuration Release --no-build \
+                     -- report "$GITHUB_WORKSPACE" --pdf assessment.pdf
+          test -s assessment.pdf
+          head -c 5 assessment.pdf | grep -q '%PDF-'
+
       - uses: actions/upload-artifact@v4
         with:
           name: assessment
-          path: assessment.md
+          path: |
+            assessment.md
+            assessment.pdf
 
   # The suite runs against the classes; this runs against the server. The two
   # are not the same check, and the difference is not theoretical: deleting a

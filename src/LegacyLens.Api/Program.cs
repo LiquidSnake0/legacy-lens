@@ -4,6 +4,7 @@ using LegacyLens.Api;
 using LegacyLens.Api.Embeddings;
 using LegacyLens.Api.Generation;
 using LegacyLens.Api.Ingestion;
+using LegacyLens.Api.Pdf;
 using LegacyLens.Api.Storage;
 using LegacyLens.Characterization;
 
@@ -11,9 +12,50 @@ using LegacyLens.Characterization;
 // and no index: it reads a directory and prints markdown. Exposing it as an
 // argument as well as an endpoint is what lets a build regenerate the document
 // on every commit without standing a service up first.
+//
+// `--pdf <file>` writes the same report as a PDF instead, with a first page for
+// the reader who reads one page. Typeset from the Markdown, in this process,
+// so it says what the text says and needs nothing the executable does not carry.
+// `--markdown <file>` keeps the Markdown of that same run beside it, so the two
+// carry the same measurement rather than two runs a few seconds apart.
 if (args is ["report", var target, ..])
 {
-    Console.Out.Write(new ReportWriter().Write(new Assessor().Assess(target)));
+    var options = args.Skip(2).ToArray();
+    string? Option(string name)
+    {
+        var at = Array.IndexOf(options, name);
+        return at < 0 ? null : options.ElementAtOrDefault(at + 1) ?? "";
+    }
+
+    var pdfPath = Option("--pdf");
+    var markdownPath = Option("--markdown");
+
+    if (pdfPath is "" || markdownPath is "" || (markdownPath is not null && pdfPath is null))
+    {
+        Console.Error.WriteLine(
+            "usage: report <path> [--pdf assessment.pdf [--markdown assessment.md]]");
+        Environment.ExitCode = 2;
+        return;
+    }
+
+    var assessment = new Assessor().Assess(target);
+    var writer = new ReportWriter();
+    var markdown = writer.Write(assessment);
+
+    if (pdfPath is null)
+    {
+        Console.Out.Write(markdown);
+        return;
+    }
+
+    File.WriteAllBytes(pdfPath, PdfReport.Write(assessment, markdown, writer.GeneratedAt));
+    Console.Error.WriteLine($"wrote {Path.GetFullPath(pdfPath)}");
+
+    if (markdownPath is not null)
+    {
+        File.WriteAllText(markdownPath, markdown);
+        Console.Error.WriteLine($"wrote {Path.GetFullPath(markdownPath)}");
+    }
     return;
 }
 

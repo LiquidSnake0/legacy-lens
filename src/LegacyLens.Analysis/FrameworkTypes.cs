@@ -137,11 +137,30 @@ public static class FrameworkTypes
         && ByName.Values.Any(places => places.Any(
             full => full.StartsWith(namespacePrefix + ".", StringComparison.Ordinal)));
 
+    /// <summary>
+    /// What this process loads to write a PDF is not the framework anybody is
+    /// migrating to.
+    ///
+    /// The trusted list holds every assembly the executable was built with, and
+    /// the PDF library brought hundreds of public types into it. Orchard's
+    /// report then answered that <c>Meta</c> is
+    /// <c>MigraDoc.DocumentObjectModel.Internals.Meta</c> and <c>Filter</c> is a
+    /// PDFsharp stream filter: a lookup that depended on what the tool happens
+    /// to reference rather than on the framework.
+    /// </summary>
+    private static bool IsToolsOwn(string path)
+    {
+        var name = Path.GetFileName(path);
+        return name.StartsWith("PdfSharp", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("MigraDoc", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> Read()
     {
         var references = (AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string ?? string.Empty)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
             .Where(path => path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !IsToolsOwn(path))
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
@@ -164,8 +183,8 @@ public static class FrameworkTypes
         // A name declared in several places is answered with the first, so the
         // first has to be the same on every machine. It was the order the
         // runtime listed its assemblies in, which moves whenever the executable
-        // gains a dependency: adding one turned Orchard's RouteData from
-        // Microsoft.AspNetCore.Routing into Microsoft.AspNetCore.Components
+        // gains a dependency: adding the PDF library turned Orchard's RouteData
+        // from Microsoft.AspNetCore.Routing into Microsoft.AspNetCore.Components
         // without a line of the analysis changing. Shallowest namespace first,
         // then shortest, then by spelling: the general home of a name before
         // the specialised one, and the same answer whatever was linked in.

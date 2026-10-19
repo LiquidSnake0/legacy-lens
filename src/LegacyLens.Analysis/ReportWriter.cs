@@ -854,7 +854,12 @@ public class ReportWriter
         _ => kind.ToString(),
     };
 
-    private static string Readable(RepairKind kind) => kind switch
+    /// <summary>
+    /// How a step of the order of work is described. Public because the PDF
+    /// puts the first steps on its cover, and has to name them in the same
+    /// words as the page that lists them all.
+    /// </summary>
+    public static string Readable(RepairKind kind) => kind switch
     {
         RepairKind.Blocking => "Blocks everything below it",
         RepairKind.Prerequisite => "Needed before anyone can price the rest",
