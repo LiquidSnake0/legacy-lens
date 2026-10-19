@@ -484,8 +484,14 @@ exists is right.
 assembly it examined 402 members, could call 11, and kept 44 tests. The other
 391 were property accessors and generated members, types it could not construct,
 parameters it has no values for, and methods returning void. On modern code that
-ratio is poor by construction, and whether it inverts on a real .NET Framework
-estate is untested.
+ratio is poor by construction, and **on a real .NET Framework estate it does not
+invert**: built on Windows and run over every assembly the solution produces, it
+keeps 399 tests on Orchard and 128 on nopCommerce 3.90, most of them from the
+utility layer (`Orchard.Framework` 255, `Nop.Core` 93), and almost none from the
+services and controllers, which a container builds and a request feeds.
+Accessors and generated members alone outnumber what it can call seventeen to
+one and forty to one. The figures are M30 in
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 **It runs the code**, which is the opposite of everything above, and that turns
 out to cost less than expected. Pointed at the four managed .NET Framework
@@ -1153,12 +1159,16 @@ exactly the two projects where a person should be deciding.
 are SDK-format with their package references intact. That is what has been
 shown.
 
-**Nobody has built the result.** A patch applying is not a solution restoring,
-and it is not a solution compiling. nopCommerce 3.90 targets .NET Framework, so
-checking it needs a Windows toolchain this repository has not had, and until it
-does, *converts* here means *produces a patch that applies* and nothing more.
-The gap between those two readings is the one thing in this document most
-likely to be heard as a promise it has not earned.
+**And the result does not build yet.** A patch applying is not a solution
+compiling, and that has now been measured on a Windows runner (M30). Both
+solutions build as they stand; both patches apply; the converted solution
+restores; and the build fails on two causes, both in the SDK conversion. Every
+converted project keeps its `AssemblyInfo.cs` while the SDK generates the same
+attributes, which is `CS0579` on both codebases, and the SDK compiles every file
+in the folder, which brought back an obsolete `NopStarter.cs` the team had left
+out of `Nop.Core`. Both are mechanical, both are the next thing to fix, and
+until a build after them is green, *converts* here means *produces a patch that
+applies and restores*, and nothing more.
 
 **The two conversions have to compose.** The SDK conversion drops references
 pointing into the packages folder because PackageReference replaces them, so it
@@ -1428,6 +1438,12 @@ answer claims: that is the screenshot at the top of this file. Indexing its own
 `src` produced 369 chunks from 60 files, and editing nine of them re-indexed
 those nine and nothing else. The figures for a whole index are in
 [Indexing at scale](#indexing-at-scale) above.
+
+**Built on Windows, once.** A hosted Windows runner
+(`.github/workflows/measure-windows.yml`) builds Orchard and nopCommerce 3.90
+before and after the two conversions. Both build as they stand, both patches
+apply and restore, and neither converted solution builds yet: two causes, both
+in the SDK conversion, named in M30 of [docs/ROADMAP.md](docs/ROADMAP.md).
 
 **Rewrites are checked rather than described.** A projection compiles before
 anyone is shown it, and where both versions run on this runtime they are called

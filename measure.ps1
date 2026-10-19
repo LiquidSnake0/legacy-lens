@@ -16,19 +16,28 @@
 #
 #   3. On a real .NET Framework estate, what does characterization reach?
 #      On modern code it examined 402 members and could call 11. Whether that
-#      ratio inverts on Framework code is untested, and half the product's
-#      claim rests on it.
+#      ratio inverts on Framework code was untested until M30, and half the
+#      product's claim rests on it.
 #
 # Needs, on the machine: .NET Framework and its targeting packs, MSBuild,
 # nuget.exe on the PATH for the packages.config restore, the .NET SDK for the
 # restore after conversion, and git.
 #
-#   .\measure.ps1 -Repo C:\work\nop-3.90
+#   .\measure.ps1 -Repo C:\work\nop-3.90 -Solution src\NopCommerce.sln
 #
-# **This has never run.** It was written on Linux, where PowerShell is not
-# installed, so not one line of it has been executed or even parsed. Expect the
-# first run to fail somewhere and read the report rather than the console: each
-# step records its own failure and the steps after it still say something.
+# It has run, on a hosted Windows runner, through
+# .github/workflows/measure-windows.yml, which clones Orchard and nopCommerce
+# 3.90 at the commits the figures were taken from. It was written on Linux
+# without PowerShell, and the first run on Windows did fail in places: the
+# image carries a v4.5.1 folder with no reference assemblies in it, and the
+# characterization looked only in bin folders where nopCommerce writes its
+# plugins elsewhere. The workflow supplies the first and the script fixes the
+# second, and the figures are M30 in docs/ROADMAP.md. Read the report rather than the console: each step records
+# its own failure and the steps after it still say something.
+#
+# The competitor step still names upgrade-assistant, which has since been
+# replaced twice; the run that matters for it is ticket #2, and the workflow
+# skips it.
 #
 # It writes one report and changes nothing outside the repository copy it was
 # given. It is deliberately loud about each step, because the first run of this
