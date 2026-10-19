@@ -317,6 +317,10 @@ does not have. **The wall is ingestion, and only ingestion.**
 **Done.** `POST /api/report`, or `report <path>` on the command line, produces a
 markdown assessment of a solution in seconds. Orchard, 414,611 lines, takes two.
 
+*Note, October 2026: two seconds was the first report. It has grown with every
+section added since, and Orchard now takes 8 to 11 seconds; the README carries
+the current figure.*
+
 The tool produced JSON and a web page. Neither is something a client keeps. What
 consultancies sell for this problem is a document: what the system is, what will
 hurt, in what order to fix it. They produce it by hand, in weeks, and it is stale
@@ -1621,6 +1625,9 @@ what comes out is 57 MB: the executable, the interface beside it, and the two
 catalogues. No runtime, no web server, no database to install. Double-clicked,
 it picks a port nobody is on, opens the reader's own browser and prints the
 address in case it cannot.
+
+*Note, October 2026: 58 MB today, since the PDF library and its typefaces went
+in with R1.3.*
 
 **There is no second implementation of anything.** It is the same executable the
 container runs, published self-contained with the built interface beside it and
