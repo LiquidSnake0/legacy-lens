@@ -2968,18 +2968,18 @@ build wrote none, under this repository's own .NET 10 runtime.
 | assemblies | 87, 86 ran, 1 did not load | 31, all ran |
 | methods it could call | 591 | 344 |
 | calls made | 1,281 | 987 |
-| **tests kept**, compiled and passing | **399**, then 393 | **128**, then 128 |
+| **tests kept**, compiled and passing | **399**, 393, 400 | **128**, 128, 128 |
 | assemblies with no test at all | 58 of 87 | 23 of 31 |
 | time | 131 s | 41 s |
 
 The one that did not load is `Orchard.Tests.dll`, built for x86, which a 64-bit
 process refuses: an honest refusal, said as such.
 
-**Two full runs of the same build did not agree on Orchard.** nopCommerce gave
-the same figures to the unit both times. Orchard did not, and all of the
-difference is one assembly: `Orchard.Core` kept 8, 7 and 1 tests on three runs,
+**Three full runs of the same build did not agree on Orchard.** nopCommerce
+gave the same figures to the unit each time. Orchard did not, and all of the
+difference is one assembly: `Orchard.Core` kept 8, 7, 1 and 8 tests on four runs,
 the same 41 methods and 55 calls each time. One run recorded a pair of calls
-that disagreed; the last lost a whole generated file to its own check. Nothing
+that disagreed; another lost a whole generated file to its own check. Nothing
 that failed was offered, which is the rule, but a net that keeps a different
 number of tests on each run is a net whose output nobody can review once and
 trust, and why `Orchard.Core` does this is not known yet. The table below is the
@@ -3002,7 +3002,7 @@ reasons, in nearly the same order:
 | returned something no assertion can compare | 218 | 36 |
 
 And the tests are where the plain code is. `Orchard.Framework` gives 255 of
-Orchard's 399 on both runs, `Nop.Core` 93 of nopCommerce's 128. The services
+Orchard's 399 on every run, `Nop.Core` 93 of nopCommerce's 128. The services
 and controllers give almost none: `Nop.Services` 6, `Nop.Web` and `Nop.Admin`
 none, because they are built by a container and called with what a request
 carries, which is what the instance and parameter rows of that table count.
