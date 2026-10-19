@@ -384,13 +384,23 @@ Step 'What characterization reaches on a real Framework estate' {
     foreach ($project in Get-ChildItem -Path $Repo -Recurse -Filter *.csproj) {
         $text = Get-Content $project.FullName -Raw
         $name = if ($text -match '<AssemblyName>\s*([^<\s]+)\s*</AssemblyName>') { $Matches[1] } else { $project.BaseName }
-        $names[$name] = $true
+        $names[$name] = $project.DirectoryName
     }
 
+    # The newest copy, preferring one under the project's own folder. A copy
+    # elsewhere sits next to whatever its host chose to copy with it: Nop.Data
+    # gave 4 callable methods on one run and 0 on the next, once the plugins
+    # stopped copying what the web application already has (M31).
     $found = Get-ChildItem -Path $Repo -Recurse -Filter *.dll |
         Where-Object { $_.FullName -notmatch '\\(obj|packages)\\' -and $names.ContainsKey($_.BaseName) } |
         Group-Object BaseName |
-        ForEach-Object { $_.Group | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } |
+        ForEach-Object {
+            $own = $names[$_.Name] + '\'
+            $_.Group |
+                Sort-Object @{ Expression = { $_.FullName.StartsWith($own, [StringComparison]::OrdinalIgnoreCase) }; Descending = $true },
+                            @{ Expression = 'LastWriteTime'; Descending = $true } |
+                Select-Object -First 1
+        } |
         Sort-Object Name
 
     $assemblies = @($found | Select-Object -First $Assemblies)
