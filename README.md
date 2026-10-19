@@ -1,5 +1,7 @@
 # Legacy Lens
 
+**[liquidsnake0.github.io/legacy-lens](https://liquidsnake0.github.io/legacy-lens/)**: what it does, in one page, in English, [French](https://liquidsnake0.github.io/legacy-lens/fr/) and [German](https://liquidsnake0.github.io/legacy-lens/de/), with [the full report on Orchard CMS](https://liquidsnake0.github.io/legacy-lens/sample/orchard/).
+
 Ask questions about a codebase nobody maintains any more.
 
 Point it at a repository. It reads the source, indexes it, and answers questions
