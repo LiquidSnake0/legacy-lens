@@ -88,6 +88,82 @@ public class SdkStyleConversionTests : IDisposable
     }
 
     [Fact]
+    public void Assembly_attributes_stay_in_the_project_s_own_file()
+    {
+        // M30, on a Windows runner: every one of Orchard's twenty-six errors
+        // after conversion was CS0579. The SDK generates AssemblyVersion and the
+        // rest, the project still carries the AssemblyInfo.cs that declares
+        // them, and nothing told the SDK not to.
+        var body = """
+              <ItemGroup>
+                <Compile Include="Thing.cs" />
+                <Compile Include="Properties\AssemblyInfo.cs" />
+              </ItemGroup>
+            """;
+        var project = Project("Sample", body);
+        var properties = Path.Combine(_root, "Sample", "Properties");
+        Directory.CreateDirectory(properties);
+        File.WriteAllText(Path.Combine(properties, "AssemblyInfo.cs"),
+            "[assembly: System.Reflection.AssemblyVersion(\"1.0.0.0\")]");
+
+        var patch = new SdkStyleConversion().Propose(project, _root).Proposal!.Patch;
+
+        Assert.Contains("+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>", patch);
+    }
+
+    [Fact]
+    public void A_source_file_the_old_project_left_out_stays_out_and_is_named()
+    {
+        // M30 again: nopCommerce's Nop.Core has NopStarter.cs on disk and not in
+        // the project, obsolete and referring to a namespace that is gone. The
+        // SDK compiles the whole folder, so the conversion brought it back and
+        // the build failed on it. The old list said which files were in; the
+        // new file has to say which are out.
+        var body = """
+              <ItemGroup>
+                <Compile Include="Thing.cs" />
+                <Compile Include="Infrastructure\Engine.cs" />
+              </ItemGroup>
+            """;
+        var project = Project("Sample", body);
+        var folder = Path.Combine(_root, "Sample");
+        Directory.CreateDirectory(Path.Combine(folder, "Infrastructure"));
+        File.WriteAllText(Path.Combine(folder, "Thing.cs"), "class Thing { }");
+        File.WriteAllText(Path.Combine(folder, "Infrastructure", "Engine.cs"), "class Engine { }");
+        File.WriteAllText(Path.Combine(folder, "Infrastructure", "Starter.cs"), "class Starter { }");
+
+        // What a build of the old project leaves behind is not the team's
+        // source, and the SDK does not glob it either.
+        Directory.CreateDirectory(Path.Combine(folder, "obj", "Debug"));
+        File.WriteAllText(Path.Combine(folder, "obj", "Debug", "Generated.cs"), "class Generated { }");
+
+        var proposal = new SdkStyleConversion().Propose(project, _root).Proposal!;
+
+        Assert.Contains("+    <Compile Remove=\"Infrastructure/Starter.cs\" />", proposal.Patch);
+        Assert.DoesNotContain("Remove=\"Thing.cs\"", proposal.Patch);
+        Assert.DoesNotContain("Remove=\"Infrastructure/Engine.cs\"", proposal.Patch);
+        Assert.DoesNotContain("Generated.cs", proposal.Patch);
+        Assert.Contains(proposal.Caveats, c => c.Says.Contains("Infrastructure/Starter.cs"));
+    }
+
+    [Fact]
+    public void A_wildcard_include_is_not_compared_with_the_folder()
+    {
+        var body = """
+              <ItemGroup>
+                <Compile Include="**\*.cs" />
+              </ItemGroup>
+            """;
+        var project = Project("Sample", body);
+        File.WriteAllText(Path.Combine(_root, "Sample", "Thing.cs"), "class Thing { }");
+
+        var proposal = new SdkStyleConversion().Propose(project, _root).Proposal!;
+
+        Assert.DoesNotContain("Compile Remove", proposal.Patch);
+        Assert.Contains(proposal.Caveats, c => c.About == "compile-not-listed");
+    }
+
+    [Fact]
     public void A_custom_target_refuses_the_conversion()
     {
         var body = Clean + "\n  <Target Name=\"AfterBuild\">\n    <Message Text=\"hi\" />\n  </Target>";

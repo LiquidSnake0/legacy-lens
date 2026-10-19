@@ -234,6 +234,15 @@ public class SdkStyleConversion
         foreach (var property in carried)
             properties.Add($"    <{property.Name.LocalName}>{property.Value.Trim()}</{property.Name.LocalName}>");
 
+        // The old format never generated an assembly attribute: AssemblyInfo.cs
+        // did, and still does. The SDK generates AssemblyVersion, AssemblyTitle
+        // and the rest unless told not to, so a converted project declared each
+        // of them twice and failed with CS0579. That was every one of Orchard's
+        // twenty-six errors after conversion on M30, and six of nopCommerce's
+        // eleven. Off, unconditionally, because off is what the project had.
+        if (!carried.Any(p => p.Name.LocalName.Equals("GenerateAssemblyInfo", StringComparison.OrdinalIgnoreCase)))
+            properties.Add("    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>");
+
         lines.Add("  <PropertyGroup>");
         lines.AddRange(properties);
         lines.Add("  </PropertyGroup>");
@@ -241,6 +250,7 @@ public class SdkStyleConversion
         AddItems(lines, root, ns, "PackageReference", caveats);
         AddItems(lines, root, ns, "ProjectReference", caveats);
         AddBareReferences(lines, root, ns, caveats);
+        KeepLeftOut(lines, root, ns, project, caveats);
 
         var globbed = root.Elements(ns + "ItemGroup")
             .SelectMany(g => g.Elements())
@@ -250,8 +260,8 @@ public class SdkStyleConversion
         {
             caveats.Add(new Caveat("items-globbed",
                 $"{globbed} Compile, Content, None and EmbeddedResource item(s) are dropped: the SDK " +
-                "includes them from the folder. Anything deliberately excluded from the build was " +
-                "excluded by not being listed, and that exclusion is now gone."));
+                "includes them from the folder. Source files left out of the old project are kept " +
+                "out by name; any other file left out by not being listed is now included."));
         }
 
         caveats.Add(new Caveat("build-configurations",
@@ -342,6 +352,95 @@ public class SdkStyleConversion
         lines.Add("  <ItemGroup>");
         foreach (var id in references) lines.Add($"    <Reference Include=\"{id}\" />");
         lines.Add("  </ItemGroup>");
+    }
+
+    /// <summary>
+    /// Source files on disk that the old project did not compile, kept out of
+    /// the new one by name.
+    ///
+    /// The SDK compiles every `.cs` under the project folder. The old format
+    /// compiled what it listed, so a file the team took out of the build by
+    /// removing it from the list came back with the conversion. On nopCommerce
+    /// 3.90 that was `Nop.Core\Infrastructure\NopStarter.cs`, marked obsolete
+    /// and referring to a namespace that no longer exists, and it was five of
+    /// the eleven errors after conversion on M30. The tool reads the project,
+    /// so it knows which files these are, and says so by name.
+    /// </summary>
+    private static void KeepLeftOut(
+        List<string> lines, XElement root, XNamespace ns, ProjectModernisation project, List<Caveat> caveats)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(project.Path));
+        if (folder is null || !Directory.Exists(folder)) return;
+
+        var includes = root.Elements(ns + "ItemGroup")
+            .SelectMany(g => g.Elements(ns + "Compile"))
+            .Select(e => e.Attribute("Include")?.Value)
+            .OfType<string>()
+            .ToList();
+
+        // A wildcard or a property in an include means the list is not a list
+        // of files, and comparing it with the folder would invent exclusions.
+        if (includes.Any(i => i.IndexOfAny(['*', '?']) >= 0 || i.Contains("$(", StringComparison.Ordinal)))
+        {
+            caveats.Add(new Caveat("compile-not-listed",
+                "The old project compiles by wildcard or through a property, so which source files " +
+                "it left out could not be worked out. The SDK compiles every .cs in the folder."));
+            return;
+        }
+
+        var listed = new HashSet<string>(
+            includes.SelectMany(i => i.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Select(i => Path.GetFullPath(Path.Combine(folder, Uri.UnescapeDataString(i).Replace('\\', Path.DirectorySeparatorChar)))),
+            StringComparer.OrdinalIgnoreCase);
+
+        var leftOut = SourcesTheSdkWouldCompile(folder)
+            .Where(file => !listed.Contains(file))
+            .Select(file => Path.GetRelativePath(folder, file).Replace('\\', '/'))
+            .OrderBy(file => file, StringComparer.Ordinal)
+            .ToList();
+
+        if (leftOut.Count == 0) return;
+
+        lines.Add("");
+        lines.Add("  <ItemGroup>");
+        foreach (var file in leftOut) lines.Add($"    <Compile Remove=\"{System.Security.SecurityElement.Escape(file)}\" />");
+        lines.Add("  </ItemGroup>");
+
+        var named = leftOut.Count <= 8
+            ? string.Join(", ", leftOut)
+            : string.Join(", ", leftOut.Take(8)) + $", and {leftOut.Count - 8} more";
+
+        caveats.Add(new Caveat($"compile-left-out:{project.Name}",
+            $"{leftOut.Count} source file(s) on disk were not in the old project and are kept out " +
+            $"of the build by name: {named}. Left out of a project and kept in the tree is how dead " +
+            "code is usually parked; whether to delete it is a separate question."));
+    }
+
+    /// <summary>
+    /// What the SDK's default `Compile` glob picks up: every `.cs` under the
+    /// folder, except under its own `bin` and `obj` and any folder whose name
+    /// starts with a dot. `obj` matters more than it looks: after a build of the
+    /// old project it holds generated sources the SDK would never compile.
+    /// </summary>
+    private static IEnumerable<string> SourcesTheSdkWouldCompile(string folder)
+    {
+        IEnumerable<string> Walk(string directory, bool top)
+        {
+            foreach (var file in Directory.EnumerateFiles(directory, "*.cs"))
+                yield return Path.GetFullPath(file);
+
+            foreach (var child in Directory.EnumerateDirectories(directory))
+            {
+                var name = Path.GetFileName(child);
+                if (name.StartsWith('.')) continue;
+                if (top && (name.Equals("bin", StringComparison.OrdinalIgnoreCase)
+                         || name.Equals("obj", StringComparison.OrdinalIgnoreCase))) continue;
+
+                foreach (var file in Walk(child, top: false)) yield return file;
+            }
+        }
+
+        return Walk(folder, top: true);
     }
 
     private static string? Property(XElement root, XNamespace ns, string name) =>
