@@ -171,9 +171,10 @@ public class ConversionOrderTests : IDisposable
 /// What the conversion is allowed to claim.
 ///
 /// It prints a patch. `git apply` takes it. Neither of those is a solution
-/// restoring, and neither is a solution compiling: nopCommerce 3.90 targets
-/// .NET Framework and checking that needs a toolchain this repository has not
-/// had.
+/// restoring, and neither is a solution compiling. Two solutions have been
+/// built after both conversions, on a Windows runner (M31), and that is all
+/// the sentence may claim: it is about Orchard and nopCommerce 3.90, never
+/// about the solution the reader just converted.
 ///
 /// A reader hears *converted* as *it builds*. The distance between those two is
 /// the largest gap in this repository between what it says and what it has
@@ -183,8 +184,11 @@ public class ConversionOrderTests : IDisposable
 public class ConversionClaimTests
 {
     private static readonly string Says =
-        "A patch, and not a build. These apply cleanly and nobody here has restored or "
-      + "compiled the result, which needs the toolchain the solution targets.";
+        "A patch, and not a build of this solution. Applied in order, the two conversions "
+      + "have been built on Orchard and nopCommerce 3.90 and both compiled (M31); this "
+      + "solution has not been, and that needs the toolchain it targets. Restore with "
+      + "msbuild -t:Restore rather than dotnet restore while any project keeps the old "
+      + "format: the .NET SDK leaves out the runtime those projects ask for.";
 
     [Theory]
     [InlineData("sdk")]
