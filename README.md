@@ -486,7 +486,8 @@ assembly it examined 402 members, could call 11, and kept 44 tests. The other
 parameters it has no values for, and methods returning void. On modern code that
 ratio is poor by construction, and **on a real .NET Framework estate it does not
 invert**: built on Windows and run over every assembly the solution produces, it
-keeps 399 tests on Orchard and 128 on nopCommerce 3.90, most of them from the
+keeps 399 tests on Orchard (393 on a second run, see M30) and 128 on
+nopCommerce 3.90, most of them from the
 utility layer (`Orchard.Framework` 255, `Nop.Core` 93), and almost none from the
 services and controllers, which a container builds and a request feeds.
 Accessors and generated members alone outnumber what it can call seventeen to

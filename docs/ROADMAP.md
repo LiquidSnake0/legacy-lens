@@ -2925,16 +2925,16 @@ was failing before the patches.
 | restore after | succeeds | succeeds |
 | **build after** | **0 assemblies, 26 errors in 5 projects** | **0 assemblies, 11 errors in 1 project** |
 
-Restore works on both, and on the packages side that is the claim M22 made:
-every packages.config is gone and what replaced it restores. The build is where
+Restore works on both, which is one step further than M22 could show: every
+packages.config is gone, and what replaced it restores. The build is where
 it stops, and **it stops on two causes, both in the SDK conversion**.
 
 **Duplicate assembly attributes.** Every one of Orchard's twenty-six errors and
 six of nopCommerce's eleven are `CS0579`. An SDK project generates
 `AssemblyVersion`, `AssemblyTitle` and the rest by default, and every converted
-project still carries the `AssemblyInfo.cs` that declares them. The
-conversion keeps the file and does not set `GenerateAssemblyInfo` to false. That
-is mechanical, the same in every codebase, and exactly the kind of thing this
+project still carries the `AssemblyInfo.cs` that declares them. The conversion
+keeps the file and does not set `GenerateAssemblyInfo` to false. That is
+mechanical, the same in every codebase, and exactly the kind of thing this
 conversion exists to do; it simply was not known until something compiled the
 output.
 
@@ -2968,18 +2968,28 @@ build wrote none, under this repository's own .NET 10 runtime.
 | assemblies | 87, 86 ran, 1 did not load | 31, all ran |
 | methods it could call | 591 | 344 |
 | calls made | 1,281 | 987 |
-| **tests kept**, compiled and passing | **399** | **128** |
+| **tests kept**, compiled and passing | **399**, then 393 | **128**, then 128 |
 | assemblies with no test at all | 58 of 87 | 23 of 31 |
 | time | 131 s | 41 s |
 
 The one that did not load is `Orchard.Tests.dll`, built for x86, which a 64-bit
 process refuses: an honest refusal, said as such.
 
+**Two full runs of the same build did not agree on Orchard.** nopCommerce gave
+the same figures to the unit both times. Orchard did not, and all of the
+difference is one assembly: `Orchard.Core` kept 8, 7 and 1 tests on three runs,
+the same 41 methods and 55 calls each time. One run recorded a pair of calls
+that disagreed; the last lost a whole generated file to its own check. Nothing
+that failed was offered, which is the rule, but a net that keeps a different
+number of tests on each run is a net whose output nobody can review once and
+trust, and why `Orchard.Core` does this is not known yet. The table below is the
+first run over all 87.
+
 **The ratio did not invert.** On modern code it examined 402 members and could
 call 11. Here, property accessors, operators and generated members alone
 outnumber the methods it could call seventeen to one on Orchard (10,130 to 591)
-and forty to one on nopCommerce (13,661 to 344). After those come the same reasons, in
-nearly the same order:
+and forty to one on nopCommerce (13,661 to 344). After those come the same
+reasons, in nearly the same order:
 
 | not characterized, as recorded | Orchard | nopCommerce |
 |---|---|---|
@@ -2992,21 +3002,21 @@ nearly the same order:
 | returned something no assertion can compare | 218 | 36 |
 
 And the tests are where the plain code is. `Orchard.Framework` gives 255 of
-Orchard's 399, `Nop.Core` 93 of nopCommerce's 128. The services and controllers
-give almost none: `Nop.Services` 6, `Nop.Web` and `Nop.Admin` none, because
-they are built by a container and called with what a request carries, which is
-what the instance and parameter rows of that table count. That is the half of the
-product's claim this measurement was for, and the answer is: it works on
+Orchard's 399 on both runs, `Nop.Core` 93 of nopCommerce's 128. The services
+and controllers give almost none: `Nop.Services` 6, `Nop.Web` and `Nop.Admin`
+none, because they are built by a container and called with what a request
+carries, which is what the instance and parameter rows of that table count.
+That is the half of the product's claim this measurement was for, and the answer is: it works on
 Framework code, it loads it and runs it, and **what it reaches is the utility
 layer, not the code that hurts.** `Nop.Admin` offered 166 methods to call, made
 496 calls, and kept nothing.
 
 ### What this does not say
 
-Nothing about GenerateAssemblyInfo or NopStarter has been fixed. Doing that
-before publishing would have turned a measurement into a demonstration. Both are
-M31, measured again on the same runner, and so is whatever the next build after
-them finds.
+Nothing about `GenerateAssemblyInfo`, `NopStarter` or `Orchard.Core` has been
+fixed. Doing that before publishing would have turned a measurement into a
+demonstration. All three are M31, measured again on the same runner, and so is
+whatever the next build after them finds.
 
 ---
 
