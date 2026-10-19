@@ -3018,6 +3018,147 @@ fixed. Doing that before publishing would have turned a measurement into a
 demonstration. All three are M31, measured again on the same runner, and so is
 whatever the next build after them finds.
 
+## M31. Converted, and built ✅
+
+*M30 promised this: the two causes it found, fixed in the conversion, and the
+same runner asked again. It was asked four times, and each build said what the
+next fix was.*
+
+### Before and after, on the same runner
+
+| | Orchard | nopCommerce 3.90 |
+|---|---|---|
+| projects in the SDK format after `sdk` | 13 of 89 | 29 of 31 |
+| before conversion | 88 assemblies, 0 errors | 31 assemblies, 0 errors |
+| M30, after conversion | 0 assemblies, 26 errors | 0 assemblies, 11 errors |
+| **M31, after conversion** | **88 assemblies, 0 errors** | **31 assemblies, 0 errors** |
+
+**Every project that built before the patches builds after them**, and the
+build exits zero on both. Among them are all twenty-nine converted on
+nopCommerce and twelve of the thirteen on Orchard; the thirteenth,
+`Orchard.Messaging.Tests`, is not in `Orchard.sln` and was built neither before
+nor after. *Converted* means a solution that compiles, on these
+two codebases, as of this milestone. It means nothing yet about what a converted
+project does at run time, which no build checks, and the last section below
+says what that leaves.
+
+### What each build found
+
+**First build: the two causes of M30.** Both fixed in `SdkStyleConversion`,
+with a test each.
+
+- `GenerateAssemblyInfo` is now written as false on every converted project.
+  Not only where an `AssemblyInfo.cs` exists: the old format never generated an
+  assembly attribute, so off is what every one of these projects had.
+- A `.cs` on disk that the old project did not list is kept out with
+  `<Compile Remove>`, and named in the notes, per project: *Nop.Core: 1 source
+  file(s) on disk were not in the old project and are kept out of the build by
+  name: Infrastructure/NopStarter.cs.* The walk skips the project's own `bin`
+  and `obj` and dotted folders, as the SDK's glob does, which matters on a
+  machine that has just built the old project: its `obj` is full of generated
+  sources. A project that compiles by wildcard is not compared with its folder
+  at all, and says so. Orchard had one such file too: `NHibernate.Linq` keeps
+  an `AssemblyInfo.cs` it does not compile.
+
+That took nopCommerce from 0 to 28 assemblies and Orchard from 0 to 8.
+
+**Second build: a restore problem, in the measurement.** Everything that still
+failed was a project the SDK conversion had refused: Orchard's modules and web
+application, `Nop.Web` and `Nop.Admin`. They keep the old format, with
+PackageReference in it since the `packages` conversion, and every one failed
+with NuGet's *Your project file doesn't list 'win' as a "RuntimeIdentifier"*.
+`measure.ps1` restored with `dotnet restore`, and the .NET SDK's restore leaves
+out the runtime the old targets then ask the assets file for. Restored by the
+MSBuild that builds them, they build. That is now what the script does, and
+what the conversion's notes tell a reader to do while any project keeps the old
+format.
+
+The same build showed the tally reporting *0 errors* under a failed build:
+NuGet's errors carry no code and it counted only coded ones. It counts both now.
+
+That took both solutions to everything: 88 and 31.
+
+**Third build: what compiles and is still lost.** A green build checks what the
+compiler sees, and three things this conversion dropped are invisible to it.
+Read off the old project files, all mechanical, each with a test:
+
+- **Files copied to the output.** Every nopCommerce plugin copies its views and
+  its `Description.txt` next to its assembly, which is how the application finds
+  it. The SDK's glob includes those files and copies none of them. Kept as
+  `<None Update CopyToOutputDirectory>`: 123 items on nopCommerce, and 18 on
+  Orchard, the hosting fixtures of `Orchard.Specs` among them.
+- **Embedded resources that are not `.resx`.** The SDK embeds `.resx` on its own
+  and nothing else; the Google Shopping feed embeds `taxonomy.txt`. Kept.
+- **An output folder every configuration shares.** nopCommerce builds each
+  plugin into `Nop.Web\Plugins\<name>\`, in Debug and Release alike. Dropped with
+  the build configurations, the plugins compiled into their own `bin` and the
+  application would never have loaded them. Kept, with
+  `AppendTargetFrameworkToOutputPath` off so it is the same folder. An
+  `OutputPath` that differs between configurations still goes with them.
+- And `Private`, on a project or framework reference: a plugin builds into the
+  application's folder and does not copy `Nop.Core` next to it.
+
+The build after that was still 88 and 31, and the log shows the plugins written
+where they were before the patches.
+
+**Fourth build: one more measurement fix.** Characterization takes the newest
+copy of each assembly, and once the plugins stopped copying their references,
+the newest `Nop.Data.dll` sat in a folder without Entity Framework: 0 methods
+callable where its own `bin` gave 4. It prefers the copy under the project's
+own folder now, and nopCommerce came back to M30's figures to the unit: 344
+methods, 987 calls, 128 tests.
+
+### What is left, and whose it is
+
+None of these is a compile error, and none is mechanical.
+
+- **The projects the conversion refuses stay in the old format.** 76 on
+  Orchard, 2 on nopCommerce, and the reasons have not changed: web application
+  targets, `ProjectExtensions`, custom build targets. There is no SDK format for
+  an ASP.NET MVC 5 application on .NET Framework; moving them means choosing
+  between leaving them as they are and porting them to ASP.NET Core, and that is
+  a migration, not a conversion.
+- **Package assemblies now reach the plugin folders.** The old plugin projects
+  referenced their packages by hint path with `Private` false, so nothing was
+  copied; PackageReference copies a package's runtime assemblies to the output,
+  and transitively. Whether that matters depends on which version the
+  application loads first, and `ExcludeAssets="runtime"` is a choice to make per
+  package, not a translation. Not measured: nothing here ran nopCommerce.
+- **Nothing was run.** The build is green; whether the converted application
+  starts, finds its plugins and serves a page is a different measurement, on a
+  database, and has not been made.
+
+### Why Orchard.Core kept a different number of tests on each run
+
+It is `Orchard.Core.Containers.Services.Randomizer`, a wrapper around
+`System.Random`, and the rule that should have caught it is too weak for it.
+A case is kept when two identical calls agree and the written test then passes.
+`Next(0, 2)` agrees with itself half the time.
+
+The generated files are kept now, so this could be read rather than guessed.
+On every run the same 7 tests survive: `DateUtils`, and the six `Randomizer`
+cases whose range has one value in it, `Next(1, 1)`, `Next(0)` and the like,
+which are deterministic. The cases with a real range are what moves. Across
+four runs, *two identical calls disagreed* plus *did not compile or did not
+pass* is 16 every time: 16 and 0, 15 and 1, 14 and 2. A case that agreed by
+chance is written and then fails its check, or does not.
+
+That accounts for all of M30's figures. **8** is one random case that agreed
+twice and passed twice, by chance: a test that will fail one run in two, and
+it was kept. **1** is the recheck: a case that passed the first check by chance
+failed the second, the file was dropped whole as *still failing after dropping
+the failures*, and only `DateUtils` was left.
+
+So *nothing that failed was offered* held, and *nothing offered is flaky* did
+not: two observations cannot tell a coin from a constant. Calling more often, or
+refusing a method whose type holds a `Random`, would close it; which of the two
+is a decision about characterization, and it is left for that.
+
+One more figure moved, and is reported rather than explained: `Orchard.Framework`
+built in the SDK format keeps 267 tests on every run, where the old build kept
+255. The same 207 methods, 12 more calls and 12 more tests. Orchard's total is
+411 for that reason, and the M30 table stands as what the old build gives.
+
 ---
 
 ## Deliberately out of scope
