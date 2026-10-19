@@ -243,6 +243,22 @@ public class SdkStyleConversion
         if (!carried.Any(p => p.Name.LocalName.Equals("GenerateAssemblyInfo", StringComparison.OrdinalIgnoreCase)))
             properties.Add("    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>");
 
+        // An output folder every configuration agrees on is not a build
+        // configuration, it is where the project goes. nopCommerce builds each
+        // plugin into the web application's Plugins folder, which is where the
+        // application looks for it; dropped with the configurations, the plugins
+        // compiled and were never found. The SDK appends the framework to the
+        // path, so that is turned off to put the output where it was.
+        var output = SharedOutputPath(root, ns);
+        if (output is not null)
+        {
+            properties.Add($"    <OutputPath>{output}</OutputPath>");
+            properties.Add("    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>");
+            caveats.Add(new Caveat("output-path-kept",
+                $"Every configuration wrote to {output}, so that output folder is kept, without the " +
+                "framework folder the SDK would add."));
+        }
+
         lines.Add("  <PropertyGroup>");
         lines.AddRange(properties);
         lines.Add("  </PropertyGroup>");
@@ -251,6 +267,7 @@ public class SdkStyleConversion
         AddItems(lines, root, ns, "ProjectReference", caveats);
         AddBareReferences(lines, root, ns, caveats);
         KeepLeftOut(lines, root, ns, project, caveats);
+        KeepWhatTheGlobLoses(lines, root, ns, project, caveats);
 
         var globbed = root.Elements(ns + "ItemGroup")
             .SelectMany(g => g.Elements())
@@ -266,7 +283,7 @@ public class SdkStyleConversion
 
         caveats.Add(new Caveat("build-configurations",
             "Build configurations are dropped. Debug and Release come from the SDK, and any " +
-            "non-default OutputPath or DefineConstants went with them."));
+            "DefineConstants, or OutputPath that differed between them, went with them."));
 
         if (carried.Count > 0)
         {
@@ -308,7 +325,7 @@ public class SdkStyleConversion
             }
             else
             {
-                lines.Add($"    <{name} Include=\"{include.Replace('\\', '/')}\" />");
+                lines.Add($"    <{name} Include=\"{include.Replace('\\', '/')}\"{Private(root, ns, name, include)} />");
             }
         }
 
@@ -350,7 +367,13 @@ public class SdkStyleConversion
 
         lines.Add("");
         lines.Add("  <ItemGroup>");
-        foreach (var id in references) lines.Add($"    <Reference Include=\"{id}\" />");
+        foreach (var id in references)
+        {
+            var element = root.Elements(ns + "ItemGroup").SelectMany(g => g.Elements(ns + "Reference"))
+                .First(e => e.Element(ns + "HintPath") is null
+                         && e.Attribute("Include")?.Value?.Split(',')[0].Trim().Equals(id, StringComparison.OrdinalIgnoreCase) == true);
+            lines.Add($"    <Reference Include=\"{id}\"{Private(root, ns, "Reference", element.Attribute("Include")!.Value)} />");
+        }
         lines.Add("  </ItemGroup>");
     }
 
@@ -403,7 +426,7 @@ public class SdkStyleConversion
 
         lines.Add("");
         lines.Add("  <ItemGroup>");
-        foreach (var file in leftOut) lines.Add($"    <Compile Remove=\"{System.Security.SecurityElement.Escape(file)}\" />");
+        foreach (var file in leftOut) lines.Add($"    <Compile Remove=\"{Escape(file)}\" />");
         lines.Add("  </ItemGroup>");
 
         var named = leftOut.Count <= 8
@@ -415,6 +438,100 @@ public class SdkStyleConversion
             $"of the build by name: {named}. Left out of a project and kept in the tree is how dead " +
             "code is usually parked; whether to delete it is a separate question."));
     }
+
+    /// <summary>
+    /// The output folder, when every configuration that names one names the
+    /// same; otherwise nothing. The SDK's default is `bin\Debug\net48\`,
+    /// so even a plain `bin\` is a choice the old project made.
+    /// </summary>
+    private static string? SharedOutputPath(XElement root, XNamespace ns)
+    {
+        var paths = root.Elements(ns + "PropertyGroup")
+            .Elements(ns + "OutputPath")
+            .Select(e => e.Value.Trim().Replace('/', '\\'))
+            .Where(v => v.Length > 0)
+            .Select(v => v.EndsWith('\\') ? v : v + "\\")
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // A property in it is a configuration after all.
+        if (paths.Count != 1 || paths[0].Contains("$(", StringComparison.Ordinal)) return null;
+        return paths[0];
+    }
+
+    /// <summary>
+    /// The items the SDK's globs include and then do nothing with.
+    ///
+    /// Dropping a listed item is safe only where the glob brings it back as it
+    /// was. Two kinds it does not: a file copied to the output, because the
+    /// glob includes it without the copy, and an embedded resource that is not
+    /// a `.resx`, because only `.resx` is embedded by default. Both compile
+    /// either way and fail at run time, which is why no build found them: every
+    /// nopCommerce plugin copies its views and its Description.txt, which is
+    /// how the application finds it, and the Google Shopping feed embeds its
+    /// taxonomy.
+    /// </summary>
+    private static void KeepWhatTheGlobLoses(
+        List<string> lines, XElement root, XNamespace ns, ProjectModernisation project, List<Caveat> caveats)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(project.Path)) ?? string.Empty;
+        var kept = new List<string>();
+        var copied = 0;
+        var embedded = 0;
+
+        foreach (var item in root.Elements(ns + "ItemGroup").SelectMany(g => g.Elements()))
+        {
+            var include = item.Attribute("Include")?.Value;
+            if (include is null) continue;
+
+            var kind = item.Name.LocalName;
+            var copy = item.Element(ns + "CopyToOutputDirectory")?.Value.Trim();
+            var link = item.Element(ns + "Link")?.Value.Trim();
+            var logical = item.Element(ns + "LogicalName")?.Value.Trim();
+            var path = Escape(include.Replace('\\', '/'));
+
+            if (kind is "Content" or "None"
+                && copy is { Length: > 0 } && !copy.Equals("Never", StringComparison.OrdinalIgnoreCase))
+            {
+                // Inside the folder the glob already has it as None, and an
+                // Update adds the copy to that item instead of a second one.
+                var verb = Inside(folder, include) ? "Update" : "Include";
+                var linked = verb == "Include" && link is { Length: > 0 }
+                    ? $" Link=\"{Escape(link.Replace('\\', '/'))}\"" : string.Empty;
+                kept.Add($"    <None {verb}=\"{path}\"{linked} CopyToOutputDirectory=\"{copy}\" />");
+                copied++;
+            }
+            else if (kind == "EmbeddedResource"
+                     && !include.EndsWith(".resx", StringComparison.OrdinalIgnoreCase))
+            {
+                var named = logical is { Length: > 0 } ? $" LogicalName=\"{Escape(logical)}\"" : string.Empty;
+                kept.Add($"    <EmbeddedResource Include=\"{path}\"{named} />");
+                embedded++;
+            }
+        }
+
+        if (kept.Count == 0) return;
+
+        lines.Add("");
+        lines.Add("  <ItemGroup>");
+        lines.AddRange(kept);
+        lines.Add("  </ItemGroup>");
+
+        caveats.Add(new Caveat("items-kept",
+            $"{copied} file(s) copied to the output and {embedded} embedded resource(s) other than " +
+            ".resx are kept as items: the SDK's globs include them without the copy and without " +
+            "embedding them."));
+    }
+
+    private static bool Inside(string folder, string include)
+    {
+        var full = Path.GetFullPath(Path.Combine(folder,
+            Uri.UnescapeDataString(include).Replace('\\', Path.DirectorySeparatorChar)));
+        var relative = Path.GetRelativePath(folder, full);
+        return !relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative);
+    }
+
+    private static string Escape(string value) => System.Security.SecurityElement.Escape(value);
 
     /// <summary>
     /// What the SDK's default `Compile` glob picks up: every `.cs` under the
@@ -441,6 +558,26 @@ public class SdkStyleConversion
         }
 
         return Walk(folder, top: true);
+    }
+
+    /// <summary>
+    /// `Private`, when the old reference said it, as an attribute; otherwise
+    /// nothing.
+    ///
+    /// It says whether the referenced assembly is copied next to this one, and
+    /// a project that builds into another application's folder sets it to
+    /// false so as not to bring a second copy of what the application already
+    /// has. Every nopCommerce plugin does, for Nop.Core, Nop.Services and
+    /// Nop.Web.Framework.
+    /// </summary>
+    private static string Private(XElement root, XNamespace ns, string name, string include)
+    {
+        var value = root.Elements(ns + "ItemGroup")
+            .SelectMany(g => g.Elements(ns + name))
+            .FirstOrDefault(e => e.Attribute("Include")?.Value == include)
+            ?.Element(ns + "Private")?.Value.Trim();
+
+        return value is { Length: > 0 } ? $" Private=\"{value}\"" : string.Empty;
     }
 
     private static string? Property(XElement root, XNamespace ns, string name) =>

@@ -164,6 +164,112 @@ public class SdkStyleConversionTests : IDisposable
     }
 
     [Fact]
+    public void A_file_copied_to_the_output_keeps_its_copy()
+    {
+        // Every nopCommerce 3.90 plugin copies its views and Description.txt
+        // next to its assembly, which is how the application finds it. The
+        // SDK's glob includes those files and copies none of them, and a build
+        // cannot tell: it compiled, and the plugin was gone.
+        var body = """
+              <ItemGroup>
+                <Content Include="Views\Configure.cshtml">
+                  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+                </Content>
+                <None Include="logo.jpg">
+                  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+                </None>
+                <Content Include="readme.txt" />
+              </ItemGroup>
+            """;
+
+        var patch = new SdkStyleConversion().Propose(Project("Sample", body), _root).Proposal!.Patch;
+
+        Assert.Contains("+    <None Update=\"Views/Configure.cshtml\" CopyToOutputDirectory=\"PreserveNewest\" />", patch);
+        Assert.Contains("+    <None Update=\"logo.jpg\" CopyToOutputDirectory=\"Always\" />", patch);
+        Assert.DoesNotContain("+    <None Update=\"readme.txt\"", patch);
+    }
+
+    [Fact]
+    public void An_embedded_resource_that_is_not_resx_stays_embedded()
+    {
+        // The SDK embeds .resx on its own and nothing else.
+        var body = """
+              <ItemGroup>
+                <EmbeddedResource Include="Files\taxonomy.txt" />
+                <EmbeddedResource Include="Strings.resx" />
+              </ItemGroup>
+            """;
+
+        var patch = new SdkStyleConversion().Propose(Project("Sample", body), _root).Proposal!.Patch;
+
+        Assert.Contains("+    <EmbeddedResource Include=\"Files/taxonomy.txt\" />", patch);
+        Assert.DoesNotContain("+    <EmbeddedResource Include=\"Strings.resx\"", patch);
+    }
+
+    [Fact]
+    public void An_output_folder_every_configuration_shares_is_kept()
+    {
+        // Where nopCommerce builds a plugin: into the web application, in Debug
+        // and in Release alike. That is not a build configuration, and dropping
+        // it with them left every plugin where the application never looks.
+        var body = """
+              <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+                <OutputPath>..\Web\Plugins\Sample\</OutputPath>
+              </PropertyGroup>
+            """;
+        var project = Project("Sample", body);
+        File.WriteAllText(project.Path, File.ReadAllText(project.Path)
+            .Replace("<OutputPath>bin\\</OutputPath>", "<OutputPath>..\\Web\\Plugins\\Sample\\</OutputPath>"));
+
+        var patch = new SdkStyleConversion().Propose(project, _root).Proposal!.Patch;
+
+        // A context line rather than an added one: the diff finds it where the
+        // old file had it.
+        Assert.Contains(" <OutputPath>..\\Web\\Plugins\\Sample\\</OutputPath>", patch);
+        Assert.Contains("+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>", patch);
+    }
+
+    [Fact]
+    public void An_output_folder_that_differs_by_configuration_goes_with_them()
+    {
+        var body = """
+              <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+                <OutputPath>bin\Release\</OutputPath>
+              </PropertyGroup>
+            """;
+
+        var patch = new SdkStyleConversion().Propose(Project("Sample", body), _root).Proposal!.Patch;
+
+        Assert.DoesNotContain("+    <OutputPath>", patch);
+    }
+
+    [Fact]
+    public void A_reference_that_is_not_copied_stays_not_copied()
+    {
+        // A nopCommerce plugin builds into the web application's folder and
+        // references Nop.Core with Private set to false, so as not to put a
+        // second Nop.Core next to the one the application loads.
+        var body = """
+              <ItemGroup>
+                <ProjectReference Include="..\Core\Core.csproj">
+                  <Name>Core</Name>
+                  <Private>False</Private>
+                </ProjectReference>
+                <ProjectReference Include="..\Other\Other.csproj" />
+                <Reference Include="System.Web">
+                  <Private>False</Private>
+                </Reference>
+              </ItemGroup>
+            """;
+
+        var patch = new SdkStyleConversion().Propose(Project("Sample", body), _root).Proposal!.Patch;
+
+        Assert.Contains("+    <ProjectReference Include=\"../Core/Core.csproj\" Private=\"False\" />", patch);
+        Assert.Contains("+    <ProjectReference Include=\"../Other/Other.csproj\" />", patch);
+        Assert.Contains("+    <Reference Include=\"System.Web\" Private=\"False\" />", patch);
+    }
+
+    [Fact]
     public void A_custom_target_refuses_the_conversion()
     {
         var body = Clean + "\n  <Target Name=\"AfterBuild\">\n    <Message Text=\"hi\" />\n  </Target>";
