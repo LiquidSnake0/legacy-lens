@@ -74,7 +74,9 @@ body {
 }
 
 /* The wall: cloudy mottling, then fine grain, then the formwork pattern.
-   Fixed, so it stays put and the slabs slide over it. */
+   Fixed, so it stays put and the slabs slide over it. The two textures are
+   noise stitched to their own tile, and the joints a separate layer above
+   them, so no edge of a texture tile ever shows as a line. */
 body::before,
 body::after {
   content: "";
@@ -86,13 +88,23 @@ body::after {
 
 body::before {
   opacity: var(--mottle-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.011' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='520' height='520' filter='url(%23m)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='960'%3E%3Cfilter id='m' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0125' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='960' height='960' filter='url(%23m)'/%3E%3C/svg%3E");
+}
+
+/* A wider screen gets a wider tile, so that the clouds never repeat inside
+   the viewport. Both sizes are multiples of the 240 by 120 panel, and the
+   filter region is pinned to the tile (x, y, width, height), which is what
+   makes stitchTiles meet itself at the edge: left to its default, the region
+   overhangs the tile by 10 % on every side and the noise is stitched on that
+   larger box, so it breaks where the tile does. */
+@media (min-width: 1000px) {
+  body::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1440' height='1440'%3E%3Cfilter id='m' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0125' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='1440' height='1440' filter='url(%23m)'/%3E%3C/svg%3E"); }
 }
 
 body::after {
   background-image:
     var(--banche),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.2 .75'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23g)' opacity='.5'/%3E%3C/svg%3E");
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.2 .75'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)' opacity='.5'/%3E%3C/svg%3E");
   background-position: -1px -1px, 0 0;
   opacity: 1;
 }
