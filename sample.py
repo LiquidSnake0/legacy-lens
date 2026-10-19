@@ -4,7 +4,8 @@
     python3 sample.py repos/orchard
 
 Runs the assessment exactly as the README says, keeps the Markdown it prints
-as it is (site/sample/orchard/assessment.md), and renders the same text to
+as it is (site/sample/orchard/assessment.md) with the PDF of the same run
+(site/sample/orchard/orchard-assessment.pdf), and renders the same text to
 HTML with the page's stylesheet. The renderer covers the subset of Markdown
 that ReportWriter emits: headings, paragraphs, lists, tables, fenced code,
 emphasis, inline code and links. Nothing in the report is edited.
@@ -140,7 +141,7 @@ PAGE = """<!doctype html>
   <div class="frame">
     <p class="kicker">Sample report</p>
     <p>This is the assessment Legacy Lens writes, run on <a href="https://github.com/OrchardCMS/Orchard">Orchard CMS</a> at commit {commit}, published as the tool printed it. Nothing below was edited.</p>
-    <p>Command: <code>dotnet run --project src/LegacyLens.Api -- report repos/orchard</code> · <a href="assessment.md">the Markdown as printed</a></p>
+    <p>Command: <code>dotnet run --project src/LegacyLens.Api -- report repos/orchard</code> · <a href="assessment.md">the Markdown as printed</a> · <a href="orchard-assessment.pdf">the PDF, as it would be handed over</a></p>
   </div>
   <article class="report">
 {body}
@@ -160,16 +161,17 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     repo = Path(sys.argv[1]).resolve()
-    md = subprocess.run(
+    OUT.mkdir(parents=True, exist_ok=True)
+    pdf = OUT / "orchard-assessment.pdf"
+    subprocess.run(
         ["dotnet", "run", "--project", str(ROOT / "src" / "LegacyLens.Api"), "-c", "Release",
-         "--", "report", str(repo)],
-        check=True, capture_output=True, text=True).stdout
-    if not md.startswith("# "):
-        sys.exit("the report did not come back as Markdown")
+         "--", "report", str(repo), "--pdf", str(pdf), "--markdown", str(OUT / "assessment.md")],
+        check=True, capture_output=True, text=True)
+    md = (OUT / "assessment.md").read_text(encoding="utf-8")
+    if not md.startswith("# ") or not pdf.read_bytes().startswith(b"%PDF-"):
+        sys.exit("the report did not come back as Markdown and PDF")
     commit = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short=8", "HEAD"],
                             check=True, capture_output=True, text=True).stdout.strip()
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "assessment.md").write_text(md, encoding="utf-8")
     page = PAGE.replace("{commit}", "<code>%s</code>" % commit).replace("{body}", render(md))
     (OUT / "index.html").write_text(page, encoding="utf-8")
     print("wrote", OUT / "index.html")
