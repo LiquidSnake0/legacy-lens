@@ -361,7 +361,8 @@ Step 'What characterization reaches on a real Framework estate' {
     # The solution's own assemblies, by the names its project files give them,
     # rather than every dll under a bin folder: a web application's bin holds
     # its whole dependency tree, and characterizing log4net says nothing about
-    # this codebase.
+    # this codebase. Found wherever the build put them, which is not always
+    # a bin folder: nopCommerce writes its plugins into the web project.
     $names = @{}
     foreach ($project in Get-ChildItem -Path $Repo -Recurse -Filter *.csproj) {
         $text = Get-Content $project.FullName -Raw
@@ -370,7 +371,7 @@ Step 'What characterization reaches on a real Framework estate' {
     }
 
     $found = Get-ChildItem -Path $Repo -Recurse -Filter *.dll |
-        Where-Object { $_.FullName -match '\\bin\\' -and $_.FullName -notmatch '\\obj\\' -and $names.ContainsKey($_.BaseName) } |
+        Where-Object { $_.FullName -notmatch '\\(obj|packages)\\' -and $names.ContainsKey($_.BaseName) } |
         Group-Object BaseName |
         ForEach-Object { $_.Group | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } |
         Sort-Object Name
