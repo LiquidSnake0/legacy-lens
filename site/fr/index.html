@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legacy Lens : le diagnostic mesuré d'une application .NET Framework héritée</title>
+<meta name="description" content="Legacy Lens lit une solution .NET Framework héritée sur votre propre machine et dit de quoi elle est faite, ce qui risque de casser, ce qui bloque le passage au .NET moderne, et dans quel ordre s'y prendre. Chaque chiffre est mesuré.">
+<meta name="color-scheme" content="light dark">
+<link rel="alternate" hreflang="en" href="https://liquidsnake0.github.io/legacy-lens/">
+<link rel="alternate" hreflang="fr" href="https://liquidsnake0.github.io/legacy-lens/fr/">
+<link rel="alternate" hreflang="de" href="https://liquidsnake0.github.io/legacy-lens/de/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;display=swap">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap bar">
+    <a class="brand" href="./">Legacy Lens</a>
+    <ul class="lang" aria-label="Langue">
+      <li><a href="../" hreflang="en" lang="en">EN</a></li>
+      <li><span aria-current="page" lang="fr">FR</span></li>
+      <li><a href="../de/" hreflang="de" lang="de">DE</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Savoir de quoi est faite votre application .NET Framework <em>avant</em> d'y toucher.</h1>
+    <div class="spacer"></div>
+    <p class="lead">Legacy Lens lit toute la solution sur votre propre machine et rend un rapport mesuré : ce qu'il y a, ce qui risque de casser, ce qui bloque le passage au .NET moderne, et dans quel ordre s'y prendre.</p>
+    <div class="actions">
+      <a class="button primary" href="#contact">En parler 20 minutes</a>
+      <a class="button" href="../sample/orchard/">Lire un rapport exemple</a>
+    </div>
+  </section>
+
+  <section class="section" id="probleme">
+    <div class="label"><span class="no">01</span><h2>Le problème</h2></div>
+    <div class="body">
+      <h3>Une application que personne n'ose toucher.</h3>
+      <p>Elle tourne sur .NET Framework. Elle fait tourner l'entreprise. Ceux qui l'ont écrite sont partis. Personne ne peut dire ce que demanderait un passage au .NET moderne, ni par où commencer, sans des semaines de lecture.</p>
+      <p>Alors elle reste où elle est, et chaque année elle coûte un peu plus à maintenir.</p>
+    </div>
+  </section>
+
+  <section class="section flip" id="livrables">
+    <div class="label"><span class="no">02</span><h2>Ce qu'il livre</h2></div>
+    <div class="body">
+      <h3>Un document, pas un tableau de bord.</h3>
+      <ul class="tiles three">
+        <li><b>La carte</b><span>Projets, dépendances, tailles, frameworks cibles, et les projets qu'aucun test ne référence.</span></li>
+        <li><b>Les fichiers à risque</b><span>Classés selon leur structure et leur fréquence de changement, avec les raisons à côté de chacun.</span></li>
+        <li><b>Ce qui bloque</b><span>Les paquets sans avenir, les API disparues, et ce que le code en utilise réellement.</span></li>
+        <li><b>L'ordre des travaux</b><span>Ce qui bloque tout le reste, ce qu'un outil fait seul, ce qui demande une décision. Un ordre de dépendances, pas un planning.</span></li>
+        <li><b>Un filet de sécurité</b><span>Des tests de caractérisation qui enregistrent ce que fait le code aujourd'hui, compilés et exécutés avant que quiconque les voie.</span></li>
+        <li><b>Les conversions mécaniques</b><span>packages.config, format de projet SDK, versions de paquets, configuration : chacune livrée en diff, que personne n'a appliqué.</span></li>
+      </ul>
+      <figure>
+        <img src="../assets/overview.webp" width="972" height="645" alt="Les fichiers les plus susceptibles de casser, classés, chacun avec sa complexité et la présence ou non d'un test" loading="lazy">
+        <figcaption>Le classement des fichiers, tel que l'interface l'affiche (interface en anglais).</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="confiance">
+    <div class="label"><span class="no">03</span><h2>Pourquoi s'y fier</h2></div>
+    <div class="body">
+      <h3>Rien n'y est généré.</h3>
+      <ul class="tiles">
+        <li><b>Rien ne quitte votre machine.</b><span>L'analyse tourne sur votre poste ou votre serveur. Aucun code source n'est envoyé à un service tiers.</span></li>
+        <li><b>Chaque chiffre est mesuré.</b><span>À partir des fichiers de projet, du code source et de l'historique git. Aucun modèle de langage n'écrit le rapport : chaque phrase est un gabarit rempli d'un chiffre mesuré.</span></li>
+        <li><b>Ce qui n'a pas été vu est écrit.</b><span>Le rapport se termine par ce qu'il n'a pas pu mesurer : que rien n'a été compilé, que la couverture de tests repose sur une convention de nommage, combien de paquets ne sont pas classés.</span></li>
+        <li><b>Rien n'est appliqué sans une personne.</b><span>Les conversions sortent sous forme de patchs. Une personne les lit et décide. L'outil ne pousse rien et n'écrit jamais dans votre copie de travail.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section flip" id="preuve">
+    <div class="label"><span class="no">04</span><h2>La preuve sur du vrai code</h2></div>
+    <div class="body">
+      <h3>Mesuré sur deux bases de code publiques.</h3>
+      <p>Orchard CMS et nopCommerce 3.90, deux applications ASP.NET MVC sur .NET Framework. Aucune n'est à nous, et aucune n'est versionnée dans le dépôt.</p>
+      <ul class="figures">
+        <li><span class="n">414&#8239;611</span><span class="what">lignes d'Orchard CMS, 89 projets, évaluées en une dizaine de secondes, sans rien compiler.</span></li>
+        <li><span class="n">0 <small>erreur</small></span><span class="what">après conversion : Orchard (88 projets) et nopCommerce 3.90 (31) compilent, vérifié sur un runner Windows hébergé.</span></li>
+        <li><span class="n">~400 <small>/ 128</small></span><span class="what">tests de caractérisation conservés sur Orchard et sur nopCommerce, chacun compilé et vert.</span></li>
+        <li><span class="n">900+</span><span class="what">tests automatisés dans l'outil lui-même. Le code est public.</span></li>
+      </ul>
+      <p class="caveat">Pas encore prouvé : les applications converties ont été compilées, pas exécutées. Savoir si elles démarrent et servent une page est une autre mesure.</p>
+      <figure>
+        <img src="../assets/conversions.webp" width="972" height="996" alt="La conversion au format SDK dans le navigateur : dix projets convertis, soixante-dix-neuf refusés avec leur raison, et le patch en diff" loading="lazy">
+        <figcaption>La conversion au format SDK sur Orchard : ce qui se convertit, ce qui est refusé et pourquoi, et le patch.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="exemple">
+    <div class="label"><span class="no">05</span><h2>Rapport exemple</h2></div>
+    <div class="body">
+      <h3>Le rapport complet sur Orchard CMS.</h3>
+      <p>Produit par l'outil, sans retouche, en anglais. Il s'ouvre sur le paragraphe destiné à qui n'en lira qu'un :</p>
+      <blockquote lang="en">orchard is 89 projects and 414,611 lines across 6,203 source files. Everything targets v4.8. No test project references 45 of the 78 projects that ship code, covering 75,908 lines.</blockquote>
+      <div class="actions bare">
+        <a class="button" href="../sample/orchard/">Lire le rapport Orchard</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section flip" id="qui">
+    <div class="label"><span class="no">06</span><h2>Qui le fait</h2></div>
+    <div class="body">
+      <h3>Selim Selimi.</h3>
+      <p>Ingénieur .NET senior à Genève. Contributeur d'ILSpy, le décompilateur .NET, et de REA. Legacy Lens est son travail, et le code est public.</p>
+      <p><a href="https://github.com/LiquidSnake0">github.com/LiquidSnake0</a> · <a href="https://github.com/LiquidSnake0/legacy-lens">le dépôt Legacy Lens</a></p>
+    </div>
+  </section>
+
+  <section class="section contact" id="contact">
+    <div class="label"><span class="no">07</span><h2>Contact</h2></div>
+    <div class="body">
+      <h3>Un échange de 20 minutes, sans engagement.</h3>
+      <p>On regarde ensemble votre situation et si un diagnostic a du sens pour vous.</p>
+      <div class="actions">
+        <a class="button primary" href="mailto:selimi1203@gmail.com?subject=Legacy%20Lens">Écrire un e-mail</a>
+        <a class="button" href="https://www.linkedin.com/in/selim-selimi-4a2b55172/">LinkedIn</a>
+      </div>
+      <p class="mail">selimi1203@gmail.com</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap foot">
+  <p>Legacy Lens est open source, sous licence MIT. Cette page ne dépose aucun cookie et n'exécute aucun script.</p>
+</footer>
+
+</body>
+</html>

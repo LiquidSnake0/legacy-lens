@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legacy Lens: a measured assessment of an inherited .NET Framework application</title>
+<meta name="description" content="Legacy Lens reads an inherited .NET Framework solution on your own machine and says what it is made of, what will hurt, what blocks a move to modern .NET, and in what order to deal with it. Every number measured.">
+<meta name="color-scheme" content="light dark">
+<link rel="alternate" hreflang="en" href="https://liquidsnake0.github.io/legacy-lens/">
+<link rel="alternate" hreflang="fr" href="https://liquidsnake0.github.io/legacy-lens/fr/">
+<link rel="alternate" hreflang="de" href="https://liquidsnake0.github.io/legacy-lens/de/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&amp;display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap bar">
+    <a class="brand" href="./">Legacy Lens</a>
+    <ul class="lang" aria-label="Language">
+      <li><span aria-current="page" lang="en">EN</span></li>
+      <li><a href="fr/" hreflang="fr" lang="fr">FR</a></li>
+      <li><a href="de/" hreflang="de" lang="de">DE</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Know what your .NET Framework application is made of <em>before</em> anyone touches it.</h1>
+    <div class="spacer"></div>
+    <p class="lead">Legacy Lens reads the whole solution on your own machine and hands back a measured report: what is there, what will hurt, what blocks a move to modern .NET, and in what order to deal with it.</p>
+    <div class="actions">
+      <a class="button primary" href="#contact">Talk for 20 minutes</a>
+      <a class="button" href="sample/orchard/">Read a sample report</a>
+    </div>
+  </section>
+
+  <section class="section" id="problem">
+    <div class="label"><span class="no">01</span><h2>The problem</h2></div>
+    <div class="body">
+      <h3>An application nobody dares to touch.</h3>
+      <p>It runs on .NET Framework. It runs the business. The people who wrote it have left. Nobody can say what a move to modern .NET would take, or where to start, without weeks of reading.</p>
+      <p>So it stays where it is, and every year it costs a little more to keep.</p>
+    </div>
+  </section>
+
+  <section class="section flip" id="delivers">
+    <div class="label"><span class="no">02</span><h2>What it delivers</h2></div>
+    <div class="body">
+      <h3>A document, not a dashboard.</h3>
+      <ul class="tiles three">
+        <li><b>The map</b><span>Projects, dependencies, sizes, target frameworks, and which projects no test references.</span></li>
+        <li><b>The files at risk</b><span>Ranked on structure and change frequency together, with the reasons beside each one.</span></li>
+        <li><b>What blocks the move</b><span>Packages with no future, APIs that are gone, and how much of each the code actually uses.</span></li>
+        <li><b>The order of work</b><span>What blocks everything else, what a tool does on its own, what needs a decision. A dependency order, not a schedule.</span></li>
+        <li><b>A safety net</b><span>Characterization tests that record what the code does today, compiled and run before anyone sees them.</span></li>
+        <li><b>Mechanical conversions</b><span>packages.config, SDK project format, package versions, configuration: each one a diff that nobody has applied.</span></li>
+      </ul>
+      <figure>
+        <img src="assets/overview.webp" width="972" height="645" alt="The files most likely to hurt, ranked, each with its complexity and whether a test covers it" loading="lazy">
+        <figcaption>The ranked files, as the interface shows them.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="trust">
+    <div class="label"><span class="no">03</span><h2>Why trust it</h2></div>
+    <div class="body">
+      <h3>Nothing in it is generated.</h3>
+      <ul class="tiles">
+        <li><b>Nothing leaves your machine.</b><span>The analysis runs on your workstation or your server. No source code is sent to any third-party service.</span></li>
+        <li><b>Every number is measured.</b><span>From the project files, the source text and the git history. No language model writes the report: every sentence is a template filled with a measured number.</span></li>
+        <li><b>What was not seen is written down.</b><span>The report ends with what it could not measure: that nothing was compiled, that test coverage is a naming convention, how many packages are unclassified.</span></li>
+        <li><b>Nothing is applied without a person.</b><span>Conversions come out as patches. A person reads them and decides. The tool never pushes, and never writes to your working tree.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section flip" id="proof">
+    <div class="label"><span class="no">04</span><h2>Proof on real code</h2></div>
+    <div class="body">
+      <h3>Measured on two public codebases.</h3>
+      <p>Orchard CMS and nopCommerce 3.90, both ASP.NET MVC on .NET Framework. Neither is ours, and neither is committed to the repository.</p>
+      <ul class="figures">
+        <li><span class="n">414,611</span><span class="what">lines of Orchard CMS, 89 projects, assessed in about ten seconds, without compiling anything.</span></li>
+        <li><span class="n">0 <small>errors</small></span><span class="what">after conversion: Orchard (88 projects) and nopCommerce 3.90 (31) build, checked on a hosted Windows runner.</span></li>
+        <li><span class="n">~400 <small>/ 128</small></span><span class="what">characterization tests kept on Orchard and on nopCommerce, each one compiled and passing.</span></li>
+        <li><span class="n">900+</span><span class="what">automated tests in the tool itself. The code is public.</span></li>
+      </ul>
+      <p class="caveat">Not proven yet: the converted applications have been built, not run. Whether they start and serve a page is a separate measurement.</p>
+      <figure>
+        <img src="assets/conversions.webp" width="972" height="996" alt="The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, and the patch as a diff" loading="lazy">
+        <figcaption>The SDK format conversion on Orchard: what converts, what is refused and why, and the patch.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="sample">
+    <div class="label"><span class="no">05</span><h2>Sample report</h2></div>
+    <div class="body">
+      <h3>The full report on Orchard CMS.</h3>
+      <p>Generated by the tool, unedited. It opens with the paragraph for a reader who will read one paragraph:</p>
+      <blockquote>orchard is 89 projects and 414,611 lines across 6,203 source files. Everything targets v4.8. No test project references 45 of the 78 projects that ship code, covering 75,908 lines.</blockquote>
+      <div class="actions bare">
+        <a class="button" href="sample/orchard/">Read the Orchard report</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section flip" id="who">
+    <div class="label"><span class="no">06</span><h2>Who does it</h2></div>
+    <div class="body">
+      <h3>Selim Selimi.</h3>
+      <p>Senior .NET engineer in Geneva. Contributor to ILSpy, the .NET decompiler, and to REA. Legacy Lens is his work and its code is public.</p>
+      <p><a href="https://github.com/LiquidSnake0">github.com/LiquidSnake0</a> · <a href="https://github.com/LiquidSnake0/legacy-lens">the Legacy Lens repository</a></p>
+    </div>
+  </section>
+
+  <section class="section contact" id="contact">
+    <div class="label"><span class="no">07</span><h2>Contact</h2></div>
+    <div class="body">
+      <h3>A 20-minute call, no commitment.</h3>
+      <p>We look at your situation together and see whether an assessment makes sense for you.</p>
+      <div class="actions">
+        <a class="button primary" href="mailto:selimi1203@gmail.com?subject=Legacy%20Lens">Write an email</a>
+        <a class="button" href="https://www.linkedin.com/in/selim-selimi-4a2b55172/">LinkedIn</a>
+      </div>
+      <p class="mail">selimi1203@gmail.com</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap foot">
+  <p>Legacy Lens is open source under the MIT licence. This page sets no cookie and runs no script.</p>
+</footer>
+
+</body>
+</html>
