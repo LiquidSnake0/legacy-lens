@@ -364,7 +364,24 @@ curl -X POST localhost:8080/api/report \
 ```
 
 Markdown comes back as the body rather than as a field inside JSON, because it
-is meant to be written to a file, converted to PDF or pasted into a ticket.
+is meant to be written to a file or pasted into a ticket.
+
+**Or as a PDF, for the desk it is meant for:**
+
+```bash
+dotnet run --project src/LegacyLens.Api -- report /repos/my-solution --pdf assessment.pdf
+```
+
+The first page is for whoever reads one page: the name, the date, the paragraph
+below, five figures in large type and the first three steps of the order of
+work. The whole report follows, typeset from the same Markdown, so it carries
+the same sections, the same numbers and the same list of what was not seen,
+with a header and a page number on every page and the dependency diagram drawn
+rather than left as Mermaid source. `--markdown assessment.md` keeps the text
+of the same run beside it. It is made in the process, with PDFsharp and the
+typefaces inside the executable: no browser, no service, nothing that needs a
+network. [The one for Orchard](https://liquidsnake0.github.io/legacy-lens/sample/orchard/orchard-assessment.pdf)
+is published with the sample report.
 
 **It carries what only a person can decide.** Preparing the mechanical work
 turns up things no amount of reading the code will settle: the target the whole
@@ -383,7 +400,7 @@ covering 83 per cent, and 109 types still to decide once the framework has been
 asked about the ones nobody catalogued. That reading is a second walk over every
 source file, which took the assessment from 4.8 to 8.2 seconds on Orchard.
 
-**Orchard CMS, 414,611 lines, assessed in 2 seconds.** The document opens with
+**Orchard CMS, 414,611 lines, assessed in 8 to 11 seconds.** The document opens with
 the paragraph for a reader who will read one paragraph:
 
 > orchard is 89 projects and 414,611 lines across 6,203 source files. Everything
@@ -1270,7 +1287,7 @@ where the question that ends the meeting is *where would it run?*
 ./desktop.sh win-x64      # Windows, where the code being modernised lives
 ```
 
-What comes out is 57 MB: the executable, the interface beside it, and the two
+What comes out is 58 MB: the executable, the interface beside it, and the two
 catalogues. No runtime, no web server, no database. Double-click it and it picks
 a port nobody is on, opens your browser and prints the address in case it
 cannot.
@@ -1281,6 +1298,12 @@ binary answers 3,619 uses, 24 types carrying four fifths, 83% covered and 109
 left to decide, digit for digit what the server answers. Checked again after
 fifteen milestones and three catalogues it did not have when that was written:
 the two reports differ in the elapsed time and in nothing else.
+
+**It writes the PDF too, with the network off.** The typefaces travel inside the
+binary and PDFsharp is managed code, so `LegacyLens report <path> --pdf
+assessment.pdf` needs nothing the file does not carry. Run on Orchard with no
+network interface at all, it wrote the thirteen pages, and its Markdown differs
+from the server's in the elapsed time and in nothing else.
 
 **The model is not in it.** A local model is gigabytes and does not travel on a
 memory stick. Everything that needs no model still works: the map, the diagrams,
@@ -1436,7 +1459,8 @@ every layer, plus 154 in the browser, no network and no model in either, and the
 pipeline has been run end to end against a real repository: this one.
 
 **The assessment** sits on the first half and inherits its speed: no model, no
-index, no compilation, and a 414,611-line solution documented in two seconds.
+index, no compilation, and a 414,611-line solution documented in 8 to 11
+seconds.
 
 It answers questions about itself correctly, citing lines that hold what the
 answer claims: that is the screenshot at the top of this file. Indexing its own
