@@ -2869,6 +2869,155 @@ exit code, so `git apply` refusing a patch would have printed *applied*. That is
 the same class of claim this repository spent the previous commit removing from
 its own wording.
 
+## M30. Built on Windows, measured ✅
+
+*No Windows machine was bought for this. A hosted `windows-latest` runner has
+MSBuild for .NET Framework, the targeting packs and nuget.exe, and costs nothing
+for a public repository.*
+
+`.github/workflows/measure-windows.yml` builds Legacy Lens for win-x64, clones
+Orchard at `e97a145c` and nopCommerce at tag `release-3.90` (`12d1f013`, the tree
+every nopCommerce figure here was taken from, checked file for file), runs
+`measure.ps1` on each, and keeps the reports as artefacts. Neither codebase is
+committed here. Run by hand, or by a push to the branch it was built on, and
+about five minutes a codebase.
+
+The competitor step was skipped. `upgrade-assistant` has been replaced twice
+since the script was written, and the competitor worth running is GitHub Copilot
+upgrade, which needs a Copilot subscription: that is ticket #2, and nothing below
+says anything about it.
+
+### The script, on its first run
+
+It had never been parsed. It parsed. What broke on the first run was the
+machine and one assumption, not the PowerShell:
+
+- **The image has a `v4.5.1` folder with nothing in it to compile against.**
+  nopCommerce failed before conversion with `MSB3644` on all thirty-one projects.
+  A targeting pack is a property of the machine, not of the code, so the workflow
+  now supplies the reference assemblies Microsoft publishes for that, and hands
+  them to both builds alike. The report says so in its header.
+- **Characterization looked for assemblies in bin folders only**, and
+  nopCommerce writes its twenty plugins into the web project. It found eleven of
+  thirty-one. It now takes the solution's own assemblies by the names their
+  project files give them, wherever the build put them, which also keeps it off
+  the dependency trees a web application's bin carries.
+- Each native command now has its output kept whole in a log of its own, and an
+  MSBuild log is counted by error code, so a failed build reads as *one problem
+  or many* rather than as its last twenty lines.
+
+### Both build as they stand
+
+| | Orchard | nopCommerce 3.90 |
+|---|---|---|
+| projects | 89, `v4.8` | 31, `v4.5.1` |
+| before conversion | **88 assemblies, 0 errors**, 49 s | **31 assemblies, 0 errors**, 26 s |
+
+That is the baseline the after has to be read against: nothing that fails below
+was failing before the patches.
+
+### Both conversions apply, and neither result builds
+
+| | Orchard | nopCommerce 3.90 |
+|---|---|---|
+| `packages` | 83 projects, 166 files, applied | 31 projects, 62 files, applied |
+| `sdk` | 13 patched, 76 refused, applied | 29 patched, 2 refused, applied |
+| restore after | succeeds | succeeds |
+| **build after** | **0 assemblies, 26 errors in 5 projects** | **0 assemblies, 11 errors in 1 project** |
+
+Restore works on both, which is one step further than M22 could show: every
+packages.config is gone, and what replaced it restores. The build is where
+it stops, and **it stops on two causes, both in the SDK conversion**.
+
+**Duplicate assembly attributes.** Every one of Orchard's twenty-six errors and
+six of nopCommerce's eleven are `CS0579`. An SDK project generates
+`AssemblyVersion`, `AssemblyTitle` and the rest by default, and every converted
+project still carries the `AssemblyInfo.cs` that declares them. The conversion
+keeps the file and does not set `GenerateAssemblyInfo` to false. That is
+mechanical, the same in every codebase, and exactly the kind of thing this
+conversion exists to do; it simply was not known until something compiled the
+output.
+
+**A file the team had left out, compiled again.** The other five nopCommerce
+errors come from `Nop.Core\Infrastructure\NopStarter.cs`: on disk, not in the
+project, marked `[Obsolete("This work is performed in NopEngine", true)]`, and
+referring to a namespace `Nop.Core` does not have. The SDK compiles every file in
+the folder, so the conversion brought dead code back into the build. The tool
+did say so, in general terms, under *Done, and worth reading*: *anything
+deliberately excluded from the build was excluded by not being listed, and that
+exclusion is now gone.* It knew which file, because it reads the project, and
+said it once for twenty-nine projects without naming the one that mattered.
+
+Both sit at the bottom of the graph: `Nop.Core` under all of nopCommerce, and
+among Orchard's five, `NHibernate.Linq` under `Orchard.Framework`, which nearly
+everything references. **No other project got as far as writing an
+assembly.** How much else is wrong further up is not known yet, and is not
+claimed either way.
+
+So *converted* has still not been earned, and the README sentence that has been
+careful about it since M21 was right to be. It now has a measured reason: two,
+named, and both mechanical.
+
+### What characterization reaches on Framework code
+
+Run over the assemblies the solution built as it stood, since the converted
+build wrote none, under this repository's own .NET 10 runtime.
+
+| | Orchard | nopCommerce 3.90 |
+|---|---|---|
+| assemblies | 87, 86 ran, 1 did not load | 31, all ran |
+| methods it could call | 591 | 344 |
+| calls made | 1,281 | 987 |
+| **tests kept**, compiled and passing | **399**, 393, 400 | **128**, 128, 128 |
+| assemblies with no test at all | 58 of 87 | 23 of 31 |
+| time | 131 s | 41 s |
+
+The one that did not load is `Orchard.Tests.dll`, built for x86, which a 64-bit
+process refuses: an honest refusal, said as such.
+
+**Three full runs of the same build did not agree on Orchard.** nopCommerce
+gave the same figures to the unit each time. Orchard did not, and all of the
+difference is one assembly: `Orchard.Core` kept 8, 7, 1 and 8 tests on four runs,
+the same 41 methods and 55 calls each time. One run recorded a pair of calls
+that disagreed; another lost a whole generated file to its own check. Nothing
+that failed was offered, which is the rule, but a net that keeps a different
+number of tests on each run is a net whose output nobody can review once and
+trust, and why `Orchard.Core` does this is not known yet. The table below is the
+first run over all 87.
+
+**The ratio did not invert.** On modern code it examined 402 members and could
+call 11. Here, property accessors, operators and generated members alone
+outnumber the methods it could call seventeen to one on Orchard (10,130 to 591)
+and forty to one on nopCommerce (13,661 to 344). After those come the same
+reasons, in nearly the same order:
+
+| not characterized, as recorded | Orchard | nopCommerce |
+|---|---|---|
+| a property accessor, an operator, or generated | 10,130 | 13,661 |
+| returns void, so only its side effects change anything | 3,561 | 1,333 |
+| needs an instance that cannot be built without arguments | 1,430 | 1,442 |
+| takes a parameter this tool cannot invent a value for | 1,208 | 459 |
+| needs an assembly that is not on this machine | 537 | 361 |
+| the generated test did not compile or did not pass | 243 | 42 |
+| returned something no assertion can compare | 218 | 36 |
+
+And the tests are where the plain code is. `Orchard.Framework` gives 255 of
+Orchard's 399 on every run, `Nop.Core` 93 of nopCommerce's 128. The services
+and controllers give almost none: `Nop.Services` 6, `Nop.Web` and `Nop.Admin`
+none, because they are built by a container and called with what a request
+carries, which is what the instance and parameter rows of that table count.
+That is the half of the product's claim this measurement was for, and the answer is: it works on
+Framework code, it loads it and runs it, and **what it reaches is the utility
+layer, not the code that hurts.** `Nop.Admin` offered 166 methods to call, made
+496 calls, and kept nothing.
+
+### What this does not say
+
+Nothing about `GenerateAssemblyInfo`, `NopStarter` or `Orchard.Core` has been
+fixed. Doing that before publishing would have turned a measurement into a
+demonstration. All three are M31, measured again on the same runner, and so is
+whatever the next build after them finds.
+
 ---
 
 ## Deliberately out of scope

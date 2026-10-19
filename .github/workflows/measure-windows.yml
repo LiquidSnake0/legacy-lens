@@ -1,0 +1,127 @@
+name: measure on windows
+
+# M30. The measurement measure.ps1 was written for, on a machine with the
+# toolchain this repository has never had: MSBuild for .NET Framework, the
+# targeting packs, nuget.exe. A hosted Windows runner has all of it, and costs
+# nothing for a public repository.
+#
+# Run by hand, or by a push to the branch it was built on. Never on main: it
+# takes the better part of an hour and measures two codebases that are not
+# this one.
+#
+# Neither codebase is committed here. Both are cloned on the runner at the
+# commit every figure in docs/ROADMAP.md was taken from.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [m30-windows]
+
+jobs:
+
+  measure:
+    runs-on: windows-latest
+    timeout-minutes: 300
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: orchard
+            url: https://github.com/OrchardCMS/Orchard.git
+            commit: e97a145c7e4a0a15a18f7453f8393f44fe78040f   # dev, 2026-05-17
+            solution: src/Orchard.sln
+            target: v4.8
+          - name: nopcommerce-3.90
+            url: https://github.com/nopSolutions/nopCommerce.git
+            commit: 12d1f0139149a9d6e84964d325d62bae6ac748f6   # tag release-3.90
+            solution: src/NopCommerce.sln
+            target: v4.5.1
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      # The trees as they were committed, as on the Linux machine where the
+      # patches were written and applied. Converting line endings on checkout
+      # would hand git apply files the patch was never made against.
+      - run: |
+          git config --global core.autocrlf false
+          git config --global core.longpaths true
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - uses: NuGet/setup-nuget@v2
+
+      # Unpacked rather than the single file the desktop script makes. The
+      # single file embeds its assemblies, so a compiler is given no path to
+      # them and characterization cannot verify the tests it writes, which is
+      # the half of the measurement that needs it most.
+      - name: Build Legacy Lens for win-x64
+        run: |
+          dotnet publish src/LegacyLens.Api/LegacyLens.Api.csproj `
+              --configuration Release --runtime win-x64 --self-contained true `
+              --output build/lens --nologo --verbosity quiet
+          Copy-Item -Recurse data build/lens/data
+          Get-Item build/lens/LegacyLens.Api.exe
+
+      - name: Clone ${{ matrix.name }} at ${{ matrix.commit }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP '${{ matrix.name }}'
+          git init -q $dir
+          git -C $dir remote add origin ${{ matrix.url }}
+          git -C $dir fetch -q --depth 1 origin ${{ matrix.commit }}
+          git -C $dir checkout -q FETCH_HEAD
+          git -C $dir log -1 --format='%H %ad %s'
+
+      # A targeting pack the image does not carry is a property of this
+      # machine, not of the code, so it is supplied rather than measured: the
+      # reference assemblies Microsoft publishes for exactly this, handed to
+      # both builds alike.
+      - name: Reference assemblies for ${{ matrix.target }}, if the image lacks them
+        id: refs
+        run: |
+          $packs = 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework'
+          Get-ChildItem $packs -Directory | ForEach-Object Name
+          # A folder of that name is not a targeting pack: the image carries a
+          # v4.5.1 folder with nothing to compile against in it.
+          if (Test-Path (Join-Path $packs '${{ matrix.target }}\mscorlib.dll')) {
+            "root=" | Out-File $env:GITHUB_OUTPUT -Append
+            return
+          }
+          $tfm = 'net' + ('${{ matrix.target }}' -replace '[v.]', '')
+          $into = Join-Path $env:RUNNER_TEMP 'refs'
+          nuget install "Microsoft.NETFramework.ReferenceAssemblies.$tfm" -Version 1.0.3 -OutputDirectory $into -ExcludeVersion -NonInteractive
+          "root=$into\Microsoft.NETFramework.ReferenceAssemblies.$tfm\build" | Out-File $env:GITHUB_OUTPUT -Append
+
+      - name: Measure
+        run: |
+          $arguments = @{
+            Repo           = Join-Path $env:RUNNER_TEMP '${{ matrix.name }}'
+            Solution       = '${{ matrix.solution }}'
+            Lens           = 'build/lens/LegacyLens.Api.exe'
+            Out            = 'build/measurement/${{ matrix.name }}'
+            SkipCompetitor = $true
+          }
+          if ('${{ steps.refs.outputs.root }}') { $arguments.FrameworkRoot = '${{ steps.refs.outputs.root }}' }
+          ./measure.ps1 @arguments
+          # A build that fails is a result the report records, not a failure
+          # of this job. The job goes red only if the script itself could not
+          # finish, which throws before this line.
+          exit 0
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: measurement-${{ matrix.name }}
+          path: |
+            build/measurement/${{ matrix.name }}
+            !build/measurement/${{ matrix.name }}/upgrade-assistant-copy
+          retention-days: 30
