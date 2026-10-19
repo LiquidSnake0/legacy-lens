@@ -1,9 +1,11 @@
 /* Legacy Lens, public page.
    The tokens are the ones in web/src/styles.scss: greys, one green accent,
    no red, Montserrat, DejaVu Sans Mono, 2 px radius at most.
-   The wall is drawn in CSS and inline SVG, so the background costs no download:
-   board-formed concrete, its panel joints and its tie holes. Text never sits on
-   the texture itself, only on flat slabs laid over it. */
+   The wall is one tile of board-formed concrete, wall-light.webp or
+   wall-dark.webp: large panels, each poured a shade apart, faint joints, six
+   tie holes per panel, pores. The noise was filtered in frequency space, so the
+   tile is periodic and meets itself with no seam. Text never sits on the
+   texture itself, only on flat slabs laid over it. */
 
 :root {
   --ink: #161616;
@@ -28,10 +30,7 @@
   --mono: "DejaVu Sans Mono", "SF Mono", Menlo, Consolas, monospace;
   --radius: 2px;
 
-  /* Panel joints and tie holes: 240 by 120, the 2:1 of real formwork boards. */
-  --banche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cpath d='M0 .5H240M.5 0V120' stroke='%23000' stroke-opacity='.13'/%3E%3Cg fill='%23000' fill-opacity='.2'%3E%3Ccircle cx='60' cy='30' r='3.5'/%3E%3Ccircle cx='180' cy='30' r='3.5'/%3E%3Ccircle cx='60' cy='90' r='3.5'/%3E%3Ccircle cx='180' cy='90' r='3.5'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.35'%3E%3Ccircle cx='60' cy='30' r='5'/%3E%3Ccircle cx='180' cy='30' r='5'/%3E%3Ccircle cx='60' cy='90' r='5'/%3E%3Ccircle cx='180' cy='90' r='5'/%3E%3C/g%3E%3C/svg%3E");
-  --mottle-opacity: 0.22;
-  --grain-opacity: 0.16;
+  --wall-texture: url("wall-light.webp");
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,9 +51,7 @@
     --on-block: #ecebe8;
     --inv-accent: #5fa87b;
 
-    --banche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cpath d='M0 .5H240M.5 0V120' stroke='%23fff' stroke-opacity='.07'/%3E%3Cg fill='%23000' fill-opacity='.45'%3E%3Ccircle cx='60' cy='30' r='3.5'/%3E%3Ccircle cx='180' cy='30' r='3.5'/%3E%3Ccircle cx='60' cy='90' r='3.5'/%3E%3Ccircle cx='180' cy='90' r='3.5'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.07'%3E%3Ccircle cx='60' cy='30' r='5'/%3E%3Ccircle cx='180' cy='30' r='5'/%3E%3Ccircle cx='60' cy='90' r='5'/%3E%3Ccircle cx='180' cy='90' r='5'/%3E%3C/g%3E%3C/svg%3E");
-    --mottle-opacity: 0.3;
-    --grain-opacity: 0.2;
+    --wall-texture: url("wall-dark.webp");
   }
 }
 
@@ -73,40 +70,15 @@ body {
   overflow-x: hidden;
 }
 
-/* The wall: cloudy mottling, then fine grain, then the formwork pattern.
-   Fixed, so it stays put and the slabs slide over it. The two textures are
-   noise stitched to their own tile, and the joints a separate layer above
-   them, so no edge of a texture tile ever shows as a line. */
-body::before,
-body::after {
+/* The wall, fixed, so it stays put and the slabs slide over it. The tile is
+   1440 px square: one panel joint and two rows of tie holes per screen. */
+body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-}
-
-body::before {
-  opacity: var(--mottle-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='960' height='960'%3E%3Cfilter id='m' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0125' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='960' height='960' filter='url(%23m)'/%3E%3C/svg%3E");
-}
-
-/* A wider screen gets a wider tile, so that the clouds never repeat inside
-   the viewport. Both sizes are multiples of the 240 by 120 panel, and the
-   filter region is pinned to the tile (x, y, width, height), which is what
-   makes stitchTiles meet itself at the edge: left to its default, the region
-   overhangs the tile by 10 % on every side and the noise is stitched on that
-   larger box, so it breaks where the tile does. */
-@media (min-width: 1000px) {
-  body::before { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1440' height='1440'%3E%3Cfilter id='m' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0125' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='1440' height='1440' filter='url(%23m)'/%3E%3C/svg%3E"); }
-}
-
-body::after {
-  background-image:
-    var(--banche),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g' x='0' y='0' width='1' height='1'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.2 .75'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23g)' opacity='.5'/%3E%3C/svg%3E");
-  background-position: -1px -1px, 0 0;
-  opacity: 1;
+  background: var(--wall) var(--wall-texture) repeat 0 0;
 }
 
 a { color: var(--accent-ink); text-underline-offset: 3px; }
