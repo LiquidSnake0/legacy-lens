@@ -161,9 +161,21 @@ public static class FrameworkTypes
             Walk(assembly.GlobalNamespace, found);
         }
 
+        // A name declared in several places is answered with the first, so the
+        // first has to be the same on every machine. It was the order the
+        // runtime listed its assemblies in, which moves whenever the executable
+        // gains a dependency: adding one turned Orchard's RouteData from
+        // Microsoft.AspNetCore.Routing into Microsoft.AspNetCore.Components
+        // without a line of the analysis changing. Shallowest namespace first,
+        // then shortest, then by spelling: the general home of a name before
+        // the specialised one, and the same answer whatever was linked in.
         return found.ToDictionary(
             entry => entry.Key,
-            entry => (IReadOnlyList<string>)entry.Value.Distinct(StringComparer.Ordinal).ToList(),
+            entry => (IReadOnlyList<string>)entry.Value.Distinct(StringComparer.Ordinal)
+                .OrderBy(full => full.Count(c => c == '.'))
+                .ThenBy(full => full.Length)
+                .ThenBy(full => full, StringComparer.Ordinal)
+                .ToList(),
             StringComparer.Ordinal);
     }
 
