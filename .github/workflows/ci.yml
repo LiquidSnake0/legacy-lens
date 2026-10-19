@@ -71,7 +71,7 @@ jobs:
       - name: Generate the PDF
         run: |
           dotnet run --project src/LegacyLens.Api --configuration Release --no-build \
-                     -- report "$GITHUB_WORKSPACE" --pdf assessment.pdf
+                     -- report "$GITHUB_WORKSPACE" --pdf "$GITHUB_WORKSPACE/assessment.pdf"
           test -s assessment.pdf
           head -c 5 assessment.pdf | grep -q '%PDF-'
 

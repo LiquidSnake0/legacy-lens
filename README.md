@@ -369,8 +369,12 @@ is meant to be written to a file or pasted into a ticket.
 **Or as a PDF, for the desk it is meant for:**
 
 ```bash
-dotnet run --project src/LegacyLens.Api -- report /repos/my-solution --pdf assessment.pdf
+dotnet run --project src/LegacyLens.Api -- report /repos/my-solution --pdf "$PWD/assessment.pdf"
 ```
+
+The path is absolute because `dotnet run` starts the program in the project's
+folder; the binary of [One file, nothing to install](#one-file-nothing-to-install)
+takes a relative one.
 
 The first page is for whoever reads one page: the name, the date, the paragraph
 below, five figures in large type and the first three steps of the order of
