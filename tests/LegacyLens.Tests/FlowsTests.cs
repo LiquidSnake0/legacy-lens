@@ -223,4 +223,32 @@ public class FlowsTests
 
         Assert.Equal("Printer.Go Shop.cs:2", Assert.Single(Assert.Single(flow.Steps).Targets));
     }
+
+    [Fact]
+    public void An_abstract_or_virtual_member_is_answered_by_its_overrides()
+    {
+        var flow = Trace("Desk.Save", """
+            public abstract class Repo { public abstract void Save(); public virtual void Log() { } public void Plain() { } }
+            public class SqlRepo : Repo { public override void Save() { } public override void Log() { } }
+            public class MemRepo : Repo { public override void Save() { } }
+            public abstract class Lonely { public abstract void Only(); }
+            public class OnlyOne : Lonely { public override void Only() { } }
+            public abstract class Empty { public abstract void Nothing(); }
+            public class Desk
+            {
+                Repo _repo; Lonely _lonely; Empty _empty;
+                public void Save() { _repo.Save(); _repo.Log(); _repo.Plain(); _lonely.Only(); _empty.Nothing(); }
+            }
+            """);
+
+        var links = flow.Steps.Select(s => (s.Call, s.Link, s.Targets.Count)).ToList();
+        Assert.Equal(
+        [
+            ("Repo.Save", Link.Inferred, 2),          // two overrides
+            ("Repo.Log", Link.Inferred, 2),           // the base, or SqlRepo's override
+            ("Repo.Plain", Link.Resolved, 1),         // neither abstract nor virtual
+            ("Lonely.Only", Link.ThroughInterface, 1),// the only implementation
+            ("Empty.Nothing", Link.Unimplemented, 0), // nothing overrides it
+        ], links);
+    }
 }
