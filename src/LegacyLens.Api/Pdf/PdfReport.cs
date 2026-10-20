@@ -14,9 +14,12 @@ namespace LegacyLens.Api.Pdf;
 /// The body is typeset from the Markdown, block for block, so the PDF says
 /// exactly what the text says: same sections, same numbers, the same list of
 /// what was not seen. The cover is the only part composed here, and it holds
-/// nothing the report does not: the name, the date, the paragraph headed
-/// "In short", figures read from the same assessment the report was written
-/// from, and the first three steps of its order of work.
+/// nothing the report does not: the name, the date, how the analysis ran,
+/// figures read from the same assessment the report was written from, put as
+/// "n of N" so each one carries its own scale, and the first three steps of
+/// its order of work. The paragraph headed "In short" is not repeated on it:
+/// the page after the cover opens with it, and saying it twice in two pages
+/// taught readers to skip the second.
 ///
 /// Everything happens in this process. No browser, no service, no font looked
 /// up on the machine, which is what lets the single executable produce it on a
@@ -30,7 +33,6 @@ public static class PdfReport
     private const double BottomMargin = 62;
     private static double ContentWidth => A4.Width - 2 * Side;
 
-    private const string InShort = "In short";
     private const string Order = "In what order";
 
     public static byte[] Write(Assessment assessment, string markdown, DateTimeOffset generatedAt)
@@ -526,23 +528,34 @@ public static class PdfReport
             new($"{map.Projects.Count:N0}", Plural(map.Projects.Count, "project"), Targets(assessment)),
         };
 
+        // A count alone does not say whether it is a lot. "45 of 78" does, and
+        // it is how every assessment worth copying states its findings.
         var production = assessment.Production.Count;
         if (production > 0)
         {
             var untested = assessment.Of(FindingKind.Untested).Count();
-            figures.Add(new($"{assessment.UntestedLines:N0}", "lines in projects no test project references",
-                $"{untested:N0} of the {Count(production, "project")} that ship code"));
+            figures.Add(new($"{untested:N0} of {production:N0}", "projects that ship code with no test project",
+                $"{assessment.UntestedLines:N0} lines no test project references"));
         }
 
         if (survey.Projects.Count > 0)
         {
-            figures.Add(new($"{survey.DeadEnds.Count:N0}",
-                Plural(survey.DeadEnds.Count, "package") + " that exist only inside the .NET Framework",
-                $"{Count(survey.Blocked, "project")} blocked by them"));
+            figures.Add(new($"{survey.Blocked:N0} of {survey.Projects.Count:N0}",
+                "projects held by a package that exists only in .NET Framework",
+                $"{Count(survey.DeadEnds.Count, "such package")}"));
 
-            figures.Add(new($"{survey.ConvertibleAsIs:N0}",
-                Plural(survey.ConvertibleAsIs, "project") + " convertible as they stand",
-                $"{survey.PreSdk:N0} of {survey.Projects.Count:N0} in the old project format"));
+            figures.Add(new($"{survey.ConvertibleAsIs:N0} of {survey.Projects.Count:N0}",
+                "projects convertible as they stand",
+                $"{survey.PreSdk:N0} in the old project format"));
+        }
+
+        if (survey.Packages.Count > 0)
+        {
+            // The unknown is counted, not left out: it is the number a quote
+            // gets wrong when nobody looks.
+            var unknown = survey.Packages.Count(p => p.Portability == Portability.Unknown);
+            figures.Add(new($"{unknown:N0} of {survey.Packages.Count:N0}", "packages nobody has classified yet",
+                "counted as unknown, not as fine"));
         }
 
         return figures;
@@ -573,8 +586,6 @@ public static class PdfReport
         var ink = new XSolidBrush(Palette.X(Palette.Ink));
         var muted = new XSolidBrush(Palette.X(Palette.Muted));
         var slab = new XSolidBrush(Palette.X(Palette.Slab));
-        var block = new XSolidBrush(Palette.X(Palette.Ink));
-        var onBlock = new XSolidBrush(Palette.X(Palette.OnBlock));
         var accent = new XSolidBrush(Palette.X(Palette.Accent));
         var frame = new XPen(Palette.X(Palette.Ink), 1.2);
 
@@ -628,65 +639,42 @@ public static class PdfReport
         }
         y += titleHeight;
 
-        // In short, on the black block: the one paragraph for the reader who
-        // reads one paragraph, word for word as the report has it.
-        var summary = blocks
-            .SkipWhile(b => b is not Markdown.Heading { Text: InShort })
-            .Skip(1).OfType<Markdown.Paragraph>().FirstOrDefault()?.Text;
+        // How the figures below were obtained, in the report's own words from
+        // its last line: the identity of the analysis, as an auditor states
+        // the commit and the scope before any finding.
+        var elapsed = assessment.ElapsedMs < 1000
+            ? $"{assessment.ElapsedMs:N0} ms"
+            : $"{assessment.ElapsedMs / 1000.0:0.0} s";
+        var identity = $"Read in {elapsed} from {Count(assessment.Map.TotalFiles, "source file")}: "
+                     + "nothing compiled, no package restored, no service contacted.";
+        y += 8;
+        g.DrawRectangle(slab, new XRect(x, y, width, 20));
+        g.DrawString(identity, new XFont(Typefaces.Sans, 7.8, XFontStyleEx.Bold), ink,
+            new XRect(x + 24, y, width - 48, 20), XStringFormats.CenterLeft);
+        y += 20;
 
         var figures = Figures(assessment);
         var steps = assessment.Repairs.Take(3).ToList();
-
-        // Everything below the title is laid out at a size that fits the page:
-        // a long summary shrinks before anything is pushed off the bottom.
-        var bodySize = 9.6;
-        double summaryHeight;
-        List<string> summaryLines;
-        XFont summaryFont;
-        var figuresHeight = FiguresHeight(figures);
         var stepsHeight = steps.Count == 0 ? 0 : 34 + steps.Count * 40 + (orderPage is null ? 0 : 16);
-        var bottomLimit = A4.Height - 40;
 
-        while (true)
-        {
-            summaryFont = new XFont(Typefaces.Sans, bodySize);
-            summaryLines = summary is null ? [] : Wrap(g, Markdown.Plain(summary), summaryFont, width - 48);
-            summaryHeight = summary is null ? 0 : 22 + 16 + summaryLines.Count * bodySize * 1.5 + 20;
-            if (y + 14 + summaryHeight + 14 + figuresHeight + 14 + stepsHeight <= bottomLimit || bodySize <= 7.5) break;
-            bodySize -= 0.3;
-        }
-
-        if (summary is not null)
-        {
-            var left = x + width * 0.0;
-            var top = y + 14;
-            g.DrawRectangle(block, new XRect(left, top, width, summaryHeight));
-            g.DrawRectangle(accent, new XRect(left + 24, top + 22, 18, 3));
-            g.DrawString("IN SHORT", kicker, onBlock, new XPoint(left + 48, top + 26.5));
-            var ly = top + 22 + 16;
-            foreach (var line in summaryLines)
-            {
-                g.DrawString(line, summaryFont, onBlock, new XPoint(left + 24, ly + bodySize));
-                ly += bodySize * 1.5;
-            }
-            y = top + summaryHeight;
-        }
-
-        y += 14;
+        y += 10;
         DrawFigures(g, figures, x, y, width, frame);
-        y += figuresHeight + 14;
+        y += FiguresHeight(figures) + 14;
 
         if (steps.Count > 0)
             DrawSteps(g, steps, x, y, width, stepsHeight, orderPage);
     }
 
+    /// <summary>The figures two to a row: the size, then the ratios.</summary>
+    private static List<List<Figure>> Rows(List<Figure> figures) =>
+        figures.Chunk(2).Select(row => row.ToList()).ToList();
+
     private static double FiguresHeight(List<Figure> figures) =>
-        figures.Count <= 2 ? 92 : 92 + 84;
+        Rows(figures).Select((_, r) => r == 0 ? 92.0 : 76.0).Sum();
 
     private static void DrawFigures(XGraphics g, List<Figure> figures, double x, double y, double width, XPen frame)
     {
-        var rows = new List<List<Figure>> { figures.Take(2).ToList() };
-        if (figures.Count > 2) rows.Add(figures.Skip(2).ToList());
+        var rows = Rows(figures);
 
         var slab = new XSolidBrush(Palette.X(Palette.Slab));
         var ink = new XSolidBrush(Palette.X(Palette.Ink));
@@ -697,7 +685,7 @@ public static class PdfReport
         for (var r = 0; r < rows.Count; r++)
         {
             var row = rows[r];
-            var height = r == 0 ? 92.0 : 84.0;
+            var height = r == 0 ? 92.0 : 76.0;
             var valueSize = r == 0 ? 36.0 : 27.0;
             var cell = width / row.Count;
 

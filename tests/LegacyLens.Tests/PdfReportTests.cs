@@ -97,24 +97,43 @@ public class PdfReportTests
         Assert.Contains("shop", cover);
         Assert.Contains("2026-10-19", cover);
 
-        // The paragraph headed "In short", as the report has it.
+        // The paragraph headed "In short" opens the page after; on the cover
+        // it was the same hundred words twice in two pages.
         var summary = Regex.Match(markdown, @"## In short\n\n(.+?)\n\n", RegexOptions.Singleline).Groups[1].Value;
         Assert.False(string.IsNullOrWhiteSpace(summary));
-        Assert.Contains(Flat(summary), cover);
+        Assert.DoesNotContain(Flat(summary), cover);
 
-        // The figures, from the same assessment the report was written from.
+        // How the analysis ran, before any figure.
+        Assert.Contains("Read in 42 ms from", cover);
+        Assert.Contains("nothing compiled", cover);
+
+        // The figures, each with its own scale.
         Assert.Contains($"{assessment.Map.TotalLines:N0}", cover);
         Assert.Contains("lines of code", cover);
-        Assert.Contains($"{assessment.UntestedLines:N0}", cover);
-        Assert.Contains("lines in projects no test project references", cover);
-        Assert.Contains("packages that exist only inside the .NET Framework", cover);
+        Assert.Contains("1 of 2", cover);
+        Assert.Contains("projects that ship code with no test project", cover);
+        Assert.Contains("of 3", cover);
         Assert.Contains("projects convertible as they stand", cover);
+        Assert.Contains("packages nobody has classified yet", cover);
 
         // The first three steps of the order of work, and not the fourth.
         Assert.Contains("Classify the packages nobody has checked yet", cover);
         Assert.Contains("Convert the project files that can take the modern format", cover);
         Assert.Contains("Decide what happens to the code built on System.Web", cover);
         Assert.DoesNotContain("Confirm whether the unreferenced projects are dead", cover);
+    }
+
+    [Fact]
+    public void The_page_after_the_cover_opens_on_the_verdicts()
+    {
+        var (_, bytes) = Render(Sample());
+        var second = Flat(Pages(bytes)[1]);
+
+        Assert.Contains("At a glance", second);
+        Assert.Contains("Read it with its limits.", second);
+        Assert.Contains("In short", second);
+        Assert.True(second.IndexOf("At a glance", StringComparison.Ordinal)
+                  < second.IndexOf("In short", StringComparison.Ordinal));
     }
 
     [Fact]
