@@ -126,4 +126,13 @@ public class McpToolsTests : IDisposable
         Assert.Contains("| Controller |", answer);
         Assert.Contains("| ActionResult |", answer);
     }
+
+    [Fact]
+    public void Entry_points_come_with_file_and_line()
+    {
+        var entries = Tools().EntryPoints();
+
+        Assert.Contains("MvcAction HomeController.Index Home.cs:5", entries);
+        Assert.Equal("No entry point matches.", Tools().EntryPoints(kind: "WcfOperation"));
+    }
 }

@@ -59,6 +59,16 @@ if (args is ["report", var target, ..])
     return;
 }
 
+// Where a codebase is entered: every action, operation, handler and job, with
+// its file and line, one per line so two runs can be compared with diff.
+if (args is ["entries", var entriesRoot])
+{
+    var map = new ProjectGraph().Build(entriesRoot);
+    foreach (var entry in EntryPointReader.ReadSolution(entriesRoot, map))
+        Console.Out.WriteLine($"{entry.Kind}\t{entry.Project}\t{entry.Type}.{entry.Member}\t{entry.Path}:{entry.Line}\t{entry.Detail}");
+    return;
+}
+
 // The assessment of a codebase whose source is gone: a folder of assemblies,
 // read for their metadata with ILSpy's engine. Nothing is decompiled or run.
 if (args is ["binaries", var binariesRoot, ..])

@@ -105,9 +105,17 @@ public record Assessment(
     /// A decision made in a terminal and not written down is a decision nobody
     /// made.
     /// </summary>
-    IReadOnlyList<Repeated>? Decisions = null)
+    IReadOnlyList<Repeated>? Decisions = null,
+
+    /// <summary>
+    /// Where the code is entered: actions, operations, handlers, jobs, each
+    /// with its file and line. The first piece of the map; empty when not read.
+    /// </summary>
+    IReadOnlyList<EntryPoint>? Entries = null)
 {
     public IReadOnlyList<Dependency> Uses => Dependencies ?? [];
+
+    public IReadOnlyList<EntryPoint> EntryPoints => Entries ?? [];
 
     public IReadOnlyList<Repeated> ToDecide => Decisions ?? [];
 
@@ -217,7 +225,8 @@ public class Assessor
             Limits(map, findings, risk, modernisation),
             started.ElapsedMilliseconds,
             dependencies,
-            ToDecide(modernisation, sdk, rootPath));
+            ToDecide(modernisation, sdk, rootPath),
+            EntryPointReader.ReadSolution(rootPath, map));
     }
 
     /// <summary>

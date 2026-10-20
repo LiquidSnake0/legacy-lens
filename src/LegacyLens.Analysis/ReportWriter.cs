@@ -50,6 +50,7 @@ public class ReportWriter
         Summary(report, assessment);
         Helps(report, assessment);
         Shape(report, assessment);
+        Entered(report, assessment);
         Hurt(report, assessment);
         Migration(report, assessment);
         Used(report, assessment);
@@ -427,6 +428,62 @@ public class ReportWriter
             ? DiagramMinimumLines
             : Math.Max(DiagramMinimumLines, sizes[DiagramMaxProjects - 1]);
     }
+
+    /// <summary>
+    /// Where the code is entered, counted by kind and by project.
+    ///
+    /// The count, not the list: four hundred actions in a document are a wall.
+    /// The list, with file and line for each, is what the `entries` command and
+    /// the MCP server give, because it is looked up rather than read.
+    /// </summary>
+    private static void Entered(StringBuilder report, Assessment assessment)
+    {
+        var entries = assessment.EntryPoints;
+        if (entries.Count == 0) return;
+
+        report.AppendLine("## Where the code is entered");
+        report.AppendLine();
+        report.AppendLine(Wrap(
+            $"{Assessor.Count(entries.Count, "entry point")}: every action, operation, handler, "
+          + "command and job a request, a client or a schedule can reach. A flow through the "
+          + "code starts at one of these, so this is the list of everything that can be traced. "
+          + "Test projects are left out."));
+        report.AppendLine();
+
+        report.AppendLine("| Kind | Entry points | Projects |");
+        report.AppendLine("|---|---:|---:|");
+        foreach (var group in entries.GroupBy(e => e.Kind).OrderByDescending(g => g.Count()))
+            report.AppendLine($"| {Readable(group.Key)} | {group.Count():N0} | {group.Select(e => e.Project).Distinct().Count():N0} |");
+        report.AppendLine();
+
+        var projects = entries.GroupBy(e => e.Project).OrderByDescending(g => g.Count()).ToList();
+        report.AppendLine(Wrap(
+            "Most entered: "
+          + string.Join(", ", projects.Take(5).Select(g => $"{g.Key} ({g.Count():N0})"))
+          + (projects.Count > 5 ? $", and {Assessor.Count(projects.Count - 5, "other project")}." : ".")
+          + " A framework that dispatches through interfaces of its own, beyond the ones this "
+          + "tool knows, has entry points this count does not include."));
+        report.AppendLine();
+    }
+
+    private static string Readable(EntryKind kind) => kind switch
+    {
+        EntryKind.MvcAction => "MVC action",
+        EntryKind.WebApiAction => "Web API action",
+        EntryKind.WcfOperation => "WCF operation",
+        EntryKind.AsmxMethod => "ASMX web method",
+        EntryKind.HttpHandler => "HTTP handler",
+        EntryKind.HttpModule => "HTTP module",
+        EntryKind.ApplicationEvent => "Application event (Global.asax)",
+        EntryKind.OwinStartup => "OWIN startup",
+        EntryKind.SignalRHub => "SignalR hub method",
+        EntryKind.BackgroundTask => "Background or scheduled task",
+        EntryKind.WindowsService => "Windows service",
+        EntryKind.ProgramMain => "Program entry (Main)",
+        EntryKind.RemoteProcedure => "Remote procedure handler (XML-RPC)",
+        EntryKind.Command => "Command-line command",
+        _ => kind.ToString(),
+    };
 
     private void Hurt(StringBuilder report, Assessment assessment)
     {
