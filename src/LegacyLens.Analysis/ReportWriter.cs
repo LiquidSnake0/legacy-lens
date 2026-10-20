@@ -48,6 +48,7 @@ public class ReportWriter
         Header(report, assessment);
         Glance(report, assessment);
         Summary(report, assessment);
+        Helps(report, assessment);
         Shape(report, assessment);
         Hurt(report, assessment);
         Migration(report, assessment);
@@ -57,6 +58,7 @@ public class ReportWriter
         Order(report, assessment);
         Unsaid(report, assessment);
         Appendix(report, assessment);
+        Covers(report, assessment);
         Method(report, assessment);
 
         return report.ToString();
@@ -918,6 +920,60 @@ public class ReportWriter
             ? string.Join(", ", projects)
             : string.Join(", ", projects.Take(6)) + $", and {projects.Count - 6} more.";
 
+    /// <summary>
+    /// What is already in the codebase's favour, measured like the rest.
+    ///
+    /// A report that only lists what is wrong reads as a verdict on the people
+    /// who kept the thing running, and it hides what a plan can lean on. Each
+    /// line is a count, and a count of zero is left out rather than spun.
+    /// </summary>
+    private static void Helps(StringBuilder report, Assessment assessment)
+    {
+        var survey = assessment.Modernisation;
+        var lines = new List<string>();
+
+        if (survey.SdkStyle > 0)
+            lines.Add($"{survey.SdkStyle:N0} of {Assessor.Count(survey.Projects.Count, "project")} {Are(survey.SdkStyle)} already in the SDK format.");
+
+        if (survey.ConvertibleAsIs > 0)
+            lines.Add($"{survey.ConvertibleAsIs:N0} of {Assessor.Count(survey.Projects.Count, "project")} "
+                    + "can take the modern project format as they stand: no package in them blocks it.");
+
+        var production = assessment.Production.Count;
+        var tested = production - assessment.Of(FindingKind.Untested).Count();
+        if (tested > 0)
+            lines.Add($"{tested:N0} of the {Assessor.Count(production, "project")} that ship code {Are(tested)} "
+                    + "referenced by a test project, so a change there has something to fail against.");
+
+        if (survey.Projects.Count > 0 && survey.Divergent == 0 && survey.Packages.Count > 0)
+            lines.Add($"Every one of the {Assessor.Count(survey.Packages.Count, "distinct package")} is pinned "
+                    + "to a single version: nothing disagrees with itself today.");
+
+        var portable = survey.Packages.Count(p => p.Portability == Portability.Portable);
+        if (portable > 0)
+            lines.Add($"{portable:N0} of the {Assessor.Count(survey.Packages.Count, "distinct package")} {Are(portable)} "
+                    + "known to run on modern .NET or to have a documented successor.");
+
+        foreach (var dependency in assessment.Uses.Where(d => d.Surface.Used))
+        {
+            if (dependency.Best is { Candidate.Length: > 0, Percent: >= 50 } best)
+                lines.Add($"{best.Percent}% of the calls into {dependency.Surface.Package} have a recorded "
+                        + $"counterpart in {best.Candidate}.");
+        }
+
+        if (lines.Count == 0) return;
+
+        report.AppendLine("## What is already on your side");
+        report.AppendLine();
+        // Wrapped like the rest of the prose, the continuation indented so a
+        // Markdown reader keeps it in the same item.
+        foreach (var line in lines)
+            report.AppendLine("- " + Wrap(line, firstLineUsed: 2).Replace(Environment.NewLine, Environment.NewLine + "  "));
+        report.AppendLine();
+    }
+
+    private static string Are(int count) => count == 1 ? "is" : "are";
+
     private static void Order(StringBuilder report, Assessment assessment)
     {
         if (assessment.Repairs.Count == 0) return;
@@ -933,20 +989,47 @@ public class ReportWriter
           + "shrinks the surface the arguments are about."));
         report.AppendLine();
 
+        // The whole order on one line each, with how much of it there is: the
+        // timeline a reader takes into a meeting. The PDF draws it across the
+        // page.
+        report.AppendLine("| Step | What | Kind | How much |");
+        report.AppendLine("|---:|---|---|---|");
         var position = 1;
+        foreach (var step in assessment.Repairs)
+            report.AppendLine($"| {position++} | {Cell(step.Title)} | {Readable(step.Kind)} | {Cell(step.Size)} |");
+        report.AppendLine();
+
+        position = 1;
         foreach (var step in assessment.Repairs)
         {
             report.AppendLine($"### {position}. {step.Title}");
             report.AppendLine();
             report.AppendLine($"*{Readable(step.Kind)}. {step.Size}.*");
             report.AppendLine();
-            report.AppendLine(Wrap(step.Why));
+            report.AppendLine(Wrap(step.Why)
+              + (step.Evidence.Count > 0 ? " What it covers is listed in the appendix." : ""));
             report.AppendLine();
+            position++;
+        }
+    }
 
-            foreach (var evidence in step.Evidence)
-                report.AppendLine($"- `{Cell(evidence)}`");
+    /// <summary>What each step of the order covers, name by name.</summary>
+    private static void Covers(StringBuilder report, Assessment assessment)
+    {
+        if (!assessment.Repairs.Any(r => r.Evidence.Count > 0)) return;
 
-            report.AppendLine();
+        report.AppendLine("## Appendix: what each step covers");
+        report.AppendLine();
+
+        var position = 1;
+        foreach (var step in assessment.Repairs)
+        {
+            if (step.Evidence.Count > 0)
+            {
+                report.AppendLine(Lead($"{position}. {step.Title}",
+                    string.Join(", ", step.Evidence.Select(e => $"`{e}`")) + "."));
+                report.AppendLine();
+            }
             position++;
         }
     }
