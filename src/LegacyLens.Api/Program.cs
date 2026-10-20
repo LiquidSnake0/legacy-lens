@@ -984,11 +984,16 @@ app.MapPost("/api/risk", (RiskRequest request) =>
 
     try
     {
-        var report = new SolutionAnalysis
-        {
-            MinimumCodeLines = request.MinimumCodeLines,
-            HistoryMonths = request.HistoryMonths,
-        }.Analyse(request.Path);
+        // The same ranking the report prints, test projects left out, so the
+        // screen and the PDF count the same files.
+        var report = Assessor.WithoutTestProjects(
+            new SolutionAnalysis
+            {
+                MinimumCodeLines = request.MinimumCodeLines,
+                HistoryMonths = request.HistoryMonths,
+            }.Analyse(request.Path),
+            new ProjectGraph().Build(request.Path),
+            request.Path);
 
         return Results.Ok(new
         {

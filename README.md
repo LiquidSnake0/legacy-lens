@@ -210,13 +210,14 @@ Three signals, all already on disk: complexity from Roslyn's parser, change
 frequency from git, test coverage by naming convention. 1,731 files of
 nopCommerce ranked in 1.4 seconds over a two-year window.
 
-Orchard, 458 files ranked in under four seconds:
+Orchard, 449 files ranked in under four seconds, files inside test projects
+left out:
 
 | Score | File | Why |
 |---|---|---|
 | 1.23 | `Orchard.OutputCache/Filters/OutputCacheFilter.cs` | 705 lines, 82 commits by 24 authors, untested |
 | 1.23 | `Core/Shapes/CoreShapes.cs` | 866 lines, `Pager_Links` at complexity 34, 79 commits by 18 authors, untested |
-| 1.14 | `Orchard.Specs/Bindings/WebAppHosting.cs` | 442 lines, `WhenIFillIn` at complexity 19, nested 6 deep, untested |
+| 1.01 | `ContentManagement/DefaultContentQuery.cs` | 386 lines, nested 6 deep, 44 commits, untested |
 
 Two of those three are the core of the CMS, and 24 people have touched the first
 one. A cyclomatic complexity of 34 means covering that method's branches would
