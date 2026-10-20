@@ -162,4 +162,26 @@ public class BinariesTests : IDisposable
         Assert.Equal(1, shop.Types); // HomeController; <Module> is not a type
         Assert.Equal("AnyCPU", shop.Platform);
     }
+
+    [Fact]
+    public void Members_of_a_generic_type_are_counted_through_its_instantiation()
+    {
+        var ef = Compile("EntityFramework", """
+            namespace System.Data.Entity
+            {
+                public class DbSet<T> { public void Add(T t) { } public void Remove(T t) { } public T Find(int id) => default; public int Count => 0; }
+            }
+            """);
+        Compile("Shop.Data", """
+            using System.Data.Entity;
+            public class Orders
+            {
+                public void Use(DbSet<string> set) { set.Add(""); set.Remove(""); set.Find(1); var n = set.Count; }
+            }
+            """, ef);
+
+        var entity = Assess().Uses.Single(d => d.Surface.Package == "EntityFramework");
+
+        Assert.Equal(4, entity.Surface.Types.Single(t => t.Name == "DbSet").Uses); // Add, Remove, Find, get_Count
+    }
 }
