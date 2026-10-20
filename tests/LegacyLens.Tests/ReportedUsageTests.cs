@@ -132,4 +132,48 @@ public class ReportedUsageTests : IDisposable
         Assert.Empty(assessment.Uses);
         Assert.DoesNotContain("What you actually use of what is going away", Report(dependencies: false));
     }
+
+    [Fact]
+    public void A_type_with_no_replacement_is_shown_however_light()
+    {
+        // Four types heavier than it, and a table that keeps only the three
+        // heaviest: a blocker with one call still decides migration or rewrite,
+        // so it is in the table anyway.
+        File.WriteAllText(Path.Combine(_root, "Heavy.cs"), """
+            using System.Web.Mvc;
+
+            public class Heavy
+            {
+                private readonly JsonResult _a = null, _b = null, _c = null;
+                private readonly ViewResult _d = null, _e = null, _f = null;
+                private readonly RedirectResult _g = null, _h = null, _i = null;
+                private readonly ContentResult _j = null, _k = null, _l = null;
+                private readonly OutputCacheAttribute _cache = null;
+            }
+            """);
+
+        var report = new ReportWriter().Write(Assess());
+
+        Assert.Contains("| `OutputCacheAttribute` | 1 | **no replacement recorded** |", report);
+    }
+
+    [Fact]
+    public void The_appendix_names_every_type_the_body_leaves_out()
+    {
+        var assessment = Assess();
+        var report = Report();
+        var appendix = report[report.IndexOf("## Appendix: every type used, by package", StringComparison.Ordinal)..];
+
+        foreach (var type in assessment.Uses.Single(d => d.Surface.Package == "Microsoft.AspNet.Mvc").Surface.Types)
+            Assert.Contains($"`{type.Name}` ({type.Uses})", appendix);
+    }
+
+    [Fact]
+    public void One_table_gives_every_package_its_size_before_any_detail()
+    {
+        var report = new ReportWriter().Write(Assess());
+
+        Assert.Contains("| Package | Calls | Types | Files | Types for four fifths | Replaced by | Covered |", report);
+        Assert.Contains("| `Microsoft.AspNet.Mvc` |", report);
+    }
 }

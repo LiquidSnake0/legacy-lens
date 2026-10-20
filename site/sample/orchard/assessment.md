@@ -230,174 +230,114 @@ much of it this codebase touches and how few types carry it: a hundred calls
 through six types is an afternoon, and the same hundred spread over sixty is a
 rewrite. Counted from the syntax, so a type is counted where it appears in a
 type position in a file importing the package and nothing in the solution
-declares it.
+declares it. Every type of every package is listed in the appendix.
+
+| Package | Calls | Types | Files | Types for four fifths | Replaced by | Covered |
+|---|---:|---:|---:|---:|---|---:|
+| `Microsoft.AspNet.Mvc` | 3,619 | 185 | 365 | 24 | `Microsoft.AspNetCore.Mvc` | 83% |
+| `Autofac` | 790 | 99 | 159 | 28 | nothing recorded |  |
+| `Newtonsoft.Json` | 510 | 23 | 31 | 4 | `System.Text.Json` | 0% |
+| `NHibernate` | 462 | 79 | 58 | 25 | nothing recorded |  |
+| `Microsoft.AspNet.WebApi.Core` | 92 | 38 | 13 | 23 | `Microsoft.AspNetCore.Mvc` | 7% |
+| `log4net` | 79 | 20 | 6 | 7 | `Serilog` | 4% |
+| `Microsoft.AspNet.WebPages` | 62 | 25 | 11 | 14 | `Microsoft.AspNetCore.Mvc.Razor` | 18% |
+| `Owin` | 19 | 10 | 10 | 7 | nothing recorded |  |
+| `Microsoft.AspNet.Razor` | 6 | 6 | 1 | 5 | nothing recorded |  |
 
 ### Microsoft.AspNet.Mvc
 
 3,619 uses of 185 types, across 365 files. 24 types and 134 files carry four
-fifths of it.
-
-- `ActionResult` (541 uses)
-- `HttpUnauthorizedResult` (408 uses)
-- `HttpPost` (260 uses)
-- `RouteValueDictionary` (194 uses)
-- `SelectListItem` (172 uses)
-- `HtmlHelper` (167 uses)
-- `ActionName` (134 uses)
-- `Controller` (131 uses)
-
-**Microsoft.AspNetCore.Mvc** covers 83% of those calls. 116 types, 543 calls,
+fifths of it. **Microsoft.AspNetCore.Mvc** covers 83% of those calls; 543 calls
 are not in the catalogue at all: unknown, which is not the same as fine.
 
-1 type, 57 calls, are deleted rather than replaced: the framework withdrew the
-feature, so the use goes and nothing takes its place. They are named, because a
-deletion somebody has not agreed to is still a change to their code:
+Asked of the framework itself rather than of the catalogue, the unknown column
+holds 7 types that exist inside Microsoft.AspNetCore.Mvc under the same name, a
+lead worth checking; 10 types that exist elsewhere in the framework under the
+same name, which nobody has recorded either way; and 99 types the framework does
+not have at all. That leaves 109 types still to decide.
 
-- `ValidateInput` (57 uses)
-
-Asked of the framework itself rather than of the catalogue: 7 types of that
-column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a
-lead worth checking. 10 types exist elsewhere in the framework under the same
-name, which nobody has recorded either way. 99 types the framework does not have
-at all. That leaves 109 types still to decide.
-
-Those are worth a minute each, because the framework was split up and a
-counterpart in a sibling package looks the same from here as a coincidence:
-
-- `HttpContext` (8 uses) is `Microsoft.AspNetCore.Http.HttpContext`
-- `IRouteHandler` (5 uses) is `Microsoft.AspNetCore.Routing.IRouteHandler`
-- `VirtualPathData` (5 uses) is `Microsoft.AspNetCore.Routing.VirtualPathData`
-- `HttpRequest` (3 uses) is `Microsoft.AspNetCore.Http.HttpRequest`
-- `IRouteConstraint` (2 uses) is `Microsoft.AspNetCore.Routing.IRouteConstraint`
-- `RouteDirection` (2 uses) is `Microsoft.AspNetCore.Routing.RouteDirection`
-- `AuthenticationProperties` (1 use) is `Microsoft.AspNetCore.Authentication.AuthenticationProperties`
-- `HttpResponse` (1 use) is `Microsoft.AspNetCore.Http.HttpResponse`
-
-3 types, 5 calls, have no replacement recorded at all. Those are the ones that
-decide whether this is a migration or a rewrite, and they are named rather than
-counted:
-
-- `OutputCacheAttribute` (3 uses)
-- `HandleErrorAttribute` (1 use)
-- `IDependencyResolver` (1 use)
+| Type | Calls | What happens to it |
+|---|---:|---|
+| `ActionResult` | 541 | replaced in Microsoft.AspNetCore.Mvc |
+| `HttpUnauthorizedResult` | 408 | replaced in Microsoft.AspNetCore.Mvc |
+| `HttpPost` | 260 | replaced in Microsoft.AspNetCore.Mvc |
+| `ValidateInput` | 57 | **deleted**: the feature was withdrawn |
+| `HttpContext` | 8 | unknown; same name at `Microsoft.AspNetCore.Http.HttpContext` |
+| `IRouteHandler` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.IRouteHandler` |
+| `VirtualPathData` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.VirtualPathData` |
+| `OutputCacheAttribute` | 3 | **no replacement recorded** |
+| `HttpRequest` | 3 | unknown; same name at `Microsoft.AspNetCore.Http.HttpRequest` |
+| `IRouteConstraint` | 2 | unknown; same name at `Microsoft.AspNetCore.Routing.IRouteConstraint` |
+| `RouteDirection` | 2 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteDirection` |
+| `HandleErrorAttribute` | 1 | **no replacement recorded** |
+| `IDependencyResolver` | 1 | **no replacement recorded** |
+| `AuthenticationProperties` | 1 | unknown; same name at `Microsoft.AspNetCore.Authentication.AuthenticationProperties` |
+| `HttpResponse` | 1 | unknown; same name at `Microsoft.AspNetCore.Http.HttpResponse` |
 
 ### Autofac
 
 790 uses of 99 types, across 159 files. 28 types and 67 files carry four fifths
-of it.
-
-- `ContainerBuilder` (144 uses)
-- `Mock` (127 uses)
-- `ILifetimeScope` (60 uses)
-- `IComponentRegistration` (34 uses)
-- `HttpContextBase` (24 uses)
-- `RequestContext` (22 uses)
-- `HtmlString` (21 uses)
-- `IComponentContext` (17 uses)
-
-Nobody has recorded what replaces this. That is a gap in the catalogue rather
-than a statement about the package.
+of it. Nobody has recorded what replaces this. That is a gap in the catalogue
+rather than a statement about the package.
 
 ### Newtonsoft.Json
 
 510 uses of 23 types, across 31 files. 4 types and 2 files carry four fifths of
-it.
+it. **System.Text.Json** covers 0% of those calls; 91 calls are not in the
+catalogue at all: unknown, which is not the same as fine.
 
-- `JProperty` (243 uses)
-- `JObject` (114 uses)
-- `JArray` (38 uses)
-- `JToken` (22 uses)
-- `ActionResult` (17 uses)
-- `HttpUnauthorizedResult` (16 uses)
-- `HtmlString` (12 uses)
-- `HttpPost` (11 uses)
+Asked of the framework itself rather than of the catalogue, the unknown column
+holds 0 types that exist inside System.Text.Json under the same name, a lead
+worth checking; 7 types that exist elsewhere in the framework under the same
+name, which nobody has recorded either way; and 10 types the framework does not
+have at all. That leaves 17 types still to decide.
 
-**System.Text.Json** covers 0% of those calls. 17 types, 91 calls, are not in
-the catalogue at all: unknown, which is not the same as fine.
-
-Asked of the framework itself rather than of the catalogue: 0 types of that
-column exist inside System.Text.Json under the same name, which is a lead worth
-checking. 7 types exist elsewhere in the framework under the same name, which
-nobody has recorded either way. 10 types the framework does not have at all.
-That leaves 17 types still to decide.
-
-Those are worth a minute each, because the framework was split up and a
-counterpart in a sibling package looks the same from here as a coincidence:
-
-- `ActionResult` (17 uses) is `Microsoft.AspNetCore.Mvc.ActionResult`
-- `HtmlString` (12 uses) is `Microsoft.AspNetCore.Html.HtmlString`
-- `Controller` (3 uses) is `Microsoft.AspNetCore.Mvc.Controller`
-- `FormCollection` (3 uses) is `Microsoft.AspNetCore.Http.FormCollection`
-- `JsonResult` (1 use) is `Microsoft.AspNetCore.Mvc.JsonResult`
-- `RouteData` (1 use) is `Microsoft.AspNetCore.Routing.RouteData`
-- `SelectListItem` (1 use) is `Microsoft.AspNetCore.Mvc.Rendering.SelectListItem`
-
-5 types, 418 calls, have no replacement recorded at all. Those are the ones that
-decide whether this is a migration or a rewrite, and they are named rather than
-counted:
-
-- `JProperty` (243 uses)
-- `JObject` (114 uses)
-- `JArray` (38 uses)
-- `JToken` (22 uses)
-- `JValue` (1 use)
+| Type | Calls | What happens to it |
+|---|---:|---|
+| `JProperty` | 243 | **no replacement recorded** |
+| `JObject` | 114 | **no replacement recorded** |
+| `JArray` | 38 | **no replacement recorded** |
+| `JToken` | 22 | **no replacement recorded** |
+| `ActionResult` | 17 | unknown; same name at `Microsoft.AspNetCore.Mvc.ActionResult` |
+| `HtmlString` | 12 | unknown; same name at `Microsoft.AspNetCore.Html.HtmlString` |
+| `Controller` | 3 | unknown; same name at `Microsoft.AspNetCore.Mvc.Controller` |
+| `FormCollection` | 3 | unknown; same name at `Microsoft.AspNetCore.Http.FormCollection` |
+| `JValue` | 1 | **no replacement recorded** |
+| `JsonResult` | 1 | unknown; same name at `Microsoft.AspNetCore.Mvc.JsonResult` |
+| `RouteData` | 1 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteData` |
+| `SelectListItem` | 1 | unknown; same name at `Microsoft.AspNetCore.Mvc.Rendering.SelectListItem` |
 
 ### NHibernate
 
 462 uses of 79 types, across 58 files. 25 types and 28 files carry four fifths
-of it.
-
-- `ICriteria` (76 uses)
-- `ISession` (50 uses)
-- `ICriterion` (30 uses)
-- `Mock` (29 uses)
-- `ISessionFactory` (25 uses)
-- `Configuration` (23 uses)
-- `ContainerBuilder` (17 uses)
-- `IProjection` (16 uses)
-
-Nobody has recorded what replaces this. That is a gap in the catalogue rather
-than a statement about the package.
+of it. Nobody has recorded what replaces this. That is a gap in the catalogue
+rather than a statement about the package.
 
 ### Microsoft.AspNet.WebApi.Core
 
 92 uses of 38 types, across 13 files. 23 types and 7 files carry four fifths of
-it.
+it. **Microsoft.AspNetCore.Mvc** covers 7% of those calls; 82 calls are not in
+the catalogue at all: unknown, which is not the same as fine.
 
-- `ContainerBuilder` (8 uses)
-- `ILifetimeScope` (6 uses)
-- `IHttpController` (5 uses)
-- `RouteCollection` (5 uses)
-- `ConfigurationSettingsReader` (4 uses)
-- `HttpConfiguration` (4 uses)
-- `HttpControllerContext` (4 uses)
-- `HttpControllerDescriptor` (4 uses)
+Asked of the framework itself rather than of the catalogue, the unknown column
+holds 5 types that exist inside Microsoft.AspNetCore.Mvc under the same name, a
+lead worth checking; 4 types that exist elsewhere in the framework under the
+same name, which nobody has recorded either way; and 24 types the framework does
+not have at all. That leaves 28 types still to decide.
 
-**Microsoft.AspNetCore.Mvc** covers 7% of those calls. 33 types, 82 calls, are
-not in the catalogue at all: unknown, which is not the same as fine.
+| Type | Calls | What happens to it |
+|---|---:|---|
+| `ContainerBuilder` | 8 | unknown to the catalogue |
+| `ILifetimeScope` | 6 | unknown to the catalogue |
+| `IHttpController` | 5 | unknown to the catalogue |
+| `RouteCollection` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteCollection` |
+| `HttpConfiguration` | 4 | **no replacement recorded** |
+| `KeyedService` | 2 | unknown; same name at `Microsoft.Extensions.DependencyInjection.KeyedService` |
+| `RouteBase` | 1 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteBase` |
+| `RouteData` | 1 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteData` |
 
-Asked of the framework itself rather than of the catalogue: 5 types of that
-column exist inside Microsoft.AspNetCore.Mvc under the same name, which is a
-lead worth checking. 4 types exist elsewhere in the framework under the same
-name, which nobody has recorded either way. 24 types the framework does not have
-at all. That leaves 28 types still to decide.
-
-Those are worth a minute each, because the framework was split up and a
-counterpart in a sibling package looks the same from here as a coincidence:
-
-- `RouteCollection` (5 uses) is `Microsoft.AspNetCore.Routing.RouteCollection`
-- `KeyedService` (2 uses) is `Microsoft.Extensions.DependencyInjection.KeyedService`
-- `RouteBase` (1 use) is `Microsoft.AspNetCore.Routing.RouteBase`
-- `RouteData` (1 use) is `Microsoft.AspNetCore.Routing.RouteData`
-
-1 type, 4 calls, have no replacement recorded at all. Those are the ones that
-decide whether this is a migration or a rewrite, and they are named rather than
-counted:
-
-- `HttpConfiguration` (4 uses)
-
-4 further catalogued package(s) are used and not listed here. The command prints
-all of them.
+4 further packages in the table above are not detailed here; their types are in
+the appendix.
 
 ## What there is to decide about the frameworks themselves
 
@@ -638,9 +578,188 @@ ranking. They top every chart on size and complexity and tell a reader nothing
 they can act on, but they are still code that ships, and a regeneration path
 that no longer exists is its own problem.
 
+## Appendix: every type used, by package
+
+For the engineer doing the work. Each package with its types, heaviest first,
+and the number of calls in brackets.
+
+**Microsoft.AspNet.Mvc, 185 types.** `ActionResult` (541),
+`HttpUnauthorizedResult` (408), `HttpPost` (260), `RouteValueDictionary` (194),
+`SelectListItem` (172), `HtmlHelper` (167), `ActionName` (134), `Controller`
+(131), `IHtmlString` (127), `UrlHelper` (105), `MvcHtmlString` (70), `Route`
+(63), `RequestContext` (59), `MvcRouteHandler` (58), `ValidateInput` (57),
+`TagBuilder` (51), `Mock` (46), `ControllerContext` (43), `HtmlString` (41),
+`ViewContext` (41), `IViewDataContainer` (39), `JsonResult` (35), `IViewEngine`
+(34), `RouteCollection` (34), `RouteData` (34), `ContainerBuilder` (28),
+`HttpContextBase` (28), `FormCollection` (27), `ViewDataDictionary` (23),
+`IValueProvider` (19), `RouteBase` (17), `ModelStateDictionary` (16),
+`ActionExecutingContext` (15), `ResultExecutedContext` (15),
+`ResultExecutingContext` (15), `ViewEngineResult` (15), `ILifetimeScope` (14),
+`IResultFilter` (14), `ViewResult` (12), `ActionExecutedContext` (10),
+`AuthorizationContext` (10), `DictionaryValueProvider` (10), `IView` (10),
+`RedirectResult` (9), `HttpContext` (8), `TagRenderMode` (8), `ControllerBase`
+(7), `HtmlTextWriter` (7), `IActionFilter` (7), `IComponentContext` (7),
+`IHttpHandler` (7), `IRouteWithArea` (7), `RedirectToRouteResult` (7),
+`HttpApplication` (6), `HttpNotFoundResult` (6), `MvcForm` (6), `SelectList`
+(6), `Bind` (5), `HttpRequestBase` (5), `HttpResponseBase` (5), `IRouteHandler`
+(5), `JObject` (5), `Meta` (5), `NamedParameter` (5), `TempDataDictionary` (5),
+`ViewResultBase` (5), `VirtualPathData` (5), `WebPageBase` (5), `Authorize` (4),
+`ConfigurationSettingsReader` (4), `ContentResult` (4), `ExceptionContext` (4),
+`HiddenInput` (4), `HttpCookieCollection` (4), `HttpStatusCodeResult` (4),
+`IModelBinder` (4), `IModule` (4), `ModelBinderDictionary` (4),
+`ModelBindingContext` (4), `SessionStateBehavior` (4), `ValueProviderResult`
+(4), `WebPageContext` (4), `ConcreteReflectionActivatorData` (3),
+`ControllerBuilder` (3), `EmptyResult` (3), `FormMethod` (3),
+`HttpContextWrapper` (3), `HttpRequest` (3), `IAuthorizationFilter` (3),
+`IComponentRegistry` (3), `IHttpAsyncHandler` (3), `IRegistrationBuilder` (3),
+`MvcHandler` (3), `OutputCacheAttribute` (3), `RazorViewEngine` (3),
+`SelectListGroup` (3), `SingleRegistrationStyle` (3), `TemplateControl` (3),
+`TemplateInfo` (3), `ViewEngineCollection` (3), `ActionMethodSelectorAttribute`
+(2), `Cell` (2), `CellValues` (2), `DefaultControllerFactory` (2),
+`DefaultModelBinder` (2), `EnumValue` (2), `FileContentResult` (2), `Filter`
+(2), `HelperResult` (2), `HttpBrowserCapabilitiesBase` (2), `HttpRequestWrapper`
+(2), `HttpServerUtilityBase` (2), `HttpSessionStateBase` (2),
+`IComponentRegistration` (2), `IExceptionFilter` (2), `IHttpController` (2),
+`IRequiresSessionState` (2), `IRouteConstraint` (2), `InlineString` (2),
+`JArray` (2), `NameValueCollectionValueProvider` (2), `OutputCache` (2),
+`PageInstrumentationService` (2), `ReflectedControllerDescriptor` (2),
+`RequireHttpsAttribute` (2), `ResizeSettings` (2), `RouteDirection` (2),
+`SmtpSection` (2), `WebPageRenderingBase` (2), `ActionFilterAttribute` (1),
+`AuthenticationChallengeContext` (1), `AuthenticationContext` (1),
+`AuthenticationProperties` (1), `BodyBuilder` (1), `CacheDependency` (1),
+`DataAnnotationsModelValidatorProvider` (1), `ExceptionFilterAttribute` (1),
+`FileResult` (1), `FilterAttribute` (1), `HandleError` (1),
+`HandleErrorAttribute` (1), `HttpActionExecutedContext` (1),
+`HttpAntiForgeryException` (1), `HttpControllerContext` (1), `HttpException`
+(1), `HttpGet` (1), `HttpResponse` (1), `HttpTaskAsyncHandler` (1),
+`IAuthenticationFilter` (1), `IContainerProvider` (1), `IDependencyResolver`
+(1), `IHttpControllerActivator` (1), `IHttpControllerSelector` (1), `IHttpRoute`
+(1), `IHttpRouteData` (1), `IInterceptor` (1), `IInvocation` (1), `IPackage`
+(1), `IPackageRepository` (1), `ISession` (1), `IViewLocationCache` (1),
+`JProperty` (1), `KeyedService` (1), `LifetimeScope` (1), `MailboxAddress` (1),
+`MembershipCreateStatus` (1), `MimeMessage` (1), `ModelMetadata` (1),
+`ModelValidator` (1), `OutputCacheLocation` (1), `PackageSource` (1),
+`PartialViewResult` (1), `RangeAttributeAdapter` (1),
+`RegularExpressionAttributeAdapter` (1), `RequiredAttributeAdapter` (1), `Sheet`
+(1), `SheetData` (1), `Sheets` (1), `StopRoutingHandler` (1),
+`StringLengthAttributeAdapter` (1), `ValidateAntiForgeryTokenAttribute` (1),
+`WebFormViewEngine` (1), `Workbook` (1), `Worksheet` (1), `ZipPackage` (1).
+
+**Autofac, 99 types.** `ContainerBuilder` (144), `Mock` (127), `ILifetimeScope`
+(60), `IComponentRegistration` (34), `HttpContextBase` (24), `RequestContext`
+(22), `HtmlString` (21), `IComponentContext` (17), `MvcRouteHandler` (16),
+`ISession` (15), `ISessionFactory` (15), `Route` (15), `RouteCollection` (15),
+`IComponentRegistry` (13), `RouteData` (11), `Service` (10), `UrlHelper` (10),
+`IRegistrationBuilder` (8), `ZipPackage` (8), `InstanceContext` (6),
+`NamedParameter` (6), `ConcreteReflectionActivatorData` (5), `Controller` (5),
+`HttpApplication` (5), `IHttpController` (5), `IModule` (5), `Meta` (5),
+`RouteValueDictionary` (5), `TypedParameter` (5), `ConfigurationSettingsReader`
+(4), `ControllerContext` (4), `HttpConfiguration` (4), `HttpContext` (4),
+`HttpControllerContext` (4), `HttpControllerDescriptor` (4),
+`HttpCookieCollection` (4), `HttpRequestBase` (4), `ICriteria` (4),
+`KeyedService` (4), `RedirectToRouteResult` (4), `ServiceHostBase` (4),
+`ViewContext` (4), `ControllerBuilder` (3), `DefaultProxyBuilder` (3),
+`IDependencyScope` (3), `IRegistrationSource` (3), `IServiceWithType` (3),
+`MockBehavior` (3), `RouteBase` (3), `ServiceDescription` (3), `ServiceEndpoint`
+(3), `SingleRegistrationStyle` (3), `TypedService` (3), `ChannelDispatcher` (2),
+`ContentResult` (2), `DefaultControllerFactory` (2),
+`HttpBrowserCapabilitiesBase` (2), `HttpResponseBase` (2),
+`HttpServerUtilityBase` (2), `HttpSessionStateBase` (2), `IContainerProvider`
+(2), `IDependencyResolver` (2), `IHttpControllerActivator` (2),
+`IHttpControllerSelector` (2), `IHttpHandler` (2), `IInterceptor` (2),
+`IInvocation` (2), `IPackage` (2), `ModelBinderDictionary` (2),
+`ModelStateDictionary` (2), `PageInstrumentationService` (2), `RedirectResult`
+(2), `ScanningActivatorData` (2), `ServiceHost` (2), `ViewEngineCollection` (2),
+`BindingParameterCollection` (1), `ControllerBase` (1),
+`DefaultHttpControllerSelector` (1), `DistinctRootEntityResultTransformer` (1),
+`HiddenInput` (1), `HtmlHelper` (1), `HttpContextWrapper` (1), `HttpRequest`
+(1), `HttpResponse` (1), `IAppender` (1), `IDisposer` (1), `IExtension` (1),
+`IInstanceProvider` (1), `IProxyBuilder` (1), `IServiceBehavior` (1),
+`ITransaction` (1), `LifetimeScope` (1), `LoggingEvent` (1), `Message` (1),
+`MvcHandler` (1), `PositionalParameter` (1), `ServiceHostFactory` (1),
+`ViewResult` (1), `WebFormViewEngine` (1).
+
+**Newtonsoft.Json, 23 types.** `JProperty` (243), `JObject` (114), `JArray`
+(38), `JToken` (22), `ActionResult` (17), `HttpUnauthorizedResult` (16),
+`HtmlString` (12), `HttpPost` (11), `ActionName` (7),
+`FormsAuthenticationTicket` (7), `HttpCookie` (5), `Controller` (3),
+`FormCollection` (3), `FormsIdentity` (2), `ValidateInput` (2),
+`ConnectionMultiplexer` (1), `Formatting` (1), `HttpContextBase` (1),
+`IDatabase` (1), `JValue` (1), `JsonResult` (1), `RouteData` (1),
+`SelectListItem` (1).
+
+**NHibernate, 79 types.** `ICriteria` (76), `ISession` (50), `ICriterion` (30),
+`Mock` (29), `ISessionFactory` (25), `Configuration` (23), `ContainerBuilder`
+(17), `IProjection` (16), `IType` (12), `DetachedCriteria` (11), `CriteriaImpl`
+(10), `ICriteriaQuery` (8), `ITransaction` (8), `FluentConfiguration` (6),
+`LinqExpression` (6), `Conjunction` (5), `IPersistenceConfigurer` (5),
+`ISQLFunction` (5), `JoinType` (5), `SchemaExport` (5), `AutoPersistenceModel`
+(4), `IResultTransformer` (4), `ISessionFactoryImplementor` (4),
+`SimpleExpression` (4), `SqlFunctionProjection` (4), `TypedValue` (4),
+`VarArgsSQLFunction` (4), `Dialect` (3), `IDiagnosticLogger` (3),
+`IEntityPersister` (3), `ISessionImplementor` (3), `ITypeSource` (3), `Meta`
+(3), `ProjectionList` (3), `PropertyProjection` (3), `SqlStringBuilder` (3),
+`SqlType` (3), `ASTQueryTranslatorFactory` (2), `AutoMappingOverrideAlteration`
+(2), `Disjunction` (2), `DistinctRootEntityResultTransformer` (2),
+`IComponentContext` (2), `IInterceptor` (2), `IQuery` (2), `LockMode` (2),
+`PropertyExpression` (2), `SqlConnection` (2), `AbstractStringType` (1),
+`AggregateProjection` (1), `AutoMappingAlterationCollection` (1), `CacheMode`
+(1), `CastProjection` (1), `ConstantProjection` (1), `CriteriaQueryTranslator`
+(1), `DefaultLoadEventListener` (1), `EmptyInterceptor` (1), `EntityKey` (1),
+`ExceptionContext` (1), `ExceptionFilterAttribute` (1), `FetchMode` (1),
+`FlushMode` (1), `HibernateException` (1), `HttpActionExecutedContext` (1),
+`IExceptionFilter` (1), `IFutureEnumerable` (1), `IFutureValue` (1),
+`ILoadEventListener` (1), `INamingStrategy` (1), `LoadEvent` (1), `LoadType`
+(1), `MatchMode` (1), `Order` (1), `PersistenceConfiguration` (1),
+`PostgreSQL82Dialect` (1), `RootEntityResultTransformer` (1), `SchemaUpdate`
+(1), `SqlException` (1), `StringQueryExpression` (1), `Subcriteria` (1).
+
+**Microsoft.AspNet.WebApi.Core, 38 types.** `ContainerBuilder` (8),
+`ILifetimeScope` (6), `IHttpController` (5), `RouteCollection` (5),
+`ConfigurationSettingsReader` (4), `HttpConfiguration` (4),
+`HttpControllerContext` (4), `HttpControllerDescriptor` (4),
+`ConcreteReflectionActivatorData` (3), `IModule` (3), `IRegistrationBuilder`
+(3), `NamedParameter` (3), `SingleRegistrationStyle` (3), `ApiController` (2),
+`ControllerContext` (2), `HttpActionContext` (2), `IComponentRegistration` (2),
+`IComponentRegistry` (2), `IHttpControllerActivator` (2),
+`IHttpControllerSelector` (2), `IRouteWithArea` (2), `KeyedService` (2), `Meta`
+(2), `Route` (2), `ViewContext` (2), `Controller` (1),
+`DefaultHttpControllerSelector` (1), `HttpContextBase` (1), `HttpGet` (1),
+`IActionFilter` (1), `IAuthorizationFilter` (1), `IHttpActionResult` (1),
+`IInterceptor` (1), `IInvocation` (1), `LifetimeScope` (1), `RequestContext`
+(1), `RouteBase` (1), `RouteData` (1).
+
+**log4net, 20 types.** `SystemStringFormat` (20), `Given` (13), `HtmlNode` (9),
+`When` (9), `Then` (6), `HtmlDocument` (4), `ContainerBuilder` (3), `IAppender`
+(2), `LoggingEvent` (2), `AbstractLoggerFactory` (1), `AfterScenario` (1),
+`AfterTestRun` (1), `BeforeScenario` (1), `BeforeTestRun` (1), `Binding` (1),
+`HttpContextWrapper` (1), `HttpException` (1), `ILog` (1), `LoggerLevel` (1),
+`TraceLoggerFactory` (1).
+
+**Microsoft.AspNet.WebPages, 25 types.** `HtmlHelper` (9), `MvcHtmlString` (5),
+`WebPageBase` (5), `ViewContext` (4), `ViewDataDictionary` (4), `WebPageContext`
+(4), `AuthenticationContext` (3), `ClientCredential` (3), `HtmlTextWriter` (3),
+`IViewDataContainer` (3), `ActiveDirectoryClient` (2), `HelperResult` (2),
+`HttpContextBase` (2), `WebPageRenderingBase` (2), `ContainerBuilder` (1),
+`Controller` (1), `ControllerContext` (1), `CookieAuthenticationOptions` (1),
+`HttpApplication` (1), `IView` (1), `OpenIdConnectAuthenticationNotifications`
+(1), `OpenIdConnectAuthenticationOptions` (1), `RouteCollection` (1),
+`TempDataDictionary` (1), `TemplateControl` (1).
+
+**Owin, 10 types.** `IAppBuilder` (4), `AuthenticationContext` (3),
+`ClientCredential` (3), `OpenIdConnectAuthenticationNotifications` (2),
+`OpenIdConnectAuthenticationOptions` (2),
+`CertificateSubjectKeyIdentifierValidator` (1), `CookieAuthenticationOptions`
+(1), `GoogleOAuth2AuthenticationOptions` (1), `PathString` (1),
+`TwitterAuthenticationOptions` (1).
+
+**Microsoft.AspNet.Razor, 6 types.** `CSharpCodeProvider` (1),
+`CSharpRazorCodeLanguage` (1), `CodeCompileUnit` (1), `CompilerParameters` (1),
+`RazorEngineHost` (1), `RazorTemplateEngine` (1).
+
 ---
 
-Measured in 9,048 ms, without compiling anything, without restoring a package
+Measured in 11,867 ms, without compiling anything, without restoring a package
 and without contacting any service. That is what makes it usable on a solution
 that does not build, which is the state an inherited codebase is in on the first
 day. Generated by [Legacy Lens](https://github.com/LiquidSnake0/legacy-lens).

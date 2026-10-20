@@ -56,6 +56,7 @@ public class ReportWriter
         Decide(report, assessment);
         Order(report, assessment);
         Unsaid(report, assessment);
+        Appendix(report, assessment);
         Method(report, assessment);
 
         return report.ToString();
@@ -647,12 +648,29 @@ public class ReportWriter
           + "through six types is an afternoon, and the same hundred spread over sixty is a "
           + "rewrite. Counted from the syntax, so a type is counted where it appears in a "
           + "type position in a file importing the package and nothing in the solution "
-          + "declares it."));
+          + "declares it. Every type of every package is listed in the appendix."));
+        report.AppendLine();
+
+        // The whole picture first, one line per package, so that the reader
+        // who stops here has the size of each and the share already answered.
+        report.AppendLine("| Package | Calls | Types | Files | Types for four fifths | Replaced by | Covered |");
+        report.AppendLine("|---|---:|---:|---:|---:|---|---:|");
+        foreach (var dependency in used)
+        {
+            var surface = dependency.Surface;
+            var best = dependency.Best is { Candidate.Length: > 0 } named ? named : null;
+            report.AppendLine(
+                $"| `{Cell(surface.Package)}` | {surface.Uses:N0} | {surface.Types.Count:N0} | "
+              + $"{surface.Files:N0} | {surface.TypesForMostOfIt:N0} | "
+              + $"{(best is null ? "nothing recorded" : $"`{Cell(best.Candidate)}`")} | "
+              + $"{(best is null ? "" : $"{best.Percent}%")} |");
+        }
         report.AppendLine();
 
         foreach (var dependency in used.Take(TopDependencies))
         {
             var surface = dependency.Surface;
+            var best = dependency.Best;
 
             report.AppendLine($"### {surface.Package}");
             report.AppendLine();
@@ -661,133 +679,112 @@ public class ReportWriter
               + $"{Assessor.Count(surface.Types.Count, "type")}, across "
               + $"{Assessor.Count(surface.Files, "file")}. "
               + $"{Assessor.Count(surface.TypesForMostOfIt, "type")} and "
-              + $"{Assessor.Count(surface.FilesForMostOfIt, "file")} carry four fifths of it."));
+              + $"{Assessor.Count(surface.FilesForMostOfIt, "file")} carry four fifths of it."
+              + (best is null
+                    ? " Nobody has recorded what replaces this. That is a gap in the catalogue "
+                    + "rather than a statement about the package."
+                    : $" **{best.Candidate}** covers {best.Percent}% of those calls; "
+                    + $"{Assessor.Count(best.UsesUnknown, "call")} are not in the catalogue at "
+                    + "all: unknown, which is not the same as fine.")));
             report.AppendLine();
 
-            foreach (var type in surface.Types.Take(TopTypes))
-                report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
-
-            report.AppendLine();
-
-            var best = dependency.Best;
-
-            if (best is null)
+            var reading = best is null ? null : new Unlisted().Read(best.Unknown, best.Candidate);
+            if (reading is { Applicable: true })
             {
                 report.AppendLine(Wrap(
-                    "Nobody has recorded what replaces this. That is a gap in the catalogue "
-                  + "rather than a statement about the package."));
-                report.AppendLine();
-                continue;
-            }
-
-            report.AppendLine(Wrap(
-                $"**{best.Candidate}** covers {best.Percent}% of those calls. "
-              + $"{Assessor.Count(best.Unknown.Count, "type")}, "
-              + $"{Assessor.Count(best.UsesUnknown, "call")}, are not in the catalogue at "
-              + "all: unknown, which is not the same as fine."));
-            report.AppendLine();
-
-            // The cheapest answer there is, and on real code the largest. A
-            // withdrawn feature leaves nothing to replace because there is
-            // nothing left to do, which is a different thing from a type with
-            // no counterpart.
-            if (best.Gone.Count > 0)
-            {
-                report.AppendLine(Wrap(
-                    $"{Assessor.Count(best.Gone.Count, "type")}, "
-                  + $"{Assessor.Count(best.UsesGone, "call")}, are deleted rather than replaced: "
-                  + "the framework withdrew the feature, so the use goes and nothing takes its "
-                  + "place. They are named, because a deletion somebody has not agreed to is "
-                  + "still a change to their code:"));
-                report.AppendLine();
-
-                foreach (var type in best.Gone.Take(TopTypes))
-                    report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
-
+                    "Asked of the framework itself rather than of the catalogue, the unknown "
+                  + $"column holds {Assessor.Count(reading.Of(Standing.InSuccessor).Count, "type")} "
+                  + $"that exist inside {best!.Candidate} under the same name, a lead worth "
+                  + $"checking; {Assessor.Count(reading.Of(Standing.Elsewhere).Count, "type")} that "
+                  + "exist elsewhere in the framework under the same name, which nobody has "
+                  + "recorded either way; and "
+                  + $"{Assessor.Count(reading.Of(Standing.Gone).Count, "type")} the framework "
+                  + $"does not have at all. That leaves {Assessor.Count(reading.Left, "type")} "
+                  + "still to decide."));
                 report.AppendLine();
             }
 
-            Asked(report, best);
+            // One table instead of four lists: the few heaviest types, and
+            // every type that decides something whatever its weight, each with
+            // what happens to it. A blocker with one call is still a blocker.
+            // A package with nothing recorded gets no table: every row would
+            // say so, and the table above already has.
+            if (best is null) continue;
 
-            if (best.Blocked)
-            {
-                report.AppendLine(Wrap(
-                    $"{Assessor.Count(best.Unavailable.Count, "type")}, "
-                  + $"{Assessor.Count(best.UsesUnavailable, "call")}, have no replacement "
-                  + "recorded at all. Those are the ones that decide whether this is a "
-                  + "migration or a rewrite, and they are named rather than counted:"));
-                report.AppendLine();
-
-                foreach (var type in best.Unavailable.Take(TopTypes))
-                    report.AppendLine($"- `{type.Name}` ({Assessor.Count(type.Uses, "use")})");
-
-                report.AppendLine();
-            }
+            var rows = Rows(surface, best, reading);
+            report.AppendLine("| Type | Calls | What happens to it |");
+            report.AppendLine("|---|---:|---|");
+            foreach (var (type, fate) in rows)
+                report.AppendLine($"| `{Cell(type.Name)}` | {type.Uses:N0} | {Cell(fate)} |");
+            report.AppendLine();
         }
 
         if (used.Count > TopDependencies)
         {
             report.AppendLine(Wrap(
-                $"{used.Count - TopDependencies} further catalogued package(s) are used and "
-              + "not listed here. The command prints all of them."));
+                $"{Assessor.Count(used.Count - TopDependencies, "further package")} in the table "
+              + "above are not detailed here; their types are in the appendix."));
             report.AppendLine();
         }
     }
 
     /// <summary>
-    /// What the framework being migrated to says about the column nobody
-    /// catalogued.
-    ///
-    /// Without it a reader is left with a number of unknowns and no way to tell
-    /// a rename from a rewrite. With it, most of that column turns out to be
-    /// types that kept their name and changed namespace, which is transcription
-    /// rather than work. Read from the metadata this process already has
-    /// loaded, and said to be read rather than judged: the catalogue is a
-    /// judgement somebody signed, and this is not.
+    /// The rows of a package's table: the heaviest types, then anything that
+    /// is deleted, has no replacement or has a namesake in a sibling package,
+    /// however light, ordered by weight.
     /// </summary>
-    private static void Asked(StringBuilder report, Coverage coverage)
+    private static List<(ApiUse Type, string Fate)> Rows(
+        UsageSurface surface, Coverage? best, UnlistedReading? reading)
     {
-        var reading = new Unlisted().Read(coverage.Unknown, coverage.Candidate);
+        var fates = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        if (!reading.Applicable) return;
+        if (best is not null)
+        {
+            foreach (var type in best.Covered) fates[type.Name] = $"replaced in {best.Candidate}";
+            foreach (var type in best.Unknown) fates[type.Name] = "unknown to the catalogue";
+            foreach (var type in best.Gone) fates[type.Name] = "**deleted**: the feature was withdrawn";
+            foreach (var type in best.Unavailable) fates[type.Name] = "**no replacement recorded**";
+        }
 
-        var leads = reading.Of(Standing.InSuccessor).Count;
-        var elsewhere = reading.Of(Standing.Elsewhere).ToList();
-        var gone = reading.Of(Standing.Gone).Count;
+        foreach (var found in reading?.Of(Standing.InSuccessor) ?? [])
+            fates[found.Use.Name] = $"unknown; same name inside {best!.Candidate}";
+        foreach (var found in reading?.Of(Standing.Elsewhere) ?? [])
+            fates[found.Use.Name] = $"unknown; same name at `{found.Where}`";
 
+        var decisive = (best?.Gone ?? []).Concat(best?.Unavailable ?? [])
+            .Concat((reading?.Of(Standing.Elsewhere) ?? []).Select(f => f.Use).Take(TopTypes));
+
+        return surface.Types.Take(HeaviestTypes)
+            .Concat(decisive)
+            .DistinctBy(t => t.Name)
+            .OrderByDescending(t => t.Uses)
+            .Select(t => (t, fates.TryGetValue(t.Name, out var fate) ? fate
+                           : best is null ? "nothing recorded for the package" : "unknown to the catalogue"))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Every type of every package the codebase uses, for the engineer who
+    /// does the work. Kept out of the body, where a list of a hundred names
+    /// is read as a wall, and kept whole here, where it is looked up.
+    /// </summary>
+    private static void Appendix(StringBuilder report, Assessment assessment)
+    {
+        var used = assessment.Uses.Where(d => d.Surface.Used).ToList();
+        if (used.Count == 0) return;
+
+        report.AppendLine("## Appendix: every type used, by package");
+        report.AppendLine();
         report.AppendLine(Wrap(
-            $"Asked of the framework itself rather than of the catalogue: "
-          + $"{Assessor.Count(leads, "type")} of that column exist inside {coverage.Candidate} "
-          + $"under the same name, which is a lead worth checking. "
-          + $"{Assessor.Count(elsewhere.Count, "type")} exist elsewhere in the framework under "
-          + "the same name, which nobody has recorded either way. "
-          + $"{Assessor.Count(gone, "type")} the framework does not have at all. That leaves "
-          + $"{Assessor.Count(reading.Left, "type")} still to decide."));
+            "For the engineer doing the work. Each package with its types, heaviest first, "
+          + "and the number of calls in brackets."));
         report.AppendLine();
 
-        // Named rather than counted, and not called a trap.
-        //
-        // This used to say "somewhere unrelated, which is a trap rather than an
-        // answer". Sometimes. `System.Web.HttpContext` and
-        // `Microsoft.AspNetCore.Http.HttpContext` share a word and nothing
-        // else, and that is the case the sentence was written for. But on
-        // nopCommerce every one of these was a real counterpart in a sibling
-        // package: ASP.NET Core split MVC across Http, Routing and Html, and
-        // `Microsoft.AspNetCore.Routing.RouteData` is not somewhere unrelated.
-        //
-        // Which of the two it is cannot be settled by looking at namespaces,
-        // and calling them all traps sent somebody past correspondences that
-        // were there. Named, a reader settles it in a minute.
-        if (elsewhere.Count > 0)
+        foreach (var dependency in used)
         {
-            report.AppendLine(Wrap(
-                "Those are worth a minute each, because the framework was split up and a "
-              + "counterpart in a sibling package looks the same from here as a coincidence:"));
-            report.AppendLine();
-
-            foreach (var found in elsewhere.OrderByDescending(t => t.Use.Uses).Take(TopTypes))
-                report.AppendLine($"- `{found.Use.Name}` ({Assessor.Count(found.Use.Uses, "use")}) is `{found.Where}`");
-
+            var surface = dependency.Surface;
+            report.AppendLine(Lead($"{surface.Package}, {Assessor.Count(surface.Types.Count, "type")}",
+                string.Join(", ", surface.Types.Select(t => $"`{t.Name}` ({t.Uses:N0})")) + "."));
             report.AppendLine();
         }
     }
@@ -860,6 +857,12 @@ public class ReportWriter
 
     /// <summary>Types named per package.</summary>
     private const int TopTypes = 8;
+
+    /// <summary>
+    /// The heaviest types a package's table always shows, before the ones
+    /// that decide something. The rest are in the appendix.
+    /// </summary>
+    private const int HeaviestTypes = 3;
 
     /// <summary>
     /// What nobody else can settle, before the order that assumes it.
