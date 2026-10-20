@@ -115,11 +115,15 @@ public sealed class LensTools(Codebase codebase)
     [McpServerTool(Name = "trace_flow", ReadOnly = true, Idempotent = true)]
     [Description("Traces one flow from an entry point inward: every call the solution answers, with the file:line where it is made and the declaration that answers it, and how sure each link is (resolved, through interface, inferred when several implementations could answer, unimplemented). Calls into packages and the framework end a branch and are counted. Take the entry from entry_points.")]
     public string TraceFlow(
-        [Description("Type.Member, for example BlogController.Item")] string entry,
+        [Description("Type.Member, for example BlogController.Item, or Namespace.Type.Member when the type name is shared")] string entry,
         [Description("How many calls deep, 1 to 6")] int depth = 3)
     {
         var flow = codebase.Flows.Trace(entry, Math.Clamp(depth, 1, 6));
-        return flow is null ? $"No method {entry} in this solution." : FlowWriter.Write(flow);
+        if (flow is not null) return FlowWriter.Write(flow);
+        var candidates = codebase.Flows.Candidates(entry);
+        return candidates.Count > 1
+            ? $"{entry} is ambiguous; ask again with one of:\n" + string.Join("\n", candidates)
+            : $"No method {entry} in this solution.";
     }
 
     [McpServerTool(Name = "risky_files", ReadOnly = true, Idempotent = true)]
