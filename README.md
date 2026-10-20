@@ -1327,6 +1327,37 @@ their own machine telling them not to trust it, which is worse than no
 demonstration at all. A certificate is a purchase and an identity check rather
 than a build step.
 
+## Without the source: a folder of assemblies
+
+Sometimes part of the code is only there as a DLL: a vendor's component, a
+library whose source was lost, a `HintPath` pointing into a folder nobody can
+rebuild. `LegacyLens binaries <folder>` reads the assemblies' metadata with
+[ILSpy](https://github.com/icsharpcode/ILSpy)'s engine and answers the same
+questions the source assessment answers, as far as metadata can.
+
+```bash
+LegacyLens binaries path/to/bin --yours Contoso
+```
+
+- **Which assemblies, targeting what**: the target framework as ILSpy detects it,
+  types, and which of your assemblies depend on which.
+- **What modern .NET no longer has**: references into `System.Web`, ASMX,
+  WCF hosting, Workflow, COM+, Remoting, with the members used and who uses them.
+- **What you use of the packages going away**, type by type, through the same
+  catalogue as the source report. More exact than the source reading, not less:
+  each type is attributed to the assembly the compiler resolved it to, where
+  reading source has to guess from what a file imports.
+
+Run on `lib/` of SmartStore.NET with `--yours SmartStore`, it finds
+`SmartStore.Licensing`, a component shipped without its source: .NET Framework
+4.7.2, 143 types, built on `System.Web`, using 28 members of 15 MVC types of
+which `Microsoft.AspNetCore.Mvc` covers 79%, and Autofac.
+
+**It says what it cannot.** A count is of distinct members referenced, not of
+calls, because metadata records a member once however often it is called. No
+complexity, no history, no tests. And which assemblies are yours is a rule,
+unsigned and not a known package, unless `--yours` names them.
+
 ## For a coding agent: an MCP server
 
 What [REA](https://github.com/morluto/rea) does for Ghidra, this does for an

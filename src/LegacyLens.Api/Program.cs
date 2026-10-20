@@ -59,6 +59,26 @@ if (args is ["report", var target, ..])
     return;
 }
 
+// The assessment of a codebase whose source is gone: a folder of assemblies,
+// read for their metadata with ILSpy's engine. Nothing is decompiled or run.
+if (args is ["binaries", var binariesRoot, ..])
+{
+    // `--yours Contoso` (repeatable): the assemblies under assessment, by name
+    // prefix. Without it, unsigned assemblies that are not a known package.
+    var prefixes = args.Skip(2).Chunk(2)
+        .Where(pair => pair is ["--yours", _]).Select(pair => pair[1]).ToList();
+    try
+    {
+        Console.Out.Write(new BinaryReportWriter().Write(new AssemblyReader().Assess(binariesRoot, prefixes)));
+    }
+    catch (DirectoryNotFoundException ex)
+    {
+        Console.Error.WriteLine(ex.Message);
+        Environment.ExitCode = 2;
+    }
+    return;
+}
+
 // A Model Context Protocol server over standard input and output, for a coding
 // agent: Claude Code, Copilot or Cursor asks what this tool measures about one
 // codebase and gets the report's own sections, with the files they cite. The
