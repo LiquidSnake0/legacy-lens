@@ -142,4 +142,41 @@ public class McpToolsTests : IDisposable
         Assert.StartsWith("## HomeController.Index", Tools().TraceFlow("HomeController.Index"));
         Assert.Equal("No method Nope.Nothing in this solution.", Tools().TraceFlow("Nope.Nothing"));
     }
+
+    [Fact]
+    public void Nor_through_a_linked_directory_on_the_way()
+    {
+        // The link is not the file asked for but a directory above it, which
+        // a check of the last component alone lets through.
+        Directory.CreateDirectory(Path.Combine(_parent, "outside"));
+        File.WriteAllText(Path.Combine(_parent, "outside", "secret.cs"), "// TOP SECRET");
+        Directory.CreateSymbolicLink(Path.Combine(_root, "lib"), Path.Combine(_parent, "outside"));
+
+        Assert.StartsWith("Refused:", Tools().ReadLines("lib/secret.cs"));
+        Assert.DoesNotContain("TOP SECRET", Tools().Search("SECRET"));
+    }
+
+    [Fact]
+    public void Nor_through_a_chain_of_links()
+    {
+        Directory.CreateDirectory(Path.Combine(_parent, "outside"));
+        File.WriteAllText(Path.Combine(_parent, "outside", "secret.cs"), "// TOP SECRET");
+        Directory.CreateSymbolicLink(Path.Combine(_parent, "hop"), Path.Combine(_parent, "outside"));
+        Directory.CreateSymbolicLink(Path.Combine(_root, "lib"), Path.Combine(_parent, "hop"));
+
+        Assert.StartsWith("Refused:", Tools().ReadLines("lib/secret.cs"));
+    }
+
+    [Fact]
+    public void A_link_that_stays_inside_is_read_and_a_circle_is_refused()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "src"));
+        File.WriteAllText(Path.Combine(_root, "src", "Real.cs"), "class Real { }");
+        File.CreateSymbolicLink(Path.Combine(_root, "Alias.cs"), Path.Combine(_root, "src", "Real.cs"));
+        File.CreateSymbolicLink(Path.Combine(_root, "a.cs"), Path.Combine(_root, "b.cs"));
+        File.CreateSymbolicLink(Path.Combine(_root, "b.cs"), Path.Combine(_root, "a.cs"));
+
+        Assert.Contains("class Real", Tools().ReadLines("Alias.cs"));
+        Assert.StartsWith("Refused:", Tools().ReadLines("a.cs"));
+    }
 }
