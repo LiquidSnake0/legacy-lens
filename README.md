@@ -1341,8 +1341,13 @@ report counts them by kind; the MCP server's `entry_points` lists them.
 
 Inheritance is followed through every type the solution declares, so an action
 on `BlogAdminController : AdminControllerBase : Controller` is found, and an
-abstract base controller's methods are counted on each concrete controller
-rather than on their own. On Orchard: 627 entry points, 528 of them MVC actions.
+abstract base controller's public methods are listed on each concrete
+controller that derives from it, at the line that declares them and marked
+`from <base>`, rather than on their own. Bases are followed per project, so the
+many `AdminController`s of a modular solution each keep their own. A public
+helper on a base controller without `[NonAction]` is an action MVC will route
+to: on nopCommerce 3.90, `BaseController.RenderPartialViewToString` is one on
+each of 99 controllers. On Orchard: 629 entry points, 530 of them MVC actions.
 Checked against a hand count of `Orchard.Blogs`: the same 26 actions on the same
 lines, 5 commands and the XML-RPC handler.
 

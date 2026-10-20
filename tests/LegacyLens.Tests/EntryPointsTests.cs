@@ -38,11 +38,14 @@ public class EntryPointsTests
             """));
 
         // The abstract base is entered through each concrete controller, not
-        // on its own; a NonAction, a static and an override are not actions.
-        Assert.Equal(["Place", "List"], entries.Select(e => e.Member));
+        // on its own: its action is listed on OrdersController, where it is
+        // declared. A NonAction, a static and an override are not actions.
+        Assert.Equal(["Shared", "Place", "List"], entries.Select(e => e.Member));
         Assert.All(entries, e => Assert.Equal(EntryKind.MvcAction, e.Kind));
-        Assert.Equal("HttpPost", entries[0].Detail);
-        Assert.Equal(("Orders.cs", 4), (entries[0].Path, entries[0].Line));
+        Assert.All(entries, e => Assert.Equal("OrdersController", e.Type));
+        Assert.Equal(("Base.cs", 3, "from AdminControllerBase"), (entries[0].Path, entries[0].Line, entries[0].Detail));
+        Assert.Equal("HttpPost", entries[1].Detail);
+        Assert.Equal(("Orders.cs", 4), (entries[1].Path, entries[1].Line));
     }
 
     [Fact]
@@ -113,5 +116,104 @@ public class EntryPointsTests
         {
             Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void An_inherited_action_is_listed_on_every_concrete_controller()
+    {
+        var entries = Read(("Base.cs", """
+            public abstract class CrudController : Controller
+            {
+                public ActionResult Index() => null;
+                public virtual ActionResult Edit() => null;
+            }
+            """), ("Blogs.cs", """
+            public class BlogsController : CrudController
+            {
+                public override ActionResult Edit() => null;
+            }
+            public class PagesController : CrudController { }
+            """));
+
+        Assert.Equal(
+            [("BlogsController", "Index"), ("BlogsController", "Edit"), ("PagesController", "Index"), ("PagesController", "Edit")],
+            entries.Select(e => (e.Type, e.Member)).OrderBy(e => e.Type).ToList());
+        // The override is the same action, not a second one.
+        Assert.Equal(entries.Count, entries.Select(e => (e.Type, e.Member)).Distinct().Count());
+    }
+
+    [Fact]
+    public void A_partial_controller_is_abstract_when_any_of_its_parts_says_so()
+    {
+        var entries = Read(("Base.cs", """
+            public abstract partial class SharedController : Controller
+            {
+            }
+            """), ("Base.Actions.cs", """
+            public partial class SharedController
+            {
+                public ActionResult Ping() => null;
+            }
+            """), ("Home.cs", """
+            public class HomeController : SharedController { }
+            """));
+
+        // Ping is entered through HomeController only, never on the abstract
+        // SharedController, although the part declaring it has no `abstract`.
+        var only = Assert.Single(entries);
+        Assert.Equal(("HomeController", "Ping", "Base.Actions.cs"), (only.Type, only.Member, only.Path));
+    }
+
+    [Fact]
+    public void A_private_overload_of_a_wcf_operation_is_not_a_second_operation()
+    {
+        var entries = Read(("Orders.cs", """
+            [ServiceContract]
+            public interface IOrders
+            {
+                [OperationContract] void Place(int id);
+                [OperationContract] void Cancel(int id);
+            }
+
+            public class OrderService : IOrders
+            {
+                public void Place(int id) => Place(id, false);
+                private void Place(int id, bool rush) { }
+                void IOrders.Cancel(int id) { }
+                private void Cancel() { }
+            }
+            """));
+
+        Assert.Equal([("Place", 10), ("Cancel", 12)], entries.Select(e => (e.Member, e.Line)));
+        Assert.All(entries, e => Assert.Equal(EntryKind.WcfOperation, e.Kind));
+    }
+
+    [Fact]
+    public void A_base_is_inherited_only_by_the_controllers_that_derive_from_it()
+    {
+        var files = new[]
+        {
+            ("Contents", "Base.cs", """
+                public abstract class ContentControllerBase : Controller
+                {
+                    public ActionResult Redirect() => null;
+                }
+                public class AdminController : ContentControllerBase { }
+                """),
+            ("Blogs", "Admin.cs", """
+                public class AdminController : Controller
+                {
+                    public ActionResult List() => null;
+                }
+                """),
+        };
+
+        var entries = new EntryPointReader().Read(files);
+
+        // Two modules each declare an AdminController; only the one in
+        // Contents takes Redirect from the base.
+        Assert.Equal(
+            [("Blogs", "List"), ("Contents", "Redirect")],
+            entries.Select(e => (e.Project, e.Member)).OrderBy(e => e.Project).ToList());
     }
 }

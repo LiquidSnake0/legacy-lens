@@ -80,7 +80,9 @@ public class EntryPointReader
         "HttpGet", "HttpPost", "HttpPut", "HttpDelete", "HttpPatch", "AcceptVerbs",
     };
 
-    private sealed record Method(string Name, int Line, bool Public, bool Static, bool Override, IReadOnlyList<string> Attributes);
+    private sealed record Method(
+        string Name, int Line, int Arity, bool Public, bool Static, bool Override,
+        string? ExplicitOf, IReadOnlyList<string> Attributes);
 
     private sealed record Declared(
         string Name, bool Interface, bool Abstract, string Path, int Line,
@@ -147,23 +149,45 @@ public class EntryPointReader
             .GroupBy(d => d.Type.Name, StringComparer.Ordinal)
             .ToDictionary(
                 g => g.Key,
-                g => g.SelectMany(d => d.Type.Methods).Where(m => m.Attributes.Contains("OperationContract")).Select(m => m.Name).ToHashSet(StringComparer.Ordinal),
+                g => g.SelectMany(d => d.Type.Methods).Where(m => m.Attributes.Contains("OperationContract")).Select(m => (m.Name, m.Arity)).ToHashSet(),
                 StringComparer.Ordinal);
 
+        // A partial class is abstract when any of its parts says so, and its
+        // parts all live in one project.
+        var abstracts = declared
+            .Where(d => d.Type.Abstract)
+            .Select(d => (d.Project, d.Type.Name))
+            .ToHashSet();
+
         var entries = new List<EntryPoint>();
+        var inheritedDone = new HashSet<(string, string)>();
         foreach (var (project, type) in declared)
         {
             if (type.Interface) continue;
 
+            var isAbstract = abstracts.Contains((project, type.Name));
             var ancestors = Ancestors(type.Name, bases);
             var kinds = ancestors.Where(Roots.ContainsKey).Select(a => Roots[a]).Distinct().ToList();
 
             foreach (var kind in kinds)
-                entries.AddRange(Of(kind, project, type));
+                entries.AddRange(Of(kind, project, type, isAbstract));
+
+            // The public actions of an abstract base controller are entered
+            // through each concrete one: listed there, once per controller,
+            // at the line that declares them.
+            if (!isAbstract && inheritedDone.Add((project, type.Name)))
+            {
+                foreach (var kind in kinds.Where(k => k is EntryKind.MvcAction or EntryKind.WebApiAction))
+                    entries.AddRange(Inherited(kind, project, type.Name, declared, abstracts));
+            }
 
             foreach (var contract in ancestors.Where(contracts.ContainsKey))
             {
-                foreach (var method in type.Methods.Where(m => contracts[contract].Contains(m.Name)))
+                // An operation is the public method, or the explicit
+                // implementation, with the contract's name and arity; a
+                // private overload sharing the name is a helper.
+                foreach (var method in type.Methods.Where(m => contracts[contract].Contains((m.Name, m.Arity))
+                                                              && (m.Public || m.ExplicitOf == contract)))
                     entries.Add(new(EntryKind.WcfOperation, project, type.Name, method.Name, type.Path, method.Line, contract));
             }
 
@@ -190,20 +214,52 @@ public class EntryPointReader
             .ToList();
     }
 
-    private static IEnumerable<EntryPoint> Of(EntryKind kind, string project, Declared type)
+    private static bool IsAction(Method m) =>
+        m.Public && !m.Static && !m.Override && !m.Attributes.Contains("NonAction");
+
+    /// <param name="from">The abstract base declaring an inherited action, shown after its verbs.</param>
+    private static EntryPoint Action(EntryKind kind, string project, string type, string path, Method method, string? from = null)
+    {
+        var detail = method.Attributes.Where(HttpVerbs.Contains).ToList();
+        if (from is not null) detail.Add("from " + from);
+        return new(kind, project, type, method.Name, path, method.Line,
+            detail.Count == 0 ? null : string.Join(", ", detail));
+    }
+
+    /// <summary>
+    /// The actions a concrete controller takes from its abstract ancestors,
+    /// except those it declares again itself; an override is the same action
+    /// and keeps the base's line.
+    /// </summary>
+    private static IEnumerable<EntryPoint> Inherited(
+        EntryKind kind, string project, string typeName,
+        List<(string Project, Declared Type)> declared, HashSet<(string, string)> abstracts)
+    {
+        var ancestors = ProjectAncestors(project, typeName, declared);
+        var own = declared
+            .Where(d => d.Project == project && d.Type.Name == typeName)
+            .SelectMany(d => d.Type.Methods)
+            .Where(m => !m.Override)
+            .Select(m => (m.Name, m.Arity))
+            .ToHashSet();
+
+        foreach (var (baseProject, baseType) in declared)
+        {
+            if (baseType.Interface || !ancestors.Contains((baseProject, baseType.Name)) || !abstracts.Contains((baseProject, baseType.Name))) continue;
+            foreach (var method in baseType.Methods.Where(m => IsAction(m) && !own.Contains((m.Name, m.Arity))))
+                yield return Action(kind, project, typeName, baseType.Path, method, baseType.Name);
+        }
+    }
+
+    private static IEnumerable<EntryPoint> Of(EntryKind kind, string project, Declared type, bool isAbstract)
     {
         switch (kind)
         {
             // An abstract controller is a base for others; its public methods
             // are entered through each concrete one, and listed there.
-            case EntryKind.MvcAction or EntryKind.WebApiAction when !type.Abstract:
-                foreach (var method in type.Methods.Where(m => m.Public && !m.Static && !m.Override
-                                                              && !m.Attributes.Contains("NonAction")))
-                {
-                    var verbs = method.Attributes.Where(HttpVerbs.Contains).ToList();
-                    yield return new(kind, project, type.Name, method.Name, type.Path, method.Line,
-                        verbs.Count == 0 ? null : string.Join(", ", verbs));
-                }
+            case EntryKind.MvcAction or EntryKind.WebApiAction when !isAbstract:
+                foreach (var method in type.Methods.Where(IsAction))
+                    yield return Action(kind, project, type.Name, type.Path, method);
                 break;
 
             case EntryKind.ApplicationEvent:
@@ -212,16 +268,45 @@ public class EntryPointReader
                     yield return new(kind, project, type.Name, method.Name, type.Path, method.Line);
                 break;
 
-            case EntryKind.SignalRHub when !type.Abstract:
+            case EntryKind.SignalRHub when !isAbstract:
                 foreach (var method in type.Methods.Where(m => m.Public && !m.Static && !m.Override))
                     yield return new(kind, project, type.Name, method.Name, type.Path, method.Line);
                 break;
 
             case EntryKind.HttpHandler or EntryKind.HttpModule or EntryKind.BackgroundTask or EntryKind.WindowsService
-                or EntryKind.RemoteProcedure when !type.Abstract:
+                or EntryKind.RemoteProcedure when !isAbstract:
                 yield return new(kind, project, type.Name, "", type.Path, type.Line);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Ancestors as declarations, not names: the many `AdminController`s of a
+    /// modular solution each keep their own base. A base name resolves to its
+    /// declaration in the same project when there is one, else to every
+    /// project declaring it.
+    /// </summary>
+    private static HashSet<(string Project, string Name)> ProjectAncestors(
+        string project, string name, List<(string Project, Declared Type)> declared)
+    {
+        IEnumerable<(string, string)> Resolve(string from, string baseName)
+        {
+            var local = declared.Where(d => d.Project == from && d.Type.Name == baseName).Select(d => (d.Project, d.Type.Name)).ToList();
+            return local.Count > 0 ? local : declared.Where(d => d.Type.Name == baseName).Select(d => (d.Project, d.Type.Name));
+        }
+
+        IEnumerable<string> BasesOf((string Project, string Name) t) =>
+            declared.Where(d => d.Project == t.Project && d.Type.Name == t.Name).SelectMany(d => d.Type.Bases);
+
+        var seen = new HashSet<(string, string)>();
+        var pending = new Stack<(string, string)>(BasesOf((project, name)).SelectMany(b => Resolve(project, b)));
+        while (pending.Count > 0)
+        {
+            var next = pending.Pop();
+            if (!seen.Add(next)) continue;
+            foreach (var further in BasesOf(next).SelectMany(b => Resolve(next.Item1, b))) pending.Push(further);
+        }
+        return seen;
     }
 
     private static HashSet<string> Ancestors(string name, Dictionary<string, List<string>> bases)
@@ -247,9 +332,11 @@ public class EntryPointReader
                 return new Method(
                     m.Identifier.ValueText,
                     Line(m.Identifier),
+                    m.ParameterList.Parameters.Count,
                     mods.Contains("public") || type is InterfaceDeclarationSyntax,
                     mods.Contains("static"),
                     mods.Contains("override"),
+                    m.ExplicitInterfaceSpecifier is { } e ? Simple(e.Name) : null,
                     AttributeNames(m.AttributeLists));
             })
             .ToList();
