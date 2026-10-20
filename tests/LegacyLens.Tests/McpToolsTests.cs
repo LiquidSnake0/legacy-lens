@@ -1,3 +1,4 @@
+using LegacyLens.Analysis;
 using LegacyLens.Api.Mcp;
 
 namespace LegacyLens.Tests;
@@ -178,5 +179,19 @@ public class McpToolsTests : IDisposable
 
         Assert.Contains("class Real", Tools().ReadLines("Alias.cs"));
         Assert.StartsWith("Refused:", Tools().ReadLines("a.cs"));
+    }
+
+    [Fact]
+    public void Sections_are_found_in_a_report_written_on_windows()
+    {
+        // ReportWriter appends the platform's line ending: "\r\n" on the
+        // machines the assessed code usually lives on.
+        var report = new ReportWriter().Write(new Assessor().Assess(_root)).ReplaceLineEndings("\r\n");
+
+        var summary = LensTools.Slice(report, "At a glance", "In short");
+
+        Assert.StartsWith("## At a glance", summary);
+        Assert.Contains("## In short", summary);
+        Assert.DoesNotContain("Not in this report", summary);
     }
 }
