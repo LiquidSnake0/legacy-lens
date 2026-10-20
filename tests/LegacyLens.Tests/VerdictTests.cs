@@ -97,4 +97,41 @@ public class VerdictTests
         Assert.Contains("| Tests | **patchy** |", report);
         Assert.Contains("**Read it with its limits.** 1 limit of this analysis", report);
     }
+
+    [Fact]
+    public void What_helps_is_counted_and_a_zero_is_left_out()
+    {
+        // One of two shipping projects has no test project: the other one does,
+        // and that is said. No project is in the SDK format, so nothing is said
+        // about the SDK format.
+        var report = new ReportWriter().Write(Assessment(1, 2,
+            [new PackageUse("Newtonsoft.Json", ["13.0.1"], 2, Portability.Portable)]));
+        var helps = report[report.IndexOf("## What is already on your side", StringComparison.Ordinal)..];
+        helps = helps[..helps.IndexOf("\n## ", 3, StringComparison.Ordinal)];
+
+        Assert.Contains("- 1 of the 2 projects that ship code is referenced by a test project", helps);
+        Assert.Contains("- 1 of the 1 distinct package is known to run on modern .NET", helps);
+        Assert.DoesNotContain("SDK format", helps);
+    }
+
+    [Fact]
+    public void The_order_opens_on_one_line_per_step_and_lists_its_names_in_the_appendix()
+    {
+        var assessment = Assessment(0, 2, []) with
+        {
+            Repairs =
+            [
+                new RepairStep(RepairKind.Mechanical, "Convert the project files", "Only the format is old.",
+                    "2 projects", ["App1", "App2"]),
+                new RepairStep(RepairKind.Decision, "Decide about System.Web", "No version runs.", "1 project", []),
+            ],
+        };
+
+        var report = new ReportWriter().Write(assessment);
+
+        Assert.Contains("| 1 | Convert the project files | Mechanical, no decision required | 2 projects |", report);
+        Assert.Contains("| 2 | Decide about System.Web | Needs a decision, not a tool | 1 project |", report);
+        Assert.DoesNotContain("- `App1`", report);
+        Assert.Contains("**1. Convert the project files.** `App1`, `App2`.", report);
+    }
 }

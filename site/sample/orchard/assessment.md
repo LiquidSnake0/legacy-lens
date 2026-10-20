@@ -36,6 +36,19 @@ others are convertible as they stand. The work is ordered from what blocks
 everything else through to what may cost nothing, and starts with: classify the
 packages nobody has checked yet.
 
+## What is already on your side
+
+- 16 of 89 projects can take the modern project format as they stand: no package
+  in them blocks it.
+- 33 of the 78 projects that ship code are referenced by a test project, so a
+  change there has something to fail against.
+- Every one of the 93 distinct packages is pinned to a single version: nothing
+  disagrees with itself today.
+- 8 of the 93 distinct packages are known to run on modern .NET or to have a
+  documented successor.
+- 83% of the calls into Microsoft.AspNet.Mvc have a recorded counterpart in
+  Microsoft.AspNetCore.Mvc.
+
 ## What this is
 
 | Kind | Projects | Lines | Files |
@@ -437,6 +450,16 @@ is unreliable while it stands. Mechanical work comes before decisions, because
 it is the half nobody has to argue about and doing it shrinks the surface the
 arguments are about.
 
+| Step | What | Kind | How much |
+|---:|---|---|---|
+| 1 | Classify the packages nobody has checked yet | Needed before anyone can price the rest | 78 packages |
+| 2 | Convert the project files that can take the modern format | Mechanical, no decision required | 13 projects |
+| 3 | Retire the hand-written binding redirects | Mechanical, no decision required | 279 redirects |
+| 4 | Decide what happens to the code built on System.Web | Needs a decision, not a tool | 73 projects |
+| 5 | Separate the libraries that depend on the web stack | Needs a decision, not a tool | 1 library |
+| 6 | Put tests around the files most likely to break | Never finished, only kept up | 20 files |
+| 7 | Confirm whether the unreferenced projects are dead | May cost nothing | 1 project |
+
 ### 1. Classify the packages nobody has checked yet
 
 *Needed before anyone can price the rest. 78 packages.*
@@ -444,18 +467,7 @@ arguments are about.
 These are neither known to work on modern .NET nor known to be dead ends. Each
 one is either a non-event or a rewrite, and which of the two decides the size of
 everything below. Quoting before they are classified means quoting on the
-assumption that none of them is a problem.
-
-- `Antlr3.Runtime (22 projects)`
-- `Iesi.Collections (22 projects)`
-- `Remotion.Linq.EagerFetching (22 projects)`
-- `System.Buffers (9 projects)`
-- `System.Memory (9 projects)`
-- `System.Numerics.Vectors (9 projects)`
-- `System.Runtime.CompilerServices.Unsafe (9 projects)`
-- `System.Threading.Tasks.Extensions (8 projects)`
-- `FluentNHibernate (7 projects)`
-- `Microsoft.Owin (7 projects)`
+assumption that none of them is a problem. What it covers is listed in the appendix.
 
 ### 2. Convert the project files that can take the modern format
 
@@ -466,18 +478,7 @@ is worth doing first because it shrinks what everything after this has to work
 through. Some of these still depend on packages with no path forward: that is a
 separate problem and the format change does not pretend to fix it. What comes
 out is a patch that applies, and whether the solution restores and compiles
-afterwards is for the build to say, not for this.
-
-- `MSBuild.Orchard.Tasks`
-- `NHibernate.Linq`
-- `Orchard`
-- `Orchard.Azure.Tests`
-- `Orchard.Framework`
-- `Orchard.Messaging.Tests`
-- `Orchard.Profile`
-- `Orchard.Projections.Tests`
-- `Orchard.Specs`
-- `Orchard.Tests`
+afterwards is for the build to say, not for this. What it covers is listed in the appendix.
 
 ### 3. Retire the hand-written binding redirects
 
@@ -488,7 +489,6 @@ version. The project files no longer show the disagreement, which means the
 redirects are load-bearing: removing one at conversion time is how a migration
 acquires a runtime failure that nothing in the build predicted.
 
-
 ### 4. Decide what happens to the code built on System.Web
 
 *Needs a decision, not a tool. 73 projects.*
@@ -497,15 +497,7 @@ acquires a runtime failure that nothing in the build predicted.
 modern .NET, so no conversion tool will help: the code that calls them is
 rewritten, replaced, or left where it is. That is a decision about the product,
 not about the code, and it is the one that decides whether the rest is a
-migration or a rewrite.
-
-- `Microsoft.AspNet.Mvc (73 projects)`
-- `Microsoft.AspNet.Razor (73 projects)`
-- `Microsoft.AspNet.WebPages (73 projects)`
-- `Microsoft.Web.Infrastructure (73 projects)`
-- `Microsoft.CodeDom.Providers.DotNetCompilerPlatform (61 projects)`
-- `Microsoft.Owin.Host.SystemWeb (5 projects)`
-- `Microsoft.AspNet.WebApi.WebHost (1 project)`
+migration or a rewrite. What it covers is listed in the appendix.
 
 ### 5. Separate the libraries that depend on the web stack
 
@@ -514,9 +506,7 @@ migration or a rewrite.
 A library holding a web dependency cannot be tested without a web context, and
 cannot be reused from a service, a desktop client or a batch job. It is listed
 after the decision above because what the web layer becomes decides how much of
-this is worth untangling.
-
-- `Orchard.Framework: Library depends on System.Web.Http, System.Web.Http.WebHost, System.Web.Mvc, System.Web.WebPages, System.Web.WebPages.Deployment, System.Web.WebPages.Razor`
+this is worth untangling. What it covers is listed in the appendix.
 
 ### 6. Put tests around the files most likely to break
 
@@ -526,18 +516,7 @@ No test project references 45 projects in this solution. The files below are the
 ones where that matters most: they rank highest on complexity and change
 frequency together, which is the combination that produces incidents. This is
 the one item here that is never finished, which is why it starts early and runs
-alongside the rest.
-
-- `src/Orchard.Web/Modules/Orchard.OutputCache/Filters/OutputCacheFilter.cs (score 1.23)`
-- `src/Orchard.Web/Core/Shapes/CoreShapes.cs (score 1.23)`
-- `src/Orchard/ContentManagement/DefaultContentQuery.cs (score 1.01)`
-- `src/Orchard.Web/Modules/Orchard.Taxonomies/Services/TaxonomyService.cs (score 0.98)`
-- `src/Orchard/ContentManagement/DefaultHqlQuery.cs (score 0.97)`
-- `src/Orchard/Data/Migration/Interpreters/DefaultDataMigrationInterpreter.cs (score 0.97)`
-- `src/Orchard.Web/Modules/Upgrade/Controllers/InfosetController.cs (score 0.91)`
-- `src/Orchard/ContentManagement/Drivers/ContentPartDriver.cs (score 0.87)`
-- `src/Orchard.Web/Modules/Orchard.Blogs/Controllers/BlogPostAdminController.cs (score 0.87)`
-- `src/Orchard/Environment/ShellBuilders/ShellContainerFactory.cs (score 0.86)`
+alongside the rest. What it covers is listed in the appendix.
 
 ### 7. Confirm whether the unreferenced projects are dead
 
@@ -546,9 +525,7 @@ alongside the rest.
 Nothing in the solution references these. They are either dead code, which makes
 them the cheapest work in this report, or they are loaded at runtime by
 reflection or a plugin mechanism, which project files cannot show. Someone who
-knows the product answers this in minutes.
-
-- `MSBuild.Orchard.Tasks`
+knows the product answers this in minutes. What it covers is listed in the appendix.
 
 ## What this report does not say
 
@@ -757,9 +734,51 @@ and the number of calls in brackets.
 `CSharpRazorCodeLanguage` (1), `CodeCompileUnit` (1), `CompilerParameters` (1),
 `RazorEngineHost` (1), `RazorTemplateEngine` (1).
 
+## Appendix: what each step covers
+
+**1. Classify the packages nobody has checked yet.** `Antlr3.Runtime (22
+projects)`, `Iesi.Collections (22 projects)`, `Remotion.Linq.EagerFetching (22
+projects)`, `System.Buffers (9 projects)`, `System.Memory (9 projects)`,
+`System.Numerics.Vectors (9 projects)`, `System.Runtime.CompilerServices.Unsafe
+(9 projects)`, `System.Threading.Tasks.Extensions (8 projects)`,
+`FluentNHibernate (7 projects)`, `Microsoft.Owin (7 projects)`.
+
+**2. Convert the project files that can take the modern format.** 
+`MSBuild.Orchard.Tasks`, `NHibernate.Linq`, `Orchard`, `Orchard.Azure.Tests`,
+`Orchard.Framework`, `Orchard.Messaging.Tests`, `Orchard.Profile`,
+`Orchard.Projections.Tests`, `Orchard.Specs`, `Orchard.Tests`.
+
+**4. Decide what happens to the code built on System.Web.** 
+`Microsoft.AspNet.Mvc (73 projects)`, `Microsoft.AspNet.Razor (73 projects)`,
+`Microsoft.AspNet.WebPages (73 projects)`, `Microsoft.Web.Infrastructure (73
+projects)`, `Microsoft.CodeDom.Providers.DotNetCompilerPlatform (61 projects)`,
+`Microsoft.Owin.Host.SystemWeb (5 projects)`, `Microsoft.AspNet.WebApi.WebHost
+(1 project)`.
+
+**5. Separate the libraries that depend on the web stack.** `Orchard.Framework:
+Library depends on System.Web.Http, System.Web.Http.WebHost, System.Web.Mvc,
+System.Web.WebPages, System.Web.WebPages.Deployment, System.Web.WebPages.Razor`.
+
+**6. Put tests around the files most likely to break.** 
+`src/Orchard.Web/Modules/Orchard.OutputCache/Filters/OutputCacheFilter.cs (score
+1.23)`, `src/Orchard.Web/Core/Shapes/CoreShapes.cs (score 1.23)`,
+`src/Orchard/ContentManagement/DefaultContentQuery.cs (score 1.01)`,
+`src/Orchard.Web/Modules/Orchard.Taxonomies/Services/TaxonomyService.cs (score
+0.98)`, `src/Orchard/ContentManagement/DefaultHqlQuery.cs (score 0.97)`,
+`src/Orchard/Data/Migration/Interpreters/DefaultDataMigrationInterpreter.cs
+(score 0.97)`, `src/Orchard.Web/Modules/Upgrade/Controllers/InfosetController.cs
+(score 0.91)`, `src/Orchard/ContentManagement/Drivers/ContentPartDriver.cs
+(score 0.87)`,
+`src/Orchard.Web/Modules/Orchard.Blogs/Controllers/BlogPostAdminController.cs
+(score 0.87)`, `src/Orchard/Environment/ShellBuilders/ShellContainerFactory.cs
+(score 0.86)`.
+
+**7. Confirm whether the unreferenced projects are dead.** 
+`MSBuild.Orchard.Tasks`.
+
 ---
 
-Measured in 11,867 ms, without compiling anything, without restoring a package
+Measured in 9,181 ms, without compiling anything, without restoring a package
 and without contacting any service. That is what makes it usable on a solution
 that does not build, which is the state an inherited codebase is in on the first
 day. Generated by [Legacy Lens](https://github.com/LiquidSnake0/legacy-lens).

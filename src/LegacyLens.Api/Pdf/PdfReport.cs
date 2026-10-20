@@ -75,6 +75,10 @@ public static class PdfReport
                         var area = info.LayoutInfo.ContentArea;
                         diagram.Draw(g, area.X.Point, area.Y.Point + 4);
                         break;
+                    case Timeline timeline:
+                        var band = info.LayoutInfo.ContentArea;
+                        timeline.Draw(g, band.X.Point, band.Y.Point + 4);
+                        break;
                     case string tag when tag == Order:
                         orderPage ??= n + 1;
                         break;
@@ -164,6 +168,17 @@ public static class PdfReport
 
                 case Markdown.ListBlock list:
                     List(section, list);
+                    break;
+
+                case Markdown.Table table when Timeline.From(table, ContentWidth) is { } timeline:
+                    // The order of work, drawn across the page rather than
+                    // set as a table: it is read left to right, as a sequence.
+                    var holder = section.AddParagraph();
+                    holder.Tag = timeline;
+                    holder.Format.LineSpacingRule = LineSpacingRule.Exactly;
+                    holder.Format.LineSpacing = Unit.FromPoint(timeline.Height + 8);
+                    holder.Format.SpaceAfter = Unit.FromPoint(6);
+                    holder.AddText("\u00A0");
                     break;
 
                 case Markdown.Table table:
