@@ -15,7 +15,19 @@ public record BinaryAssembly(
     bool Executable,
     bool StrongNamed,
     int Types,
-    IReadOnlyList<string> References);
+    IReadOnlyList<string> References)
+{
+    /// <summary>"AnyCPU", "x86 only", "x64 only": what the PE header and the CLI flags say it can run as.</summary>
+    public string Platform { get; init; } = "AnyCPU";
+
+    /// <summary>Native functions it calls through P/Invoke, as "library!function".</summary>
+    public IReadOnlyList<string> NativeCalls { get; init; } = [];
+
+    /// <summary>Types and methods whose names are not names a compiler writes: the mark of an obfuscator.</summary>
+    public int Obfuscated { get; init; }
+
+    public int Members { get; init; }
+}
 
 /// <summary>A part of the .NET Framework that modern .NET does not have, and who reaches for it.</summary>
 public record FrameworkGap(string Assembly, string Why, IReadOnlyList<string> UsedBy, int Members);
@@ -224,6 +236,13 @@ public class AssemblyReader
             framework = "";
         }
 
+        var types = metadata.TypeDefinitions.Select(metadata.GetTypeDefinition)
+            .Where(t => metadata.GetString(t.Name) != "<Module>")
+            .ToList();
+        var names = types.Select(t => metadata.GetString(t.Name))
+            .Concat(metadata.MethodDefinitions.Select(h => metadata.GetString(metadata.GetMethodDefinition(h).Name)))
+            .ToList();
+
         return new BinaryAssembly(
             file.Name,
             definition.Version.ToString(),
@@ -231,8 +250,55 @@ public class AssemblyReader
             relative,
             file.Reader.PEHeaders.IsExe,
             !definition.PublicKey.IsNil && metadata.GetBlobReader(definition.PublicKey).Length > 0,
-            metadata.TypeDefinitions.Count,
-            references);
+            types.Count,
+            references)
+        {
+            Platform = Platform(file.Reader.PEHeaders),
+            NativeCalls = NativeCalls(metadata),
+            Obfuscated = names.Count(Mangled),
+            Members = names.Count,
+        };
+    }
+
+    /// <summary>
+    /// What the headers allow it to run as. An IL-only assembly is AnyCPU
+    /// unless its CLI flags demand 32 bits or its machine is fixed to x64; a
+    /// mixed-mode one carries native code for the machine it names.
+    /// </summary>
+    private static string Platform(PEHeaders headers)
+    {
+        var flags = headers.CorHeader?.Flags ?? 0;
+        var machine = headers.CoffHeader.Machine;
+        if (machine == Machine.Amd64) return "x64 only";
+        if (machine == Machine.Arm64) return "ARM64 only";
+        if ((flags & CorFlags.ILOnly) == 0) return "x86 only (mixed-mode)";
+        return (flags & CorFlags.Requires32Bit) != 0 ? "x86 only" : "AnyCPU";
+    }
+
+    private static List<string> NativeCalls(MetadataReader metadata)
+    {
+        var calls = new List<string>();
+        foreach (var handle in metadata.MethodDefinitions)
+        {
+            var import = metadata.GetMethodDefinition(handle).GetImport();
+            if (import.Module.IsNil) continue;
+            var library = metadata.GetString(metadata.GetModuleReference(import.Module).Name);
+            calls.Add($"{library}!{metadata.GetString(import.Name)}");
+        }
+        return calls.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// A name no C# compiler writes for something it declares: one that
+    /// starts with a mark an obfuscator uses or holds characters an
+    /// identifier cannot. Compiler-generated names (&lt;Main&gt;$, lambdas,
+    /// <c>.ctor</c>) are not counted.
+    /// </summary>
+    private static bool Mangled(string name)
+    {
+        if (name.Length == 0 || name.StartsWith('<') || name.StartsWith('.')) return false;
+        if (name[0] is '#' or '\u0001' || name.Contains('=') || name.Contains('$') && !name.StartsWith('<')) return true;
+        return !name.All(c => char.IsLetterOrDigit(c) || c is '_' or '`');
     }
 
     /// <summary>A type reference's namespace, name and the assembly it resolves to.</summary>

@@ -27,6 +27,7 @@ public class BinaryReportWriter
         Glance(report, assessment);
         Yours(report, assessment);
         Gaps(report, assessment);
+        Native(report, assessment);
         Used(report, assessment);
         Shipped(report, assessment);
         Unsaid(report, assessment);
@@ -67,13 +68,13 @@ public class BinaryReportWriter
 
         report.AppendLine("## Your assemblies");
         report.AppendLine();
-        report.AppendLine("| Assembly | Version | Target | Types | Depends on your |");
-        report.AppendLine("|---|---|---|---:|---|");
+        report.AppendLine("| Assembly | Version | Target | Platform | Types | Depends on your |");
+        report.AppendLine("|---|---|---|---|---:|---|");
         foreach (var assembly in assessment.Yours)
         {
             var own = assembly.References.Where(names.Contains).ToList();
             report.AppendLine(
-                $"| `{assembly.Name}`{(assembly.Executable ? " (exe)" : "")} | {assembly.Version} | {Short(assembly.Framework)} | "
+                $"| `{assembly.Name}`{(assembly.Executable ? " (exe)" : "")} | {assembly.Version} | {Short(assembly.Framework)} | {assembly.Platform} | "
               + $"{assembly.Types:N0} | {(own.Count == 0 ? "nothing" : string.Join(", ", own.Select(n => $"`{n}`")))} |");
         }
         report.AppendLine();
@@ -91,6 +92,41 @@ public class BinaryReportWriter
         {
             report.AppendLine(
                 $"| `{gap.Assembly}` | {gap.Members:N0} | {string.Join(", ", gap.UsedBy.Select(n => $"`{n}`"))} | {gap.Why} |");
+        }
+        report.AppendLine();
+    }
+
+    /// <summary>Windows system libraries: a call into one does not run in a Linux container.</summary>
+    private static readonly HashSet<string> WindowsOnly = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "kernel32", "user32", "advapi32", "gdi32", "ole32", "oleaut32", "shell32", "shlwapi",
+        "ntdll", "crypt32", "winmm", "ws2_32", "netapi32", "secur32", "rpcrt4", "wininet", "winhttp",
+        "comctl32", "comdlg32", "psapi", "dbghelp", "iphlpapi", "msi", "setupapi", "wtsapi32", "userenv",
+    };
+
+    private static void Native(StringBuilder report, BinaryAssessment assessment)
+    {
+        var native = assessment.Yours.Where(a => a.NativeCalls.Count > 0 || a.Platform != "AnyCPU").ToList();
+        if (native.Count == 0) return;
+
+        report.AppendLine("## Native code and platform");
+        report.AppendLine();
+        report.AppendLine(
+            "Calls through P/Invoke leave .NET for a native library, and an assembly fixed to one\n"
+          + "processor runs only on it. Both decide where the migrated code can run: a Windows\n"
+          + "system library is not there in a Linux container.");
+        report.AppendLine();
+        report.AppendLine("| Assembly | Platform | Native calls |");
+        report.AppendLine("|---|---|---|");
+        foreach (var assembly in native)
+        {
+            var calls = assembly.NativeCalls.Count == 0 ? "none" : string.Join(", ", assembly.NativeCalls.Select(c =>
+            {
+                var library = c.Split('!')[0];
+                library = library.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? library[..^4] : library;
+                return WindowsOnly.Contains(library) ? $"`{c}` (Windows only)" : $"`{c}`";
+            }));
+            report.AppendLine($"| `{assembly.Name}` | {assembly.Platform} | {calls} |");
         }
         report.AppendLine();
     }
@@ -172,6 +208,15 @@ public class BinaryReportWriter
             "**No complexity, no history, no tests.** Those are read from source and from git, and\n"
           + "neither is here. The ranking of risky files needs them and is not attempted.");
         report.AppendLine();
+        foreach (var assembly in assessment.Yours.Where(a => a.Members > 0 && a.Obfuscated * 10 >= a.Members))
+        {
+            report.AppendLine(
+                $"**`{assembly.Name}` is obfuscated.** {assembly.Obfuscated:N0} of its {assembly.Members:N0} type and method names\n"
+              + "are not names a compiler writes. What it references outside itself is still read exactly;\n"
+              + "what it does inside is named in a way nobody can read, and was not meant to be.");
+            report.AppendLine();
+        }
+
         if (assessment.NotManaged.Count > 0)
         {
             report.AppendLine(
