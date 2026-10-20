@@ -203,4 +203,21 @@ public class BinariesTests : IDisposable
         Assert.Equal(0, lists.Obfuscated);
         Assert.DoesNotContain("`Shop.Lists` is obfuscated", new BinaryReportWriter().Write(Assess()));
     }
+
+    [Fact]
+    public void A_known_package_unsigned_is_still_not_yours_and_prefer_32_bit_is_anycpu()
+    {
+        Compile("EntityFramework", "namespace System.Data.Entity { public class DbContext { } }");
+        var tool = CSharpCompilation.Create("Shop.Tool",
+            [CSharpSyntaxTree.ParseText("public static class Program { public static void Main() { } }")],
+            [MetadataReference.CreateFromFile(typeof(object).Assembly.Location)],
+            new CSharpCompilationOptions(OutputKind.ConsoleApplication, platform: Platform.AnyCpu32BitPreferred));
+        Assert.True(tool.Emit(Path.Combine(_root, "bin", "Shop.Tool.exe")).Success);
+
+        var assessment = Assess();
+
+        Assert.DoesNotContain(assessment.Yours, a => a.Name == "EntityFramework");
+        Assert.Contains(assessment.ThirdParty, a => a.Name == "EntityFramework");
+        Assert.Equal("AnyCPU (prefers 32-bit)", assessment.Yours.Single(a => a.Name == "Shop.Tool").Platform);
+    }
 }

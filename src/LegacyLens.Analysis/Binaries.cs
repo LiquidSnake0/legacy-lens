@@ -164,6 +164,9 @@ public class AssemblyReader
     /// </summary>
     public static bool IsYours(BinaryAssembly assembly) =>
         !assembly.StrongNamed
+        // A known package, by its own name (EntityFramework.dll) or by the
+        // namespace it is named after (System.Web.Mvc.dll).
+        && !ApiSurface.Namespaces.ContainsKey(assembly.Name)
         && !NamespaceToPackage.ContainsKey(assembly.Name)
         && !assembly.Name.StartsWith("System.", StringComparison.Ordinal)
         && assembly.Name != "System"
@@ -272,7 +275,10 @@ public class AssemblyReader
         if (machine == Machine.Amd64) return "x64 only";
         if (machine == Machine.Arm64) return "ARM64 only";
         if ((flags & CorFlags.ILOnly) == 0) return "x86 only (mixed-mode)";
-        return (flags & CorFlags.Requires32Bit) != 0 ? "x86 only" : "AnyCPU";
+        // 32BITREQUIRED with 32BITPREFERRED is AnyCPU that prefers 32 bits
+        // where it can choose, not an assembly that cannot run as 64.
+        if ((flags & CorFlags.Requires32Bit) == 0) return "AnyCPU";
+        return (flags & CorFlags.Prefers32Bit) != 0 ? "AnyCPU (prefers 32-bit)" : "x86 only";
     }
 
     private static List<string> NativeCalls(MetadataReader metadata)
