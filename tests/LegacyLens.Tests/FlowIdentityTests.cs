@@ -118,4 +118,22 @@ public class FlowIdentityTests
         Assert.Equal("Store.Save one.cs:1", Assert.Single(Assert.Single(tracer.Trace("Shop.A")!.Steps).Targets));
         Assert.Equal("Store.Save two.cs:1", Assert.Single(Assert.Single(tracer.Trace("Shop.B")!.Steps).Targets));
     }
+
+    [Fact]
+    public void An_overloaded_action_is_two_entry_points_told_apart_by_line()
+    {
+        var tracer = new FlowTracer([("Home.cs", """
+            public class Store { public void A() { } public void B() { } }
+            public class HomeController
+            {
+                Store _s;
+                public object Edit(int id) { _s.A(); return null; }
+                public object Edit(int id, string name) { _s.B(); return null; }
+            }
+            """, false)]);
+
+        Assert.Null(tracer.Trace("HomeController.Edit"));
+        Assert.Equal(["HomeController.Edit:5", "HomeController.Edit:6"], tracer.Candidates("HomeController.Edit"));
+        Assert.Equal("Store.B Home.cs:1", Assert.Single(Assert.Single(tracer.Trace("HomeController.Edit:6")!.Steps).Targets));
+    }
 }

@@ -140,7 +140,7 @@ public sealed class LensTools(Codebase codebase)
     [McpServerTool(Name = "trace_flow", ReadOnly = true, Idempotent = true)]
     [Description("Traces one flow from an entry point inward: every call the solution answers, with the file:line where it is made and the declaration that answers it, and how sure each link is (resolved; only implementation of an interface or abstract member; inferred when several implementations or overrides could answer; unimplemented). Calls into packages and the framework end a branch and are counted. Take the entry from entry_points.")]
     public string TraceFlow(
-        [Description("Type.Member, for example BlogController.Item, or Namespace.Type.Member when the type name is shared")] string entry,
+        [Description("Type.Member, for example BlogController.Item; Namespace.Type.Member when the type name is shared; Type.Member:line when the member is overloaded")] string entry,
         [Description("How many calls deep, 1 to 6")] int depth = 3)
     {
         var flow = codebase.Flows.Trace(entry, Math.Clamp(depth, 1, 6));
