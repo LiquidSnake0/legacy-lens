@@ -1404,7 +1404,8 @@ done is running Orchard's own tests with coverage.
 **One name, many types.** Orchard declares an `AdminController` in nearly every
 module. Types are told apart by namespace, a short name is resolved the way the
 compiler resolves it (the writer's namespace and its parents, then its usings),
-and an entry that could mean several asks to be written in full.
+and an entry that could mean several asks to be written in full. An overloaded
+action, a GET and a POST `Edit`, is two entry points: `HomeController.Edit:42`.
 
 On `BlogController.Item`: 7 of 22 links are reached by a test. Checked by hand:
 no test in Orchard touches `BlogService`, `BlogPostService`, `FeedManager` or

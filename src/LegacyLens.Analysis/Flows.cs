@@ -197,32 +197,52 @@ public class FlowTracer
     /// mean. More than one, and the entry has to be written with its
     /// namespace, because a solution can declare forty types of one name.
     /// </summary>
-    public IReadOnlyList<string> Candidates(string entry)
+    public IReadOnlyList<string> Candidates(string entry) =>
+        Starts(entry).Select(m => m.Overloaded ? $"{m.Method.Type}.{m.Method.Name}:{m.Method.Line}" : $"{m.Method.Type}.{m.Method.Name}").ToList();
+
+    /// <summary>
+    /// The methods an entry names. <c>Type.Member</c>, with the namespace when
+    /// the type name is shared, and with <c>:line</c> when the member is
+    /// overloaded: a GET and a POST action of one name are two entry points.
+    /// </summary>
+    private List<(MethodDecl Method, bool Overloaded)> Starts(string entry)
     {
+        int? line = null;
+        var colon = entry.LastIndexOf(':');
+        if (colon > 0 && int.TryParse(entry[(colon + 1)..], out var at)) (entry, line) = (entry[..colon], at);
+
         var dot = entry.LastIndexOf('.');
         if (dot <= 0) return [];
         var (type, member) = (Dotted(entry[..dot]), entry[(dot + 1)..]);
-        if (_types.ContainsKey(type)) return Find(type, member, null) is null ? [] : [$"{type}.{member}"];
+
         // `Repository.Get` also names `Repository<T>.Get`: nobody types the arity.
-        return _bySimple.Where(e => e.Key == type || e.Key.StartsWith(type + "`", StringComparison.Ordinal))
-            .SelectMany(e => e.Value)
-            .Where(full => Find(full, member, null) is not null)
-            .Select(full => $"{full}.{member}")
+        var types = _types.ContainsKey(type)
+            ? [type]
+            : _bySimple.Where(e => e.Key == type || e.Key.StartsWith(type + "`", StringComparison.Ordinal))
+                .SelectMany(e => e.Value).ToList();
+
+        return types
+            .SelectMany(full =>
+            {
+                var own = _types[full].Methods.Where(m => m.Name == member && m.Body is not null).ToList();
+                if (own.Count == 0 && Find(full, member, null) is { } inherited) own = [inherited];
+                return own.Select(m => (m, own.Count > 1));
+            })
+            .Where(m => line is null || m.Item1.Line == line)
             .ToList();
     }
 
     /// <summary>
-    /// Traces from <c>Type.Member</c> or <c>Namespace.Type.Member</c>, at most
-    /// <paramref name="depth"/> calls deep. Null when no such method, or when
-    /// the name is ambiguous: <see cref="Candidates"/> says between what.
+    /// Traces from <c>Type.Member</c>, <c>Namespace.Type.Member</c> or
+    /// <c>Type.Member:line</c>, at most <paramref name="depth"/> calls deep.
+    /// Null when no such method, or when the entry could mean several:
+    /// <see cref="Candidates"/> says which.
     /// </summary>
     public Flow? Trace(string entry, int depth = 3)
     {
-        var candidates = Candidates(entry);
-        if (candidates.Count != 1) return null;
-        var dot = candidates[0].LastIndexOf('.');
-        var start = Find(candidates[0][..dot], candidates[0][(dot + 1)..], arguments: null);
-        if (start is null) return null;
+        var starts = Starts(entry);
+        if (starts.Count != 1) return null;
+        var start = starts[0].Method;
 
         var counts = new int[2];
         var visited = new HashSet<string>(StringComparer.Ordinal) { Key(start) };
