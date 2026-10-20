@@ -141,6 +141,31 @@ The largest projects, which is where the time goes:
 | `Orchard.DynamicForms` | Web application | v4.8 | 6,247 |
 | `Orchard.Taxonomies` | Web application | v4.8 | 5,967 |
 
+## Where the code is entered
+
+627 entry points: every action, operation, handler, command and job a request, a
+client or a schedule can reach. A flow through the code starts at one of these,
+so this is the list of everything that can be traced. Test projects are left
+out.
+
+| Kind | Entry points | Projects |
+|---|---:|---:|
+| MVC action | 528 | 47 |
+| Command-line command | 69 | 22 |
+| Background or scheduled task | 14 | 13 |
+| Remote procedure handler (XML-RPC) | 6 | 6 |
+| Application event (Global.asax) | 3 | 1 |
+| Web API action | 2 | 2 |
+| HTTP handler | 2 | 1 |
+| HTTP module | 1 | 1 |
+| OWIN startup | 1 | 1 |
+| Program entry (Main) | 1 | 1 |
+
+Most entered: Orchard.Core (46), Orchard.Projections (35), Orchard.Users (35),
+Orchard.Blogs (32), Upgrade (32), and 53 other projects. A framework that
+dispatches through interfaces of its own, beyond the ones this tool knows, has
+entry points this count does not include.
+
 ## What will hurt
 
 | Finding | Count | Example |
@@ -265,8 +290,8 @@ are not in the catalogue at all: unknown, which is not the same as fine.
 
 Asked of the framework itself rather than of the catalogue, the unknown column
 holds 7 types that exist inside Microsoft.AspNetCore.Mvc under the same name, a
-lead worth checking; 10 types that exist elsewhere in the framework under the
-same name, which nobody has recorded either way; and 99 types the framework does
+lead worth checking; 12 types that exist elsewhere in the framework under the
+same name, which nobody has recorded either way; and 97 types the framework does
 not have at all. That leaves 109 types still to decide.
 
 | Type | Calls | What happens to it |
@@ -274,18 +299,18 @@ not have at all. That leaves 109 types still to decide.
 | `ActionResult` | 541 | replaced in Microsoft.AspNetCore.Mvc |
 | `HttpUnauthorizedResult` | 408 | replaced in Microsoft.AspNetCore.Mvc |
 | `HttpPost` | 260 | replaced in Microsoft.AspNetCore.Mvc |
+| `RequestContext` | 59 | unknown; same name at `ModelContextProtocol.Server.RequestContext` |
 | `ValidateInput` | 57 | **deleted**: the feature was withdrawn |
 | `HttpContext` | 8 | unknown; same name at `Microsoft.AspNetCore.Http.HttpContext` |
 | `IRouteHandler` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.IRouteHandler` |
 | `VirtualPathData` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.VirtualPathData` |
+| `IModule` | 4 | unknown; same name at `ICSharpCode.Decompiler.TypeSystem.IModule` |
 | `OutputCacheAttribute` | 3 | **no replacement recorded** |
 | `HttpRequest` | 3 | unknown; same name at `Microsoft.AspNetCore.Http.HttpRequest` |
 | `IRouteConstraint` | 2 | unknown; same name at `Microsoft.AspNetCore.Routing.IRouteConstraint` |
 | `RouteDirection` | 2 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteDirection` |
 | `HandleErrorAttribute` | 1 | **no replacement recorded** |
 | `IDependencyResolver` | 1 | **no replacement recorded** |
-| `AuthenticationProperties` | 1 | unknown; same name at `Microsoft.AspNetCore.Authentication.AuthenticationProperties` |
-| `HttpResponse` | 1 | unknown; same name at `Microsoft.AspNetCore.Http.HttpResponse` |
 
 ### Autofac
 
@@ -334,8 +359,8 @@ the catalogue at all: unknown, which is not the same as fine.
 
 Asked of the framework itself rather than of the catalogue, the unknown column
 holds 5 types that exist inside Microsoft.AspNetCore.Mvc under the same name, a
-lead worth checking; 4 types that exist elsewhere in the framework under the
-same name, which nobody has recorded either way; and 24 types the framework does
+lead worth checking; 6 types that exist elsewhere in the framework under the
+same name, which nobody has recorded either way; and 22 types the framework does
 not have at all. That leaves 28 types still to decide.
 
 | Type | Calls | What happens to it |
@@ -345,7 +370,9 @@ not have at all. That leaves 28 types still to decide.
 | `IHttpController` | 5 | unknown to the catalogue |
 | `RouteCollection` | 5 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteCollection` |
 | `HttpConfiguration` | 4 | **no replacement recorded** |
+| `IModule` | 3 | unknown; same name at `ICSharpCode.Decompiler.TypeSystem.IModule` |
 | `KeyedService` | 2 | unknown; same name at `Microsoft.Extensions.DependencyInjection.KeyedService` |
+| `RequestContext` | 1 | unknown; same name at `ModelContextProtocol.Server.RequestContext` |
 | `RouteBase` | 1 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteBase` |
 | `RouteData` | 1 | unknown; same name at `Microsoft.AspNetCore.Routing.RouteData` |
 
@@ -778,7 +805,7 @@ System.Web.WebPages, System.Web.WebPages.Deployment, System.Web.WebPages.Razor`.
 
 ---
 
-Measured in 9,181 ms, without compiling anything, without restoring a package
+Measured in 8,726 ms, without compiling anything, without restoring a package
 and without contacting any service. That is what makes it usable on a solution
 that does not build, which is the state an inherited codebase is in on the first
 day. Generated by [Legacy Lens](https://github.com/LiquidSnake0/legacy-lens).

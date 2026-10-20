@@ -80,6 +80,26 @@ public sealed class LensTools(Codebase codebase)
     public string Summary() =>
         Sections("At a glance", "In short", "What is already on your side");
 
+    [McpServerTool(Name = "entry_points", ReadOnly = true, Idempotent = true)]
+    [Description("Where the code is entered: MVC and Web API actions, WCF operations, ASMX methods, HTTP handlers and modules, Global.asax events, background tasks, commands, Main. Each with file:line. Filter by kind or project to narrow it; a flow is traced from one of these.")]
+    public string EntryPoints(
+        [Description("Optional kind: MvcAction, WebApiAction, WcfOperation, AsmxMethod, HttpHandler, HttpModule, ApplicationEvent, OwinStartup, SignalRHub, BackgroundTask, WindowsService, ProgramMain, RemoteProcedure, Command")] string? kind = null,
+        [Description("Optional project name")] string? project = null)
+    {
+        var entries = codebase.Assessment.EntryPoints
+            .Where(e => kind is null || string.Equals(e.Kind.ToString(), kind, StringComparison.OrdinalIgnoreCase))
+            .Where(e => project is null || string.Equals(e.Project, project, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (entries.Count == 0) return "No entry point matches.";
+
+        var text = new StringBuilder($"{entries.Count} entry points.\n\n");
+        foreach (var e in entries.Take(300))
+            text.AppendLine($"{e.Kind} {e.Type}{(e.Member.Length > 0 ? "." + e.Member : "")}{(e.Detail is null ? "" : $" [{e.Detail}]")} {e.Path}:{e.Line}");
+        if (entries.Count > 300) text.AppendLine($"Stopped at 300; filter by kind or project.");
+        return text.ToString();
+    }
+
     [McpServerTool(Name = "risky_files", ReadOnly = true, Idempotent = true)]
     [Description("The files most likely to break, ranked on complexity, change frequency and whether a test covers them, each with the reason it ranks where it does.")]
     public string Risks() => Sections("What will hurt");

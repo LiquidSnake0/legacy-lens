@@ -1327,6 +1327,28 @@ their own machine telling them not to trust it, which is worse than no
 demonstration at all. A certificate is a purchase and an identity check rather
 than a build step.
 
+## Where the code is entered
+
+```bash
+LegacyLens entries path/to/solution
+```
+
+One line per entry point, with its file and line: MVC and Web API actions, WCF
+operations, ASMX methods, HTTP handlers and modules, `Global.asax` events, OWIN
+startup, SignalR hubs, scheduled and background tasks, Windows services,
+XML-RPC handlers, named commands and `Main`. Test projects are left out. The
+report counts them by kind; the MCP server's `entry_points` lists them.
+
+Inheritance is followed through every type the solution declares, so an action
+on `BlogAdminController : AdminControllerBase : Controller` is found, and an
+abstract base controller's methods are counted on each concrete controller
+rather than on their own. On Orchard: 627 entry points, 528 of them MVC actions.
+Checked against a hand count of `Orchard.Blogs`: the same 26 actions on the same
+lines, 5 commands and the XML-RPC handler.
+
+**What it does not find** is dispatch a framework does through interfaces of
+its own beyond the ones listed, and anything wired up only in configuration.
+
 ## Without the source: a folder of assemblies
 
 Sometimes part of the code is only there as a DLL: a vendor's component, a
@@ -1374,6 +1396,7 @@ claude mcp add legacy-lens -- dotnet run --project src/LegacyLens.Api -- mcp /pa
 | Tool | Answers with |
 |---|---|
 | `assessment_summary` | the verdict grid, the summary, what is already on the codebase's side |
+| `entry_points` | every action, operation, handler, command and job, with `file:line`, filtered by kind or project |
 | `risky_files` | the ranked files and the reason for each |
 | `migration_blockers` | project formats, Framework-only packages, drift, unclassified packages |
 | `package_usage` | every type of one package the code uses, and what happens to each |
