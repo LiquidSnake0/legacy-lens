@@ -194,7 +194,7 @@ so; nothing about the build complains. It surfaces the day someone tries.
 
 ### Where the code will hurt
 
-![The risk ranking in the browser: files ordered by how much trouble they are likely to cause, each marked as tested or not](docs/overview.png)
+![The risk ranking in the browser, on Orchard: 449 files ordered by how much trouble they are likely to cause, OutputCacheFilter.cs on top, each marked as tested or not](site/assets/overview.webp)
 
 This half needs no model and no index. It reads the directory and git history
 and answers in milliseconds, which is why the interface shows it while
@@ -207,8 +207,8 @@ curl -X POST localhost:8080/api/risk \
 ```
 
 Three signals, all already on disk: complexity from Roslyn's parser, change
-frequency from git, test coverage by naming convention. 1,731 files of
-nopCommerce ranked in 1.4 seconds over a two-year window.
+frequency from git, test coverage by naming convention. 270 files of
+nopCommerce 3.90 ranked over a two-year window, test projects left out.
 
 Orchard, 449 files ranked in under four seconds, files inside test projects
 left out:
@@ -575,7 +575,13 @@ its first half already moved. `POST /api/convert` with `{"path":..., "kind":...}
 returns the same patch with its notes and refusals, and the web interface shows
 it as a diff with the refusals beside it.
 
-![The SDK conversion in the browser: ten projects converted, seventy-nine refused with reasons, the patch as a diff, and the button that puts it on a branch of its own](docs/conversions.png)
+![The SDK conversion in the browser, on Orchard: thirteen projects converted, seventy-six refused with reasons, the patch as a diff, and the button that puts it on a branch of its own](site/assets/conversions.webp)
+
+Thirteen converted and "88 assemblies compile" are two different counts. The
+first is how many of Orchard's 89 project files can take the SDK format today;
+the rest are refused with the reason. The second is M31: after the patches,
+every assembly that built before still builds, 88 on Orchard and 31 on
+nopCommerce 3.90, with zero errors, on the same Windows runner.
 
 The page has one button that changes a repository, and it is deliberately
 narrow: it commits the patch to **a branch of its own** and checks your original
