@@ -297,8 +297,21 @@ public class AssemblyReader
     private static bool Mangled(string name)
     {
         if (name.Length == 0 || name.StartsWith('<') || name.StartsWith('.')) return false;
-        if (name[0] is '#' or '\u0001' || name.Contains('=') || name.Contains('$') && !name.StartsWith('<')) return true;
-        return !name.All(c => char.IsLetterOrDigit(c) || c is '_' or '`');
+        // The compiler's own: the fixed-size buffers behind an array initialiser.
+        if (name.StartsWith("__StaticArrayInitTypeSize=", StringComparison.Ordinal)) return false;
+        if (name[0] is '#' or '\u0001' || name.Contains('=') || name.Contains('$')) return true;
+
+        // An explicit interface implementation is named after the interface,
+        // System.IDisposable.Dispose, and every iterator has several: a
+        // dotted run of identifiers, generic arguments included, is ordinary.
+        var plain = name;
+        for (var before = ""; before != plain;)
+        {
+            before = plain;
+            plain = System.Text.RegularExpressions.Regex.Replace(plain, "<[^<>]*>", "");
+        }
+        return !plain.Split('.').All(segment =>
+            segment.Length > 0 && segment.All(c => char.IsLetterOrDigit(c) || c is '_' or '`'));
     }
 
     /// <summary>A type reference's namespace, name and the assembly it resolves to.</summary>

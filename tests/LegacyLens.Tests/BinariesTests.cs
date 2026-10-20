@@ -184,4 +184,23 @@ public class BinariesTests : IDisposable
 
         Assert.Equal(4, entity.Surface.Types.Single(t => t.Name == "DbSet").Uses); // Add, Remove, Find, get_Count
     }
+
+    [Fact]
+    public void Iterators_and_array_initialisers_are_not_taken_for_obfuscation()
+    {
+        Compile("Shop.Lists", """
+            using System.Collections.Generic;
+            public class Lists
+            {
+                static readonly int[] Primes = { 2, 3, 5, 7, 11, 13, 17, 19 };
+                public IEnumerable<int> Odd() { foreach (var p in Primes) if (p % 2 == 1) yield return p; }
+                public IEnumerable<string> Names() { yield return "a"; yield return "b"; }
+            }
+            """);
+
+        var lists = Assess().Yours.Single(a => a.Name == "Shop.Lists");
+
+        Assert.Equal(0, lists.Obfuscated);
+        Assert.DoesNotContain("`Shop.Lists` is obfuscated", new BinaryReportWriter().Write(Assess()));
+    }
 }
