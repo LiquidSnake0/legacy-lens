@@ -75,10 +75,18 @@ if (args is ["flow", var flowRoot, var flowEntry, ..])
 {
     var depthAt = Array.IndexOf(args, "--depth");
     var depth = depthAt > 0 && int.TryParse(args.ElementAtOrDefault(depthAt + 1), out var d) ? d : 3;
-    var flow = FlowTracer.ForSolution(flowRoot, new ProjectGraph().Build(flowRoot)).Trace(flowEntry, depth);
+    // `--recorded <dir>`: characterization tests generated and kept for this
+    // build, so the links they call directly are shown as recorded.
+    var recordedAt = Array.IndexOf(args, "--recorded");
+    var recordedDirectory = recordedAt > 0 ? args.ElementAtOrDefault(recordedAt + 1) : null;
+    var tracer = FlowTracer.ForSolution(flowRoot, new ProjectGraph().Build(flowRoot), recordedDirectory);
+    var flow = tracer.Trace(flowEntry, depth);
     if (flow is null)
     {
-        Console.Error.WriteLine($"No method {flowEntry} in this solution.");
+        var candidates = tracer.Candidates(flowEntry);
+        Console.Error.WriteLine(candidates.Count > 1
+            ? $"{flowEntry} is ambiguous; write it with its namespace:\n  " + string.Join("\n  ", candidates)
+            : $"No method {flowEntry} in this solution.");
         Environment.ExitCode = 2;
         return;
     }

@@ -32,6 +32,14 @@ public record FlowStep(
     /// same as covered when they run: that takes running them.
     /// </summary>
     public IReadOnlyList<string> ReachedBy { get; init; } = [];
+
+    /// <summary>
+    /// Generated characterization tests that call a declaration answering this
+    /// call directly, and were kept because they compiled and passed where they
+    /// were generated. Proof that the member ran and what it did, not that
+    /// everything it calls ran.
+    /// </summary>
+    public IReadOnlyList<string> RecordedBy { get; init; } = [];
 }
 
 public record Flow(
@@ -74,17 +82,31 @@ public class FlowTracer
     private sealed class TypeDecl
     {
         public required string Name { get; init; }
+        /// <summary>Namespace plus name: the identity, since a solution can declare forty AdminControllers.</summary>
+        public required string FullName { get; init; }
+        public string Namespace { get; init; } = "";
+        /// <summary>Where a name written inside it is looked up: its namespace, the enclosing ones, then its usings.</summary>
+        public List<string> Scope { get; } = [];
+        public List<string>? ResolvedBases { get; set; }
         public bool Interface { get; init; }
         /// <summary>Declared only in test projects: a fixture, a stub or a fake.</summary>
         public bool Test { get; set; }
+        /// <summary>A generated characterization test, kept because it passed.</summary>
+        public bool Recorded { get; set; }
         public List<string> Bases { get; } = [];
         public Dictionary<string, string> Members { get; } = new(StringComparer.Ordinal);
         public List<MethodDecl> Methods { get; } = [];
     }
 
     private readonly Dictionary<string, TypeDecl> _types = new(StringComparer.Ordinal);
+
+    /// <summary>Every full name declared under each simple name.</summary>
+    private readonly Dictionary<string, List<string>> _bySimple = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _implementations = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<MethodDecl>> _extensions = new(StringComparer.Ordinal);
+
+    /// <summary>The types each file imports with <c>using static</c>, whose methods it calls unqualified.</summary>
+    private readonly Dictionary<string, List<string>> _staticUsings = new(StringComparer.Ordinal);
 
     public FlowTracer(IEnumerable<(string Path, string Source)> files)
         : this(files.Select(f => (f.Path, f.Source, false)))
@@ -92,13 +114,28 @@ public class FlowTracer
     }
 
     /// <param name="files">Source files, each marked when it belongs to a test project.</param>
-    public FlowTracer(IEnumerable<(string Path, string Source, bool Test)> files)
+    /// <param name="recorded">Generated characterization tests that passed, read as tests of their own kind.</param>
+    public FlowTracer(IEnumerable<(string Path, string Source, bool Test)> files,
+        IEnumerable<(string Path, string Source)>? recorded = null)
     {
         foreach (var (path, source, test) in files)
         {
             var root = CSharpSyntaxTree.ParseText(source, path: path).GetRoot();
+            var statics = root.DescendantNodes().OfType<UsingDirectiveSyntax>()
+                .Where(u => u.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) && u.Name is not null)
+                .Select(u => Dotted(u.Name!.ToString())).ToList();
+            if (statics.Count > 0) _staticUsings[path] = statics;
             foreach (var syntax in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
                 Add(syntax, path, test);
+        }
+
+        foreach (var (path, source) in recorded ?? [])
+        {
+            var root = CSharpSyntaxTree.ParseText(source, path: path).GetRoot();
+            foreach (var syntax in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
+            {
+                if (Add(syntax, path, test: true) is { } added) added.Recorded = true;
+            }
         }
 
         // Every class under every interface it reaches, through the
@@ -107,27 +144,33 @@ public class FlowTracer
         // through that interface into a guess between the real thing and the
         // fake: test types are left out.
         foreach (var type in _types.Values.Where(t => !t.Interface && !t.Test))
-        foreach (var ancestor in Ancestors(type.Name))
+        foreach (var ancestor in Ancestors(type.FullName))
         {
             if (_types.TryGetValue(ancestor, out var declared) && declared.Interface)
             {
                 if (!_implementations.TryGetValue(ancestor, out var list)) _implementations[ancestor] = list = [];
-                if (!list.Contains(type.Name)) list.Add(type.Name);
+                if (!list.Contains(type.FullName)) list.Add(type.FullName);
             }
         }
     }
 
     /// <summary>The flows of a solution, read from its non-test projects.</summary>
-    public static FlowTracer ForSolution(string rootPath, SolutionMap map)
+    public static FlowTracer ForSolution(string rootPath, SolutionMap map, string? recordedDirectory = null)
     {
         var root = Path.GetFullPath(rootPath);
         var tests = map.Projects.Where(p => p.Kind == ProjectKind.Test)
             .Select(p => Path.GetDirectoryName(Path.GetFullPath(Path.Combine(root, p.Path))))
             .OfType<string>().Select(f => f + Path.DirectorySeparatorChar).ToList();
 
+        var recorded = recordedDirectory is null || !Directory.Exists(recordedDirectory)
+            ? []
+            : Directory.EnumerateFiles(recordedDirectory, "*.cs", SearchOption.AllDirectories)
+                .Select(path => (Path.GetFileName(path), Read(path))).ToList();
+
         return new FlowTracer(SourceTree.CSharpUnder(root)
             .Select(path => (Path.GetRelativePath(root, path).Replace('\\', '/'), Read(path),
-                             tests.Any(t => path.StartsWith(t, StringComparison.Ordinal)))));
+                             tests.Any(t => path.StartsWith(t, StringComparison.Ordinal)))),
+            recorded);
 
         static string Read(string path)
         {
@@ -136,12 +179,34 @@ public class FlowTracer
         }
     }
 
-    /// <summary>Traces from <c>Type.Member</c>, at most <paramref name="depth"/> calls deep. Null when no such method.</summary>
-    public Flow? Trace(string entry, int depth = 3)
+    /// <summary>
+    /// The full names of the types an entry like <c>Type.Member</c> could
+    /// mean. More than one, and the entry has to be written with its
+    /// namespace, because a solution can declare forty types of one name.
+    /// </summary>
+    public IReadOnlyList<string> Candidates(string entry)
     {
         var dot = entry.LastIndexOf('.');
-        if (dot <= 0) return null;
-        var start = Find(entry[..dot], entry[(dot + 1)..], arguments: null);
+        if (dot <= 0) return [];
+        var (type, member) = (Dotted(entry[..dot]), entry[(dot + 1)..]);
+        if (_types.ContainsKey(type)) return Find(type, member, null) is null ? [] : [$"{type}.{member}"];
+        return (_bySimple.GetValueOrDefault(type) ?? [])
+            .Where(full => Find(full, member, null) is not null)
+            .Select(full => $"{full}.{member}")
+            .ToList();
+    }
+
+    /// <summary>
+    /// Traces from <c>Type.Member</c> or <c>Namespace.Type.Member</c>, at most
+    /// <paramref name="depth"/> calls deep. Null when no such method, or when
+    /// the name is ambiguous: <see cref="Candidates"/> says between what.
+    /// </summary>
+    public Flow? Trace(string entry, int depth = 3)
+    {
+        var candidates = Candidates(entry);
+        if (candidates.Count != 1) return null;
+        var dot = candidates[0].LastIndexOf('.');
+        var start = Find(candidates[0][..dot], candidates[0][(dot + 1)..], arguments: null);
         if (start is null) return null;
 
         var counts = new int[2];
@@ -168,7 +233,7 @@ public class FlowTracer
         if (_reachedBy is not null) return _reachedBy;
 
         var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (var type in _types.Values.Where(t => t.Test))
+        foreach (var type in _types.Values.Where(t => t.Test && !t.Recorded))
         {
             _bound = Bindings(type);
             foreach (var test in type.Methods.Where(m => m.IsTest))
@@ -239,6 +304,8 @@ public class FlowTracer
                     break;
             }
 
+            contract = Resolve(contract, type.FullName);
+            concrete = Resolve(concrete, type.FullName);
             if (contract is not null && concrete is not null
                 && _types.TryGetValue(concrete, out var declared) && !declared.Test && !declared.Interface)
                 bindings[contract] = concrete;
@@ -246,14 +313,42 @@ public class FlowTracer
         return bindings;
     }
 
+    private Dictionary<string, List<string>>? _recordedBy;
+
+    /// <summary>
+    /// For every declaration, the generated tests that call it directly. One
+    /// call deep on purpose: a passing test proves the member it calls ran,
+    /// and says nothing about which of that member's own calls did.
+    /// </summary>
+    private Dictionary<string, List<string>> RecordedBy()
+    {
+        if (_recordedBy is not null) return _recordedBy;
+
+        var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var type in _types.Values.Where(t => t.Recorded))
+        foreach (var test in type.Methods.Where(m => m.IsTest))
+        {
+            var visited = new HashSet<string>(StringComparer.Ordinal) { Key(test) };
+            foreach (var step in Steps(test, 1, visited, new int[2]))
+            {
+                if (step.Link is not (Link.Resolved or Link.ThroughInterface)) continue;
+                if (!map.TryGetValue(step.Targets[0], out var tests)) map[step.Targets[0]] = tests = [];
+                tests.Add(Describe(test));
+            }
+        }
+        return _recordedBy = map;
+    }
+
     /// <summary>Each step with the tests that reach any declaration answering it.</summary>
     private List<FlowStep> Annotate(IEnumerable<FlowStep> steps)
     {
         var reached = ReachedBy();
+        var recorded = RecordedBy();
         return steps.Select(step => step with
         {
             Next = Annotate(step.Next),
             ReachedBy = step.Targets.SelectMany(t => reached.GetValueOrDefault(t) ?? []).Distinct(StringComparer.Ordinal).ToList(),
+            RecordedBy = step.Targets.SelectMany(t => recorded.GetValueOrDefault(t) ?? []).Distinct(StringComparer.Ordinal).ToList(),
         }).ToList();
     }
 
@@ -279,11 +374,11 @@ public class FlowTracer
                 // A type from outside, extended inside: `IEnumerable<T>.ToPagedList()`.
                 var outside = Extension(receiverType, name, arguments, Generic(invocation));
                 if (outside is null) { counts[0]++; continue; }
-                steps.Add(Step($"{receiverType}.{name}", at, Link.Resolved, [outside], depth, visited, counts));
+                steps.Add(Step($"{Short(receiverType)}.{name}", at, Link.Resolved, [outside], depth, visited, counts));
                 continue;
             }
 
-            var call = $"{receiverType}.{name}";
+            var call = $"{Short(receiverType)}.{name}";
             var direct = Overloads(receiverType, name, invocation, method, locals);
             if (direct.Count == 0 && Extension(receiverType, name, arguments, Generic(invocation)) is { } extension)
             {
@@ -349,17 +444,61 @@ public class FlowTracer
 
     private static string Key(MethodDecl m) => $"{m.Type}.{m.Name}/{m.Parameters}@{m.Path}:{m.Line}";
 
-    private static string Describe(MethodDecl m) => $"{m.Type}.{m.Name} {m.Path}:{m.Line}";
+    private static string Describe(MethodDecl m) => $"{Short(m.Type)}.{m.Name} {m.Path}:{m.Line}";
+
+    /// <summary>The simple name of a full name: `Orchard.Blogs.BlogService` as `BlogService`.</summary>
+    private static string Short(string full) => full[(full.LastIndexOf('.') + 1)..];
+
+    /// <summary>A written dotted name without its `global::`.</summary>
+    private static string Dotted(string written) =>
+        written.StartsWith("global::", StringComparison.Ordinal) ? written[8..] : written;
+
+    /// <summary>
+    /// The full name a simple name written inside <paramref name="context"/>
+    /// means, the way the compiler finds it: the solution's only type of that
+    /// name; else the one in the writer's namespace or an enclosing one; else
+    /// the one its usings bring in. Ambiguous, null: not guessed. Not declared
+    /// in the solution, the name as written, which marks it as outside.
+    /// </summary>
+    private string? Resolve(string? written, string? context)
+    {
+        if (written is null) return null;
+        var name = Dotted(written);
+        if (_types.ContainsKey(name)) return name;
+        if (name.Contains('.')) name = Short(name);
+        if (!_bySimple.TryGetValue(name, out var candidates)) return name;
+        if (candidates.Count == 1) return candidates[0];
+
+        var scope = context is not null && _types.TryGetValue(context, out var declared) ? declared.Scope : [];
+        foreach (var ns in scope)
+        {
+            var here = candidates.Where(c => _types[c].Namespace == ns).ToList();
+            if (here.Count == 1) return here[0];
+        }
+        return null;
+    }
 
     /// <summary>The type a call is made on, by name, and the member called.</summary>
     private (string? Type, string? Name) Target(InvocationExpressionSyntax invocation, MethodDecl method, Dictionary<string, string> locals) =>
         invocation.Expression switch
         {
-            IdentifierNameSyntax id => (Find(method.Type, id.Identifier.ValueText, null) is null ? null : method.Type, id.Identifier.ValueText),
-            GenericNameSyntax g => (Find(method.Type, g.Identifier.ValueText, null) is null ? null : method.Type, g.Identifier.ValueText),
+            IdentifierNameSyntax id => (Unqualified(method, id.Identifier.ValueText), id.Identifier.ValueText),
+            GenericNameSyntax g => (Unqualified(method, g.Identifier.ValueText), g.Identifier.ValueText),
             MemberAccessExpressionSyntax access => (TypeOf(access.Expression, method, locals), access.Name.Identifier.ValueText),
             _ => (null, null),
         };
+
+    /// <summary>
+    /// The type an unqualified call is made on: the caller's own type and its
+    /// ancestors, then the types its file imports with <c>using static</c>.
+    /// </summary>
+    private string? Unqualified(MethodDecl method, string name)
+    {
+        if (Find(method.Type, name, null) is not null) return method.Type;
+        return (_staticUsings.GetValueOrDefault(method.Path) ?? [])
+            .FirstOrDefault(type => Find(type, name, null) is not null
+                                    || (_types.GetValueOrDefault(type)?.Methods.Any(m => m.Name == name) ?? false));
+    }
 
     /// <summary>The declared type of an expression, as far as syntax and the solution's declarations say.</summary>
     private string? TypeOf(ExpressionSyntax expression, MethodDecl method, Dictionary<string, string> locals)
@@ -373,17 +512,29 @@ public class FlowTracer
             {
                 var name = id.Identifier.ValueText;
                 if (locals.TryGetValue(name, out var local)) return local;
-                if (method.ParameterTypes.TryGetValue(name, out var parameter)) return parameter;
+                if (method.ParameterTypes.TryGetValue(name, out var parameter)) return Resolve(parameter, method.Type);
                 var member = Member(method.Type, name);
                 if (member is not null) return member;
                 // A static call on a type: `SomeHelper.Do()`.
-                return _types.ContainsKey(name) ? name : null;
+                var named = Resolve(name, method.Type);
+                return named is not null && _types.ContainsKey(named) ? named : null;
             }
 
             case MemberAccessExpressionSyntax access:
             {
                 var owner = TypeOf(access.Expression, method, locals);
-                return owner is null ? null : Member(owner, access.Name.Identifier.ValueText);
+                if (owner is not null) return Member(owner, access.Name.Identifier.ValueText);
+                // `global::Orchard.Utility.StringExtensions` or `Orchard.Pager`: a
+                // type named by its namespace, which generated code always does.
+                if (!IsQualifiedName(access.Expression)) return null;
+                var full = Dotted(access.ToString());
+                return _types.ContainsKey(full) ? full : null;
+            }
+
+            case AliasQualifiedNameSyntax alias:
+            {
+                var named = Resolve(alias.Name.Identifier.ValueText, method.Type);
+                return named is not null && _types.ContainsKey(named) ? named : null;
             }
 
             case InvocationExpressionSyntax call:
@@ -393,25 +544,33 @@ public class FlowTracer
                 var target = Find(owner, name, call.ArgumentList.Arguments.Count)
                           ?? (_implementations.GetValueOrDefault(owner) ?? [])
                                 .Select(i => Find(i, name, call.ArgumentList.Arguments.Count)).FirstOrDefault(m => m is not null);
-                return target?.Returns;
+                return target is null ? null : Resolve(target.Returns, target.Type);
             }
 
             case ObjectCreationExpressionSyntax creation:
-                return Simple(creation.Type);
+                return Resolve(Simple(creation.Type), method.Type);
 
             case ParenthesizedExpressionSyntax p:
                 return TypeOf(p.Expression, method, locals);
 
             case CastExpressionSyntax cast:
-                return Simple(cast.Type);
+                return Resolve(Simple(cast.Type), method.Type);
 
             default:
                 return null;
         }
     }
 
+    /// <summary>A dotted run of names, which is how a namespace is written in an expression.</summary>
+    private static bool IsQualifiedName(ExpressionSyntax expression) => expression switch
+    {
+        IdentifierNameSyntax or AliasQualifiedNameSyntax => true,
+        MemberAccessExpressionSyntax m => m.Name is IdentifierNameSyntax && IsQualifiedName(m.Expression),
+        _ => false,
+    };
+
     /// <summary>Locals declared with a type, or with <c>var</c> and a <c>new</c>.</summary>
-    private static Dictionary<string, string> Locals(MethodDecl method)
+    private Dictionary<string, string> Locals(MethodDecl method)
     {
         var locals = new Dictionary<string, string>(StringComparer.Ordinal);
         if (method.Body is null) return locals;
@@ -422,7 +581,8 @@ public class FlowTracer
             var type = declaration.Type.IsVar
                 ? variable.Initializer?.Value is ObjectCreationExpressionSyntax created ? Simple(created.Type) : null
                 : Simple(declaration.Type);
-            if (type is not null) locals[variable.Identifier.ValueText] = type;
+            var resolved = Resolve(type, method.Type);
+            if (resolved is not null) locals[variable.Identifier.ValueText] = resolved;
         }
 
         return locals;
@@ -434,7 +594,7 @@ public class FlowTracer
         foreach (var candidate in Ancestors(type).Prepend(type))
         {
             if (_types.TryGetValue(candidate, out var declared) && declared.Members.TryGetValue(name, out var found))
-                return found;
+                return Resolve(found, candidate);
         }
         return null;
     }
@@ -474,7 +634,9 @@ public class FlowTracer
             // declaration is not an answer.
             if (throughInterface && declared.Interface) continue;
             var fitting = declared.Methods
-                .Where(m => m.Name == name && m.Extends is null && m.Takes(arguments.Count)
+                // An extension method called through its own class is a static
+                // call with every argument: `StringExtensions.CamelFriendly(s)`.
+                .Where(m => m.Name == name && (m.Extends is null || candidate == type) && m.Takes(arguments.Count)
                             && (generic == 0 || m.Generic == generic)
                             && (!throughInterface || m.Callable))
                 .ToList();
@@ -482,8 +644,8 @@ public class FlowTracer
 
             var typed = arguments.Select(a => ArgumentType(a.Expression, caller, locals)).ToList();
             var kept = fitting.Where(m => m.Ordered is null || typed.Select((t, i) =>
-                    t is null || i >= m.Ordered.Count || m.Ordered[i] is null || m.Ordered[i] == t
-                    || m.Ordered[i] == "object" || Ancestors(t).Contains(m.Ordered[i]!)).All(ok => ok))
+                    t is null || i >= m.Ordered.Count || m.Ordered[i] is null || m.Ordered[i] == Short(t)
+                    || m.Ordered[i] == "object" || Ancestors(t).Select(Short).Contains(m.Ordered[i]!)).All(ok => ok))
                 .ToList();
             return kept.Count == 0 ? fitting : kept;
         }
@@ -506,22 +668,31 @@ public class FlowTracer
     {
         var receivers = Ancestors(type).Prepend(type).ToHashSet(StringComparer.Ordinal);
         return _extensions.GetValueOrDefault(name)?
-            .FirstOrDefault(m => m.Extends is not null && receivers.Contains(m.Extends) && m.Takes(arguments + 1)
+            .FirstOrDefault(m => m.Extends is not null && Resolve(m.Extends, m.Type) is { } extended
+                                 && receivers.Contains(extended) && m.Takes(arguments + 1)
                                  && (generic == 0 || m.Generic == generic));
     }
 
     private List<string> Ancestors(string type)
     {
         var seen = new List<string>();
-        var pending = new Stack<string>(_types.GetValueOrDefault(type)?.Bases ?? []);
+        var pending = new Stack<string>(Bases(type));
         while (pending.Count > 0)
         {
             var next = pending.Pop();
             if (seen.Contains(next) || next == type) continue;
             seen.Add(next);
-            foreach (var further in _types.GetValueOrDefault(next)?.Bases ?? []) pending.Push(further);
+            foreach (var further in Bases(next)) pending.Push(further);
         }
         return seen;
+    }
+
+    /// <summary>A type's bases as full names, resolved once in its own scope.</summary>
+    private List<string> Bases(string type)
+    {
+        if (!_types.TryGetValue(type, out var declared)) return [];
+        return declared.ResolvedBases ??= declared.Bases
+            .Select(b => Resolve(b, type)).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
     }
 
     private static readonly HashSet<string> TestAttributes = new(StringComparer.Ordinal)
@@ -529,16 +700,42 @@ public class FlowTracer
         "Fact", "Theory", "Test", "TestCase", "TestCaseSource", "TestMethod", "DataTestMethod",
     };
 
-    private void Add(TypeDeclarationSyntax syntax, string path, bool test = false)
+    private TypeDecl? Add(TypeDeclarationSyntax syntax, string path, bool test = false)
     {
         if (syntax is not (ClassDeclarationSyntax or InterfaceDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax))
-            return;
+            return null;
 
         var name = syntax.Identifier.ValueText;
-        if (!_types.TryGetValue(name, out var type))
-            _types[name] = type = new TypeDecl { Name = name, Interface = syntax is InterfaceDeclarationSyntax, Test = test };
+        var namespaces = syntax.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().Reverse()
+            .Select(n => n.Name.ToString()).ToList();
+        var ns = string.Join(".", namespaces);
+        var full = ns.Length == 0 ? name : $"{ns}.{name}";
+
+        if (!_types.TryGetValue(full, out var type))
+        {
+            _types[full] = type = new TypeDecl
+            {
+                Name = name, FullName = full, Namespace = ns,
+                Interface = syntax is InterfaceDeclarationSyntax, Test = test,
+            };
+            if (!_bySimple.TryGetValue(name, out var same)) _bySimple[name] = same = [];
+            same.Add(full);
+
+            // The compiler's order: this namespace, the enclosing ones, then
+            // what the file and its namespaces import.
+            for (var parts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries).ToList(); parts.Count > 0; parts.RemoveAt(parts.Count - 1))
+                type.Scope.Add(string.Join(".", parts));
+            type.Scope.Add("");
+            var usings = syntax.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(n => n.Usings)
+                .Concat(syntax.SyntaxTree.GetCompilationUnitRoot().Usings)
+                .Where(u => u.Alias is null && !u.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) && u.Name is not null)
+                .Select(u => Dotted(u.Name!.ToString()));
+            type.Scope.AddRange(usings.Where(u => !type.Scope.Contains(u)).Distinct());
+        }
         else
+        {
             type.Test &= test;
+        }
 
         type.Bases.AddRange(syntax.BaseList?.Types.Select(t => Simple(t.Type)).OfType<string>() ?? []);
 
@@ -558,7 +755,7 @@ public class FlowTracer
                     var extends = first is not null && first.Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword)) && first.Type is not null
                         ? Simple(first.Type) : null;
                     var declaration = new MethodDecl(
-                        name,
+                        full,
                         method.Identifier.ValueText,
                         method.ParameterList.Parameters.Count,
                         Simple(method.ReturnType),
@@ -592,6 +789,8 @@ public class FlowTracer
                     break;
             }
         }
+
+        return type;
     }
 
     /// <summary>`string`, `int` and the other keywords, by their keyword.</summary>
@@ -620,6 +819,7 @@ public static class FlowWriter
         text.AppendLine();
         var links = Flatten(flow.Steps).ToList();
         var reached = links.Count(s => s.ReachedBy.Count > 0);
+        var recorded = links.Count(s => s.RecordedBy.Count > 0);
         text.AppendLine($"Declared at `{flow.DeclaredAt}`. Traced {flow.Depth} calls deep, from syntax. "
                       + (flow.EntryReachedBy.Count > 0
                           ? $"The entry point itself is reached by {Tests(flow.EntryReachedBy)}."
@@ -629,6 +829,13 @@ public static class FlowWriter
                       + "there. That is evidence a test exercises it, not proof it is covered when the tests run, "
                       + "which takes running them.");
         text.AppendLine();
+        if (recorded > 0)
+        {
+            text.AppendLine($"**{recorded} of {links.Count} links are recorded**: a generated characterization test calls "
+                          + "the member directly, and was kept because it compiled and passed where it was generated. "
+                          + "That proves the member ran and what it did, not which of its own calls ran.");
+            text.AppendLine();
+        }
         Steps(text, flow.Steps, 0);
         text.AppendLine();
         text.AppendLine(
@@ -664,6 +871,7 @@ public static class FlowWriter
             };
             var targets = step.Targets.Count == 0 ? "nothing in the solution" : string.Join("; ", step.Targets.Select(t => $"`{t}`"));
             var tests = step.ReachedBy.Count == 0 ? "no test reaches it" : $"reached by {Tests(step.ReachedBy)}";
+            if (step.RecordedBy.Count > 0) tests = $"**recorded** by {Tests(step.RecordedBy)}; {tests}";
             text.AppendLine($"{pad}- `{step.Call}` at `{step.CalledAt}`, {label}: {targets}. {tests}");
             Steps(text, step.Next, indent + 1);
         }

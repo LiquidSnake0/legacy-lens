@@ -1388,8 +1388,22 @@ which implementation its calls through `I` reach, as they do when it runs. A
 call on a mock reaches nothing.
 
 **Reached is not covered.** It is evidence that a test's own calls lead there,
-read from the code. Proving it takes running the tests with coverage, which on
-a .NET Framework solution means Windows, and is the next step.
+read from the code.
+
+**Recorded is proof.** `--recorded <folder>` takes the characterization tests
+the Windows runner generated and kept, which it keeps only when they compiled
+and passed. A link whose member one of them calls directly is shown as
+recorded: it ran, and what it did is written down. Only the member called, not
+what it calls in turn, since nothing says which of its branches ran. On
+Orchard's `Orchard.Indexing.Controllers.AdminController.CreatePOST`, the first
+link, `IndexingHelpers.IsValidIndexName`, is reached by none of Orchard's own
+tests and recorded by four generated ones: grey to green. What is still not
+done is running Orchard's own tests with coverage.
+
+**One name, many types.** Orchard declares an `AdminController` in nearly every
+module. Types are told apart by namespace, a short name is resolved the way the
+compiler resolves it (the writer's namespace and its parents, then its usings),
+and an entry that could mean several asks to be written in full.
 
 On `BlogController.Item`: 7 of 22 links are reached by a test. Checked by hand:
 no test in Orchard touches `BlogService`, `BlogPostService`, `FeedManager` or
