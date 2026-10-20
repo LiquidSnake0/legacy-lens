@@ -233,8 +233,12 @@ public class Assessor
     /// Knowing which folders belong to a test project takes the project map,
     /// which the ranking never sees and this class does. That is the whole
     /// reason for composing them rather than printing them side by side.
+    ///
+    /// Public because the interface ranks files too, and a screen that counts
+    /// 458 next to a report that counts 449 on the same commit makes a reader
+    /// doubt both.
     /// </summary>
-    private static RiskReport WithoutTestProjects(
+    public static RiskReport WithoutTestProjects(
         RiskReport risk, SolutionMap map, string rootPath)
     {
         var testFolders = map.Projects

@@ -275,4 +275,25 @@ public class AssessmentTests : IDisposable
             }
             """;
     }
+
+    [Fact]
+    public void The_ranking_leaves_out_what_sits_inside_a_test_project()
+    {
+        Project("Shop", source: "public class Cart { }");
+        Project("Shop.Specs", assemblies: ["nunit.framework"],
+            source: "public class WebAppHosting { }");
+
+        var ranked = new RiskReport(
+            [Entry("Shop/Shop.cs"), Entry("Shop.Specs/Shop.Specs.cs")],
+            HistoryStatus.Available, null, 0);
+
+        var kept = Assessor.WithoutTestProjects(ranked, new ProjectGraph().Build(_root), _root);
+
+        // Support code for a test suite is not the product, whatever its name.
+        // The screen calls this too, so it and the report count the same files.
+        Assert.Equal(["Shop/Shop.cs"], kept.Entries.Select(e => e.Path));
+    }
+
+    private static RiskEntry Entry(string path) =>
+        new(path, 1, 1, 1, null, 1, 100, 1, 1, false, []);
 }
