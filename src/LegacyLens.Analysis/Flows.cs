@@ -88,6 +88,10 @@ public class FlowTracer
         public string Namespace { get; init; } = "";
         /// <summary>Where a name written inside it is looked up: its namespace, the enclosing ones, then its usings.</summary>
         public List<string> Scope { get; } = [];
+        /// <summary>The same, per file: each part of a partial type sees its own file's usings.</summary>
+        public Dictionary<string, List<string>> PartScopes { get; } = new(StringComparer.Ordinal);
+        /// <summary>The file each base and member type was written in, to resolve it there.</summary>
+        public Dictionary<string, string> WrittenIn { get; } = new(StringComparer.Ordinal);
         public List<string>? ResolvedBases { get; set; }
         public bool Interface { get; init; }
         /// <summary>Declared only in test projects: a fixture, a stub or a fake.</summary>
@@ -286,8 +290,8 @@ public class FlowTracer
     private Dictionary<string, string> Bindings(TypeDecl type)
     {
         var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var body in type.Methods.Select(m => m.Body).OfType<SyntaxNode>())
-        foreach (var call in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        foreach (var method in type.Methods.Where(m => m.Body is not null))
+        foreach (var call in method.Body!.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             if (call.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic } access) continue;
             var args = generic.TypeArgumentList.Arguments.Select(Simple).ToList();
@@ -315,8 +319,8 @@ public class FlowTracer
                     break;
             }
 
-            contract = Resolve(contract, type.FullName);
-            concrete = Resolve(concrete, type.FullName);
+            contract = Resolve(contract, type.FullName, method.Path);
+            concrete = Resolve(concrete, type.FullName, method.Path);
             if (contract is not null && concrete is not null
                 && _types.TryGetValue(concrete, out var declared) && !declared.Test && !declared.Interface)
                 bindings[contract] = concrete;
@@ -481,6 +485,13 @@ public class FlowTracer
     /// <summary>The simple name of a full name: `Orchard.Blogs.BlogService` as `BlogService`.</summary>
     private static string Short(string full) => full[(full.LastIndexOf('.') + 1)..];
 
+    /// <summary>The scope of the part of <paramref name="context"/> written in <paramref name="path"/>, or of its first part.</summary>
+    private List<string> ScopeOf(string? context, string? path)
+    {
+        if (context is null || !_types.TryGetValue(context, out var declared)) return [];
+        return path is not null && declared.PartScopes.TryGetValue(path, out var part) ? part : declared.Scope;
+    }
+
     /// <summary>A short name as a reader writes it: `Repository`1` as `Repository`.</summary>
     private static string Shown(string full)
     {
@@ -500,7 +511,7 @@ public class FlowTracer
     /// the one its usings bring in. Ambiguous, null: not guessed. Not declared
     /// in the solution, the name as written, which marks it as outside.
     /// </summary>
-    private string? Resolve(string? written, string? context)
+    private string? Resolve(string? written, string? context, string? path = null)
     {
         if (written is null) return null;
         var name = Dotted(written);
@@ -509,7 +520,7 @@ public class FlowTracer
         {
             // `B.Options` written inside N: N.B.Options, then the enclosing
             // namespaces and the usings, before giving up on the qualifier.
-            var scoped = context is not null && _types.TryGetValue(context, out var where) ? where.Scope : [];
+            var scoped = ScopeOf(context, path);
             foreach (var ns in scoped)
             {
                 var candidate = ns.Length == 0 ? name : $"{ns}.{name}";
@@ -520,7 +531,7 @@ public class FlowTracer
         if (!_bySimple.TryGetValue(name, out var candidates)) return name;
         if (candidates.Count == 1) return candidates[0];
 
-        var scope = context is not null && _types.TryGetValue(context, out var declared) ? declared.Scope : [];
+        var scope = ScopeOf(context, path);
         foreach (var ns in scope)
         {
             var here = candidates.Where(c => _types[c].Namespace == ns).ToList();
@@ -566,11 +577,11 @@ public class FlowTracer
                 // a local of the same name in another branch, or a lambda's
                 // parameter, is not this one.
                 if (Scoped(id, name, method, out var scoped)) return scoped;
-                if (method.ParameterTypes.TryGetValue(name, out var parameter)) return Resolve(parameter, method.Type);
+                if (method.ParameterTypes.TryGetValue(name, out var parameter)) return Resolve(parameter, method.Type, method.Path);
                 var member = Member(method.Type, name);
                 if (member is not null) return member;
                 // A static call on a type: `SomeHelper.Do()`.
-                var named = Resolve(name, method.Type);
+                var named = Resolve(name, method.Type, method.Path);
                 return named is not null && _types.ContainsKey(named) ? named : null;
             }
 
@@ -587,7 +598,7 @@ public class FlowTracer
 
             case AliasQualifiedNameSyntax alias:
             {
-                var named = Resolve(alias.Name.Identifier.ValueText, method.Type);
+                var named = Resolve(alias.Name.Identifier.ValueText, method.Type, method.Path);
                 return named is not null && _types.ContainsKey(named) ? named : null;
             }
 
@@ -598,17 +609,17 @@ public class FlowTracer
                 var target = Find(owner, name, call.ArgumentList.Arguments.Count)
                           ?? (_implementations.GetValueOrDefault(owner) ?? [])
                                 .Select(i => Find(i, name, call.ArgumentList.Arguments.Count)).FirstOrDefault(m => m is not null);
-                return target is null ? null : Resolve(target.Returns, target.Type);
+                return target is null ? null : Resolve(target.Returns, target.Type, target.Path);
             }
 
             case ObjectCreationExpressionSyntax creation:
-                return Resolve(Simple(creation.Type), method.Type);
+                return Resolve(Simple(creation.Type), method.Type, method.Path);
 
             case ParenthesizedExpressionSyntax p:
                 return TypeOf(p.Expression, method, locals);
 
             case CastExpressionSyntax cast:
-                return Resolve(Simple(cast.Type), method.Type);
+                return Resolve(Simple(cast.Type), method.Type, method.Path);
 
             default:
                 return null;
@@ -635,25 +646,25 @@ public class FlowTracer
                 case BlockSyntax or SwitchSectionSyntax when Declared(scope, name, method, out type):
                     return true;
                 case ForEachStatementSyntax f when f.Identifier.ValueText == name:
-                    type = f.Type.IsVar ? null : Resolve(Simple(f.Type), method.Type);
+                    type = f.Type.IsVar ? null : Resolve(Simple(f.Type), method.Type, method.Path);
                     return true;
                 case ForStatementSyntax f when f.Declaration?.Variables.Any(v => v.Identifier.ValueText == name) == true:
-                    type = f.Declaration.Type.IsVar ? null : Resolve(Simple(f.Declaration.Type), method.Type);
+                    type = f.Declaration.Type.IsVar ? null : Resolve(Simple(f.Declaration.Type), method.Type, method.Path);
                     return true;
                 case UsingStatementSyntax u when u.Declaration?.Variables.FirstOrDefault(v => v.Identifier.ValueText == name) is { } v:
                     type = Typed(u.Declaration.Type, v, method);
                     return true;
                 case CatchClauseSyntax c when c.Declaration?.Identifier.ValueText == name:
-                    type = Resolve(Simple(c.Declaration.Type), method.Type);
+                    type = Resolve(Simple(c.Declaration.Type), method.Type, method.Path);
                     return true;
                 case SimpleLambdaExpressionSyntax l when l.Parameter.Identifier.ValueText == name:
-                    type = l.Parameter.Type is null ? null : Resolve(Simple(l.Parameter.Type), method.Type);
+                    type = l.Parameter.Type is null ? null : Resolve(Simple(l.Parameter.Type), method.Type, method.Path);
                     return true;
                 case ParenthesizedLambdaExpressionSyntax l when l.ParameterList.Parameters.FirstOrDefault(p => p.Identifier.ValueText == name) is { } p:
-                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type);
+                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type, method.Path);
                     return true;
                 case LocalFunctionStatementSyntax f when f.ParameterList.Parameters.FirstOrDefault(p => p.Identifier.ValueText == name) is { } p:
-                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type);
+                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type, method.Path);
                     return true;
                 case QueryExpressionSyntax q when q.FromClause.Identifier.ValueText == name
                                                   || q.Body.Clauses.OfType<FromClauseSyntax>().Any(f => f.Identifier.ValueText == name)
@@ -693,8 +704,8 @@ public class FlowTracer
             {
                 type = designation.Parent switch
                 {
-                    DeclarationPatternSyntax pattern => Resolve(Simple(pattern.Type), method.Type),
-                    DeclarationExpressionSyntax { Type.IsVar: false } declaration => Resolve(Simple(declaration.Type), method.Type),
+                    DeclarationPatternSyntax pattern => Resolve(Simple(pattern.Type), method.Type, method.Path),
+                    DeclarationExpressionSyntax { Type.IsVar: false } declaration => Resolve(Simple(declaration.Type), method.Type, method.Path),
                     _ => null,
                 };
                 return true;
@@ -706,8 +717,8 @@ public class FlowTracer
     /// <summary>A variable's type: written, or `var` with a `new` that names it.</summary>
     private string? Typed(TypeSyntax declared, VariableDeclaratorSyntax variable, MethodDecl method) =>
         declared.IsVar
-            ? variable.Initializer?.Value is ObjectCreationExpressionSyntax created ? Resolve(Simple(created.Type), method.Type) : null
-            : Resolve(Simple(declared), method.Type);
+            ? variable.Initializer?.Value is ObjectCreationExpressionSyntax created ? Resolve(Simple(created.Type), method.Type, method.Path) : null
+            : Resolve(Simple(declared), method.Type, method.Path);
 
     /// <summary>A dotted run of names, which is how a namespace is written in an expression.</summary>
     private static bool IsQualifiedName(ExpressionSyntax expression) => expression switch
@@ -723,7 +734,7 @@ public class FlowTracer
         foreach (var candidate in Ancestors(type).Prepend(type))
         {
             if (_types.TryGetValue(candidate, out var declared) && declared.Members.TryGetValue(name, out var found))
-                return Resolve(found, candidate);
+                return Resolve(found, candidate, declared.WrittenIn.GetValueOrDefault(name));
         }
         return null;
     }
@@ -797,7 +808,7 @@ public class FlowTracer
     {
         var receivers = Ancestors(type).Prepend(type).ToHashSet(StringComparer.Ordinal);
         return _extensions.GetValueOrDefault(name)?
-            .FirstOrDefault(m => m.Extends is not null && Resolve(m.Extends, m.Type) is { } extended
+            .FirstOrDefault(m => m.Extends is not null && Resolve(m.Extends, m.Type, m.Path) is { } extended
                                  && receivers.Contains(extended) && m.Takes(arguments + 1)
                                  && (generic == 0 || m.Generic == generic));
     }
@@ -821,7 +832,8 @@ public class FlowTracer
     {
         if (!_types.TryGetValue(type, out var declared)) return [];
         return declared.ResolvedBases ??= declared.Bases
-            .Select(b => Resolve(b, type)).OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+            .Select(b => Resolve(b, type, declared.WrittenIn.GetValueOrDefault("base:" + b))).OfType<string>()
+            .Distinct(StringComparer.Ordinal).ToList();
     }
 
     private static readonly HashSet<string> TestAttributes = new(StringComparer.Ordinal)
@@ -856,33 +868,36 @@ public class FlowTracer
             if (!_bySimple.TryGetValue(name, out var same)) _bySimple[name] = same = [];
             same.Add(full);
 
-            // The compiler's order: this namespace, the enclosing ones, then
-            // what the file and its namespaces import.
-            for (var parts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries).ToList(); parts.Count > 0; parts.RemoveAt(parts.Count - 1))
-                type.Scope.Add(string.Join(".", parts));
-            type.Scope.Add("");
-            var usings = syntax.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(n => n.Usings)
-                .Concat(syntax.SyntaxTree.GetCompilationUnitRoot().Usings)
-                .Where(u => u.Alias is null && !u.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) && u.Name is not null)
-                .Select(u => Dotted(u.Name!.ToString()));
-            type.Scope.AddRange(usings.Where(u => !type.Scope.Contains(u)).Distinct());
+            type.Scope.AddRange(PartScope(syntax, ns));
         }
         else
         {
             type.Test &= test;
         }
 
-        type.Bases.AddRange(syntax.BaseList?.Types.Select(t => Simple(t.Type)).OfType<string>() ?? []);
+        // Each part keeps the usings of its own file.
+        if (!type.PartScopes.ContainsKey(path)) type.PartScopes[path] = PartScope(syntax, ns);
+
+        foreach (var written in syntax.BaseList?.Types.Select(t => Simple(t.Type)).OfType<string>() ?? [])
+        {
+            type.Bases.Add(written);
+            type.WrittenIn.TryAdd("base:" + written, path);
+        }
 
         foreach (var member in syntax.Members)
         {
             switch (member)
             {
                 case FieldDeclarationSyntax field when (Simple(field.Declaration.Type) ?? Keyword(field.Declaration.Type)) is { } fieldType:
-                    foreach (var v in field.Declaration.Variables) type.Members[v.Identifier.ValueText] = fieldType;
+                    foreach (var v in field.Declaration.Variables)
+                    {
+                        type.Members[v.Identifier.ValueText] = fieldType;
+                        type.WrittenIn[v.Identifier.ValueText] = path;
+                    }
                     break;
                 case PropertyDeclarationSyntax property when (Simple(property.Type) ?? Keyword(property.Type)) is { } propertyType:
                     type.Members[property.Identifier.ValueText] = propertyType;
+                    type.WrittenIn[property.Identifier.ValueText] = path;
                     break;
                 case MethodDeclarationSyntax method:
                     var parameters = method.ParameterList.Parameters;
@@ -929,6 +944,24 @@ public class FlowTracer
         }
 
         return type;
+    }
+
+    /// <summary>
+    /// The compiler's order for a name written in this part: this namespace,
+    /// the enclosing ones, then what the file and its namespaces import.
+    /// </summary>
+    private static List<string> PartScope(TypeDeclarationSyntax syntax, string ns)
+    {
+        var scope = new List<string>();
+        for (var parts = ns.Split('.', StringSplitOptions.RemoveEmptyEntries).ToList(); parts.Count > 0; parts.RemoveAt(parts.Count - 1))
+            scope.Add(string.Join(".", parts));
+        scope.Add("");
+        var usings = syntax.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().SelectMany(n => n.Usings)
+            .Concat(syntax.SyntaxTree.GetCompilationUnitRoot().Usings)
+            .Where(u => u.Alias is null && !u.StaticKeyword.IsKind(SyntaxKind.StaticKeyword) && u.Name is not null)
+            .Select(u => Dotted(u.Name!.ToString()));
+        scope.AddRange(usings.Where(u => !scope.Contains(u)).Distinct());
+        return scope;
     }
 
     /// <summary>`string`, `int` and the other keywords, by their keyword.</summary>

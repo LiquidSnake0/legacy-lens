@@ -103,4 +103,19 @@ public class FlowIdentityTests
         Assert.All(steps, s => Assert.Equal(Link.Resolved, s.Link));
         Assert.Equal(["N.Repository.Get", "N.Repository`1.Get"], tracer.Candidates("Repository.Get").Order());
     }
+
+    [Fact]
+    public void Each_part_of_a_partial_class_resolves_with_its_own_files_usings()
+    {
+        var tracer = new FlowTracer(
+        [
+            ("one.cs", "namespace One { public class Store { public void Save() { } } }", false),
+            ("two.cs", "namespace Two { public class Store { public void Save() { } } }", false),
+            ("b.cs", "using One; namespace App { public partial class Shop { Store _first; public void A() { _first.Save(); } } }", false),
+            ("c.cs", "using Two; namespace App { public partial class Shop { Store _second; public void B() { _second.Save(); } } }", false),
+        ]);
+
+        Assert.Equal("Store.Save one.cs:1", Assert.Single(Assert.Single(tracer.Trace("Shop.A")!.Steps).Targets));
+        Assert.Equal("Store.Save two.cs:1", Assert.Single(Assert.Single(tracer.Trace("Shop.B")!.Steps).Targets));
+    }
 }
