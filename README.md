@@ -1327,6 +1327,37 @@ their own machine telling them not to trust it, which is worse than no
 demonstration at all. A certificate is a purchase and an identity check rather
 than a build step.
 
+## For a coding agent: an MCP server
+
+What [REA](https://github.com/morluto/rea) does for Ghidra, this does for an
+inherited .NET solution: the measurements above, offered to Claude Code,
+Copilot or Cursor over the Model Context Protocol, through the official
+[C# SDK](https://github.com/modelcontextprotocol/csharp-sdk).
+
+```bash
+claude mcp add legacy-lens -- LegacyLens mcp /path/to/solution
+# or, from a clone:
+claude mcp add legacy-lens -- dotnet run --project src/LegacyLens.Api -- mcp /path/to/solution
+```
+
+| Tool | Answers with |
+|---|---|
+| `assessment_summary` | the verdict grid, the summary, what is already on the codebase's side |
+| `risky_files` | the ranked files and the reason for each |
+| `migration_blockers` | project formats, Framework-only packages, drift, unclassified packages |
+| `package_usage` | every type of one package the code uses, and what happens to each |
+| `order_of_work` | the steps, their size, and the names each covers |
+| `limitations` | what the analysis could not see on this codebase |
+| `read_lines`, `search_code` | numbered lines and `file:line` matches, to check any of the above |
+
+**The answers are the report's own sections**, from the same assessment, so an
+agent is told what a client is handed, word for word. Nothing calls a model.
+
+**One codebase per server, and nothing outside it is read.** The root is fixed
+on the command line; a path that leaves it, by name or through a symbolic link,
+is refused. An agent names paths it read in someone else's repository, and the
+server is what stands between that text and the rest of the disk.
+
 ---
 
 ## Deploying it

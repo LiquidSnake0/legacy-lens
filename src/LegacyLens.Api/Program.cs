@@ -59,6 +59,31 @@ if (args is ["report", var target, ..])
     return;
 }
 
+// A Model Context Protocol server over standard input and output, for a coding
+// agent: Claude Code, Copilot or Cursor asks what this tool measures about one
+// codebase and gets the report's own sections, with the files they cite. The
+// root is fixed here, and nothing outside it is read. Logs go to standard
+// error, because standard output is the protocol.
+if (args is ["mcp", var mcpRoot])
+{
+    if (!Directory.Exists(mcpRoot))
+    {
+        Console.Error.WriteLine($"No such directory: {mcpRoot}");
+        Environment.ExitCode = 2;
+        return;
+    }
+
+    var host = Host.CreateApplicationBuilder();
+    host.Logging.ClearProviders();
+    host.Logging.AddConsole(o => o.LogToStandardErrorThreshold = LogLevel.Trace);
+    host.Services.AddSingleton(new LegacyLens.Api.Mcp.Codebase(mcpRoot));
+    host.Services.AddMcpServer(o => o.ServerInfo = new() { Name = "legacy-lens", Version = "1.0" })
+        .WithStdioServerTransport()
+        .WithTools<LegacyLens.Api.Mcp.LensTools>();
+    await host.Build().RunAsync();
+    return;
+}
+
 // How well the brace scanner reads a corpus: files whose depth returns to zero
 // at the end, and the ones that do not, by name. This is the figure quoted in
 // docs/NEXT.md, re-taken after every change to the scanner. `--write` keeps
