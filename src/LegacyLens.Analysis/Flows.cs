@@ -24,12 +24,22 @@ public record FlowStep(
     Link Link,
     /// <summary>The declarations that answer, as "Type.Member path:line"; several when inferred.</summary>
     IReadOnlyList<string> Targets,
-    IReadOnlyList<FlowStep> Next);
+    IReadOnlyList<FlowStep> Next)
+{
+    /// <summary>
+    /// The tests whose code reaches a declaration answering this call, as
+    /// "TestType.TestMethod path:line". Reached in the code, which is not the
+    /// same as covered when they run: that takes running them.
+    /// </summary>
+    public IReadOnlyList<string> ReachedBy { get; init; } = [];
+}
 
 public record Flow(
     string Entry,
     string DeclaredAt,
     IReadOnlyList<FlowStep> Steps,
+    /// <summary>The tests whose code reaches the entry point itself.</summary>
+    IReadOnlyList<string> EntryReachedBy,
     /// <summary>Calls whose receiver is a type outside the solution: a package or the framework.</summary>
     int LeavesSolution,
     /// <summary>Calls whose receiver could not be typed from syntax alone.</summary>
@@ -54,7 +64,7 @@ public class FlowTracer
     private sealed record MethodDecl(string Type, string Name, int Parameters, string? Returns, string Path, int Line,
         IReadOnlyDictionary<string, string> ParameterTypes, SyntaxNode? Body,
         int Required = 0, bool Params = false, string? Extends = null, IReadOnlyList<string?>? Ordered = null,
-        int Generic = 0, bool Callable = true)
+        int Generic = 0, bool Callable = true, bool IsTest = false)
     {
         /// <summary>Whether a call with that many arguments can bind here, optional and params arrays included.</summary>
         public bool Takes(int arguments) =>
@@ -65,6 +75,8 @@ public class FlowTracer
     {
         public required string Name { get; init; }
         public bool Interface { get; init; }
+        /// <summary>Declared only in test projects: a fixture, a stub or a fake.</summary>
+        public bool Test { get; set; }
         public List<string> Bases { get; } = [];
         public Dictionary<string, string> Members { get; } = new(StringComparer.Ordinal);
         public List<MethodDecl> Methods { get; } = [];
@@ -75,17 +87,26 @@ public class FlowTracer
     private readonly Dictionary<string, List<MethodDecl>> _extensions = new(StringComparer.Ordinal);
 
     public FlowTracer(IEnumerable<(string Path, string Source)> files)
+        : this(files.Select(f => (f.Path, f.Source, false)))
     {
-        foreach (var (path, source) in files)
+    }
+
+    /// <param name="files">Source files, each marked when it belongs to a test project.</param>
+    public FlowTracer(IEnumerable<(string Path, string Source, bool Test)> files)
+    {
+        foreach (var (path, source, test) in files)
         {
             var root = CSharpSyntaxTree.ParseText(source, path: path).GetRoot();
             foreach (var syntax in root.DescendantNodes().OfType<TypeDeclarationSyntax>())
-                Add(syntax, path);
+                Add(syntax, path, test);
         }
 
         // Every class under every interface it reaches, through the
-        // solution's own bases.
-        foreach (var type in _types.Values.Where(t => !t.Interface))
+        // solution's own bases. A stub in a test project implements the
+        // interface too, and counting it would turn every production call
+        // through that interface into a guess between the real thing and the
+        // fake: test types are left out.
+        foreach (var type in _types.Values.Where(t => !t.Interface && !t.Test))
         foreach (var ancestor in Ancestors(type.Name))
         {
             if (_types.TryGetValue(ancestor, out var declared) && declared.Interface)
@@ -105,8 +126,8 @@ public class FlowTracer
             .OfType<string>().Select(f => f + Path.DirectorySeparatorChar).ToList();
 
         return new FlowTracer(SourceTree.CSharpUnder(root)
-            .Where(path => !tests.Any(t => path.StartsWith(t, StringComparison.Ordinal)))
-            .Select(path => (Path.GetRelativePath(root, path).Replace('\\', '/'), Read(path))));
+            .Select(path => (Path.GetRelativePath(root, path).Replace('\\', '/'), Read(path),
+                             tests.Any(t => path.StartsWith(t, StringComparison.Ordinal)))));
 
         static string Read(string path)
         {
@@ -125,8 +146,115 @@ public class FlowTracer
 
         var counts = new int[2];
         var visited = new HashSet<string>(StringComparer.Ordinal) { Key(start) };
-        var steps = Steps(start, depth, visited, counts);
-        return new Flow($"{start.Type}.{start.Name}", $"{start.Path}:{start.Line}", steps, counts[0], counts[1], depth);
+        var steps = Annotate(Steps(start, depth, visited, counts));
+        return new Flow($"{start.Type}.{start.Name}", $"{start.Path}:{start.Line}", steps,
+            ReachedBy().GetValueOrDefault(Describe(start)) ?? [], counts[0], counts[1], depth);
+    }
+
+    /// <summary>How many calls deep a test's own code is followed when asking what it reaches.</summary>
+    private const int TestDepth = 4;
+
+    private Dictionary<string, List<string>>? _reachedBy;
+
+    /// <summary>
+    /// For every declaration, the tests whose code reaches it: each test
+    /// method followed inward with the same rules as a flow, keeping only the
+    /// links that are certain, resolved or through an interface's one
+    /// implementation. A test that calls an interface with two implementations
+    /// may reach either, and is not counted as reaching both.
+    /// </summary>
+    private Dictionary<string, List<string>> ReachedBy()
+    {
+        if (_reachedBy is not null) return _reachedBy;
+
+        var map = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var type in _types.Values.Where(t => t.Test))
+        {
+            _bound = Bindings(type);
+            foreach (var test in type.Methods.Where(m => m.IsTest))
+            {
+            var visited = new HashSet<string>(StringComparer.Ordinal) { Key(test) };
+            var name = Describe(test);
+            foreach (var target in Certain(Steps(test, TestDepth, visited, new int[2])).Distinct(StringComparer.Ordinal))
+            {
+                if (!map.TryGetValue(target, out var tests)) map[target] = tests = [];
+                tests.Add(name);
+            }
+            }
+        }
+
+        _bound = null;
+        return _reachedBy = map;
+
+        static IEnumerable<string> Certain(IEnumerable<FlowStep> steps)
+        {
+            foreach (var step in steps)
+            {
+                if (step.Link is not (Link.Resolved or Link.ThroughInterface)) continue;
+                yield return step.Targets[0];
+                foreach (var further in Certain(step.Next)) yield return further;
+            }
+        }
+    }
+
+    /// <summary>The interface bindings of the test type being followed, null outside a test.</summary>
+    private Dictionary<string, string>? _bound;
+
+    /// <summary>
+    /// What a test class's container binds each interface to, read from its
+    /// registrations: Autofac's <c>RegisterType&lt;X&gt;().As&lt;I&gt;()</c>,
+    /// Microsoft's <c>AddScoped&lt;I, X&gt;()</c> and its siblings, and
+    /// Ninject's <c>Bind&lt;I&gt;().To&lt;X&gt;()</c>. Only to types the
+    /// solution declares outside its tests: a binding to a stub reaches the stub.
+    /// </summary>
+    private Dictionary<string, string> Bindings(TypeDecl type)
+    {
+        var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var body in type.Methods.Select(m => m.Body).OfType<SyntaxNode>())
+        foreach (var call in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (call.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax generic } access) continue;
+            var args = generic.TypeArgumentList.Arguments.Select(Simple).ToList();
+            string? contract = null, concrete = null;
+
+            switch (generic.Identifier.ValueText)
+            {
+                case "As" or "To" when args.Count == 1:
+                    // Down the chain to the registration it qualifies.
+                    var inner = access.Expression;
+                    while (inner is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax m })
+                    {
+                        if (m.Name is GenericNameSyntax { Identifier.ValueText: "RegisterType" or "Bind" } r
+                            && r.TypeArgumentList.Arguments.Count == 1)
+                        {
+                            var named = Simple(r.TypeArgumentList.Arguments[0]);
+                            (contract, concrete) = r.Identifier.ValueText == "Bind" ? (named, args[0]) : (args[0], named);
+                            break;
+                        }
+                        inner = m.Expression;
+                    }
+                    break;
+                case "AddScoped" or "AddTransient" or "AddSingleton" when args.Count == 2:
+                    (contract, concrete) = (args[0], args[1]);
+                    break;
+            }
+
+            if (contract is not null && concrete is not null
+                && _types.TryGetValue(concrete, out var declared) && !declared.Test && !declared.Interface)
+                bindings[contract] = concrete;
+        }
+        return bindings;
+    }
+
+    /// <summary>Each step with the tests that reach any declaration answering it.</summary>
+    private List<FlowStep> Annotate(IEnumerable<FlowStep> steps)
+    {
+        var reached = ReachedBy();
+        return steps.Select(step => step with
+        {
+            Next = Annotate(step.Next),
+            ReachedBy = step.Targets.SelectMany(t => reached.GetValueOrDefault(t) ?? []).Distinct(StringComparer.Ordinal).ToList(),
+        }).ToList();
     }
 
     private List<FlowStep> Steps(MethodDecl method, int depth, HashSet<string> visited, int[] counts)
@@ -174,7 +302,12 @@ public class FlowTracer
                 continue;
             }
 
-            var implementations = (_implementations.GetValueOrDefault(receiverType) ?? [])
+            // Under a test whose container binds the interface, the binding
+            // answers, as it does when the test runs.
+            var candidates = _bound is not null && _bound.TryGetValue(receiverType, out var bound)
+                ? [bound]
+                : _implementations.GetValueOrDefault(receiverType) ?? [];
+            var implementations = candidates
                 .SelectMany(i => Overloads(i, name, invocation, method, locals, throughInterface: true))
                 .DistinctBy(Key)
                 .ToList();
@@ -391,14 +524,21 @@ public class FlowTracer
         return seen;
     }
 
-    private void Add(TypeDeclarationSyntax syntax, string path)
+    private static readonly HashSet<string> TestAttributes = new(StringComparer.Ordinal)
+    {
+        "Fact", "Theory", "Test", "TestCase", "TestCaseSource", "TestMethod", "DataTestMethod",
+    };
+
+    private void Add(TypeDeclarationSyntax syntax, string path, bool test = false)
     {
         if (syntax is not (ClassDeclarationSyntax or InterfaceDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax))
             return;
 
         var name = syntax.Identifier.ValueText;
         if (!_types.TryGetValue(name, out var type))
-            _types[name] = type = new TypeDecl { Name = name, Interface = syntax is InterfaceDeclarationSyntax };
+            _types[name] = type = new TypeDecl { Name = name, Interface = syntax is InterfaceDeclarationSyntax, Test = test };
+        else
+            type.Test &= test;
 
         type.Bases.AddRange(syntax.BaseList?.Types.Select(t => Simple(t.Type)).OfType<string>() ?? []);
 
@@ -438,7 +578,11 @@ public class FlowTracer
                         // public method, or an explicit implementation.
                         syntax is InterfaceDeclarationSyntax
                             || method.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword))
-                            || method.ExplicitInterfaceSpecifier is not null);
+                            || method.ExplicitInterfaceSpecifier is not null,
+                        test && method.AttributeLists.SelectMany(l => l.Attributes)
+                            .Select(a => a.Name.ToString().Split('.')[^1])
+                            .Select(n => n.EndsWith("Attribute", StringComparison.Ordinal) ? n[..^9] : n)
+                            .Any(TestAttributes.Contains));
                     type.Methods.Add(declaration);
                     if (extends is not null)
                     {
@@ -474,7 +618,16 @@ public static class FlowWriter
         var text = new System.Text.StringBuilder();
         text.AppendLine($"## {flow.Entry}");
         text.AppendLine();
-        text.AppendLine($"Declared at `{flow.DeclaredAt}`. Traced {flow.Depth} calls deep, from syntax.");
+        var links = Flatten(flow.Steps).ToList();
+        var reached = links.Count(s => s.ReachedBy.Count > 0);
+        text.AppendLine($"Declared at `{flow.DeclaredAt}`. Traced {flow.Depth} calls deep, from syntax. "
+                      + (flow.EntryReachedBy.Count > 0
+                          ? $"The entry point itself is reached by {Tests(flow.EntryReachedBy)}."
+                          : "No test reaches the entry point itself."));
+        text.AppendLine();
+        text.AppendLine($"**{reached} of {links.Count} links are reached by a test**, in the code: a test's own calls lead "
+                      + "there. That is evidence a test exercises it, not proof it is covered when the tests run, "
+                      + "which takes running them.");
         text.AppendLine();
         Steps(text, flow.Steps, 0);
         text.AppendLine();
@@ -485,6 +638,16 @@ public static class FlowWriter
         text.AppendLine("Resolved: one declaration answers. Through interface: the only implementation in the solution. "
                       + "Inferred: several could, and which runs is decided at run time. Unimplemented: nothing in the solution implements it.");
         return text.ToString();
+    }
+
+    private static IEnumerable<FlowStep> Flatten(IEnumerable<FlowStep> steps) =>
+        steps.SelectMany(s => Flatten(s.Next).Prepend(s));
+
+    /// <summary>"`A.Test1`" or "`A.Test1` and 4 other tests".</summary>
+    private static string Tests(IReadOnlyList<string> tests)
+    {
+        var first = $"`{tests[0].Split(' ')[0]}`";
+        return tests.Count == 1 ? first : $"{first} and {tests.Count - 1} other {(tests.Count == 2 ? "test" : "tests")}";
     }
 
     private static void Steps(System.Text.StringBuilder text, IReadOnlyList<FlowStep> steps, int indent)
@@ -500,7 +663,8 @@ public static class FlowWriter
                 _ => "unimplemented",
             };
             var targets = step.Targets.Count == 0 ? "nothing in the solution" : string.Join("; ", step.Targets.Select(t => $"`{t}`"));
-            text.AppendLine($"{pad}- `{step.Call}` at `{step.CalledAt}`, {label}: {targets}");
+            var tests = step.ReachedBy.Count == 0 ? "no test reaches it" : $"reached by {Tests(step.ReachedBy)}";
+            text.AppendLine($"{pad}- `{step.Call}` at `{step.CalledAt}`, {label}: {targets}. {tests}");
             Steps(text, step.Next, indent + 1);
         }
     }
