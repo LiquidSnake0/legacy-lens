@@ -1349,6 +1349,32 @@ lines, 5 commands and the XML-RPC handler.
 **What it does not find** is dispatch a framework does through interfaces of
 its own beyond the ones listed, and anything wired up only in configuration.
 
+## One flow, link by link
+
+```bash
+LegacyLens flow path/to/solution BlogController.Item --depth 3
+```
+
+From an entry point inward: every call the solution answers, with the line it
+is made on and the declaration that answers it. Each link says how sure it is.
+**Resolved** when one declaration answers; **through interface** when the
+interface has one implementation in the solution; **inferred**, with every
+candidate, when several could and which one runs is decided at run time;
+**unimplemented** when nothing in the solution implements it. Calls into
+packages and the framework end a branch and are counted, not listed.
+
+Read from syntax, so it has to do by hand what a compiler does: an extension
+method answers when the instance method's parameters do not fit the call, an
+overload is chosen by the types of its arguments where syntax gives them, a
+generic call goes to a generic method, and a call through an interface never
+lands on a private method. Each of those was a wrong link on Orchard first.
+
+Checked link by link against the source on `BlogController.Item`, three calls
+deep: 22 links, every one with the right declaration, the right overload and
+the right line: nine resolved, seven through an interface, six inferred. Each
+inferred one is a real choice the container
+makes at run time: Orchard's Glimpse decorators and its setup mode.
+
 ## Without the source: a folder of assemblies
 
 Sometimes part of the code is only there as a DLL: a vendor's component, a
@@ -1397,6 +1423,7 @@ claude mcp add legacy-lens -- dotnet run --project src/LegacyLens.Api -- mcp /pa
 |---|---|
 | `assessment_summary` | the verdict grid, the summary, what is already on the codebase's side |
 | `entry_points` | every action, operation, handler, command and job, with `file:line`, filtered by kind or project |
+| `trace_flow` | one flow from an entry point inward, every link with `file:line` and how sure it is |
 | `risky_files` | the ranked files and the reason for each |
 | `migration_blockers` | project formats, Framework-only packages, drift, unclassified packages |
 | `package_usage` | every type of one package the code uses, and what happens to each |
