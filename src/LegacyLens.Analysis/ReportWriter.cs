@@ -46,6 +46,7 @@ public class ReportWriter
         var report = new StringBuilder();
 
         Header(report, assessment);
+        Glance(report, assessment);
         Summary(report, assessment);
         Shape(report, assessment);
         Hurt(report, assessment);
@@ -73,6 +74,154 @@ public class ReportWriter
           + "written by a language model. What could not be measured is listed at the end "
           + "rather than left out."));
         report.AppendLine();
+    }
+
+    /// <summary>One line of the grid at the top: an area, a word, the count behind the word.</summary>
+    public sealed record Verdict(string Area, string Word, string Measured, string Section);
+
+    private const string HurtSection = "What will hurt";
+    private const string MoveSection = "What a move to modern .NET runs into";
+    private const string UnsaidSection = "What this report does not say";
+
+    /// <summary>
+    /// The grid a reader who reads one page acts on: one line per area, a
+    /// verdict in a word, the measurement it rests on, and the section with
+    /// the detail.
+    ///
+    /// Modelled on the maturity grid that security assessments open with. Each
+    /// word is a rule over the count printed beside it, written out below, so a
+    /// reader who disagrees with the word can see exactly what it was given.
+    /// An area with nothing measured is left out rather than given a verdict.
+    /// </summary>
+    public static IReadOnlyList<Verdict> Verdicts(Assessment assessment)
+    {
+        var survey = assessment.Modernisation;
+        var verdicts = new List<Verdict>();
+
+        var unreadable = assessment.Of(FindingKind.Unreadable).Count();
+        if (unreadable > 0)
+        {
+            verdicts.Add(new("Project files", "incomplete",
+                $"{Assessor.Count(unreadable, "project file")} could not be read, so every "
+              + "count below is short", HurtSection));
+        }
+
+        if (survey.Projects.Count > 0)
+        {
+            verdicts.Add(survey.PreSdk == 0
+                ? new("Project format", "modern",
+                    $"all {Assessor.Count(survey.Projects.Count, "project")} in the SDK format", MoveSection)
+                : new("Project format", "to convert",
+                    $"{survey.PreSdk:N0} of {survey.Projects.Count:N0} in the old format, "
+                  + $"{survey.ConvertibleAsIs:N0} convertible as they stand", MoveSection));
+
+            verdicts.Add(survey.DeadEnds.Count > 0
+                ? new("Packages with no future", "blocking",
+                    $"{Assessor.Count(survey.DeadEnds.Count, "package")} that exist only inside the "
+                  + $".NET Framework; {survey.Blocked:N0} of {survey.Projects.Count:N0} projects "
+                  + "reference one", MoveSection)
+                : new("Packages with no future", "none found",
+                    "no package known to exist only inside the .NET Framework", MoveSection));
+        }
+
+        if (survey.Packages.Count > 0)
+        {
+            var unknown = survey.Packages.Count(p => p.Portability == Portability.Unknown);
+            verdicts.Add(unknown > 0
+                ? new("Packages nobody has classified", "unknown",
+                    $"{unknown:N0} of {survey.Packages.Count:N0} distinct packages, counted as "
+                  + "unknown rather than as fine", MoveSection)
+                : new("Packages nobody has classified", "none",
+                    $"all {survey.Packages.Count:N0} distinct packages classified", MoveSection));
+        }
+
+        var production = assessment.Production.Count;
+        if (production > 0)
+        {
+            var untested = assessment.Of(FindingKind.Untested).Count();
+            var share = (double)untested / production;
+            var word = untested == 0 ? "broad"
+                     : share <= 0.25 ? "gaps"
+                     : share < 0.75 ? "patchy"
+                     : "thin";
+            verdicts.Add(new("Tests", word,
+                untested == 0
+                    ? $"a test project references each of the {Assessor.Count(production, "project")} that ship code"
+                    : $"no test project references {untested:N0} of the {production:N0} projects that "
+                    + $"ship code, {assessment.UntestedLines:N0} lines",
+                HurtSection));
+        }
+
+        if (survey.Projects.Count > 0)
+        {
+            verdicts.Add((survey.Divergent > 0, survey.BindingRedirects > 0) switch
+            {
+                (false, false) => new("Package versions", "tended",
+                    "every package on one version, no binding redirect", MoveSection),
+                (false, true) => new("Package versions", "paid for once",
+                    $"every package on one version today, {Assessor.Count(survey.BindingRedirects, "binding redirect")} "
+                  + "written by hand", MoveSection),
+                _ => new("Package versions", "drifting",
+                    $"{Assessor.Count(survey.Divergent, "package")} on more than one version, "
+                  + $"{Assessor.Count(survey.BindingRedirects, "binding redirect")} written by hand", MoveSection),
+            });
+        }
+
+        var coupled = assessment.Of(FindingKind.LibraryCoupledToWeb).Count();
+        if (coupled > 0)
+        {
+            verdicts.Add(new("Libraries tied to the web stack", "to separate",
+                $"{Assessor.Count(coupled, "class library")} {(coupled == 1 ? "depends" : "depend")} on the web stack", HurtSection));
+        }
+
+        var cycles = assessment.Of(FindingKind.DependencyCycle).Count();
+        if (cycles > 0)
+        {
+            verdicts.Add(new("Dependency cycles", "to break",
+                $"{Assessor.Count(cycles, "cycle")} between projects", HurtSection));
+        }
+
+        var risk = assessment.Risk;
+        if (risk.Entries.Count > 0 || risk.HistoryStatus != HistoryStatus.Available)
+        {
+            verdicts.Add(risk.HistoryStatus == HistoryStatus.Available
+                ? new("Change history", "read",
+                    $"{Assessor.Count(risk.Entries.Count, "file")} ranked on structure and churn"
+                  + (risk.HistoryWindow is { Length: > 0 } window ? $" over {window}" : ""), HurtSection)
+                : new("Change history", "not read",
+                    "files ranked on structure alone", HurtSection));
+        }
+
+        return verdicts;
+    }
+
+    private static void Glance(StringBuilder report, Assessment assessment)
+    {
+        var verdicts = Verdicts(assessment);
+        if (verdicts.Count == 0) return;
+
+        report.AppendLine("## At a glance");
+        report.AppendLine();
+        report.AppendLine("| Area | Verdict | Measured | Detail in |");
+        report.AppendLine("|---|---|---|---|");
+        foreach (var verdict in verdicts)
+        {
+            report.AppendLine(
+                $"| {verdict.Area} | **{verdict.Word}** | {Cell(verdict.Measured)} | {verdict.Section} |");
+        }
+        report.AppendLine();
+
+        // The limits are the last section, which is where nobody reads. Said
+        // here, next to the table people act on, as security reports do on
+        // their second page.
+        if (assessment.Limitations.Count > 0)
+        {
+            report.AppendLine(Lead("Read it with its limits",
+                $"{Assessor.Count(assessment.Limitations.Count, "limit")} of this analysis "
+              + $"{(assessment.Limitations.Count == 1 ? "applies" : "apply")} to this codebase. They are listed under \"{UnsaidSection}\", at the "
+              + "end, and belong next to any decision taken from this table."));
+            report.AppendLine();
+        }
     }
 
     /// <summary>
@@ -278,7 +427,7 @@ public class ReportWriter
 
     private void Hurt(StringBuilder report, Assessment assessment)
     {
-        report.AppendLine("## What will hurt");
+        report.AppendLine($"## {HurtSection}");
         report.AppendLine();
 
         if (assessment.Findings.Count == 0 && assessment.Risk.Entries.Count == 0)
@@ -390,7 +539,7 @@ public class ReportWriter
         var survey = assessment.Modernisation;
         if (survey.Projects.Count == 0) return;
 
-        report.AppendLine("## What a move to modern .NET runs into");
+        report.AppendLine($"## {MoveSection}");
         report.AppendLine();
 
         report.AppendLine("| | Count |");
@@ -803,7 +952,7 @@ public class ReportWriter
     {
         if (assessment.Limitations.Count == 0) return;
 
-        report.AppendLine("## What this report does not say");
+        report.AppendLine($"## {UnsaidSection}");
         report.AppendLine();
         report.AppendLine(Wrap(
             "Printed here rather than left for the reader to discover after acting on it. "
