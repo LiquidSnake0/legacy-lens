@@ -399,7 +399,12 @@ public class FlowTracer
             if (name is null) continue;
             // The line of the name called, which is where a reader looks: in a
             // chain spread over lines, the expression starts lines earlier.
-            var named = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name : invocation.Expression;
+            var named = invocation.Expression switch
+            {
+                MemberAccessExpressionSyntax access => access.Name,
+                MemberBindingExpressionSyntax binding => binding.Name,
+                _ => invocation.Expression,
+            };
             var at = $"{method.Path}:{named.GetLocation().GetLineSpan().StartLinePosition.Line + 1}";
             var arguments = invocation.ArgumentList.Arguments.Count;
 
@@ -567,6 +572,10 @@ public class FlowTracer
             IdentifierNameSyntax id => (Unqualified(method, id.Identifier.ValueText), id.Identifier.ValueText),
             GenericNameSyntax g => (Unqualified(method, g.Identifier.ValueText), g.Identifier.ValueText),
             MemberAccessExpressionSyntax access => (TypeOf(access.Expression, method, locals), access.Name.Identifier.ValueText),
+            // `m?.Go()`: the receiver is the conditional access's expression.
+            MemberBindingExpressionSyntax binding when invocation.Ancestors().OfType<ConditionalAccessExpressionSyntax>()
+                    .FirstOrDefault(c => c.WhenNotNull.Span.Contains(invocation.Span)) is { } conditional
+                => (TypeOf(conditional.Expression, method, locals), binding.Name.Identifier.ValueText),
             _ => (null, null),
         };
 

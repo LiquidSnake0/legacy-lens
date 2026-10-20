@@ -251,4 +251,15 @@ public class FlowsTests
             ("Empty.Nothing", Link.Unimplemented, 0), // nothing overrides it
         ], links);
     }
+
+    [Fact]
+    public void A_conditional_call_is_linked_like_any_other()
+    {
+        var flow = Trace("Desk.Send", Mail + """
+            public class Desk { Mailer _m; dynamic _d; public void Send() { _m?.Go(); _d?.Go(); } }
+            """);
+
+        Assert.Equal("Mailer.Go Shop.cs:1", Assert.Single(Assert.Single(flow.Steps).Targets));
+        Assert.Equal(1, flow.LeavesSolution + flow.Untyped); // the dynamic one is counted, not dropped
+    }
 }
