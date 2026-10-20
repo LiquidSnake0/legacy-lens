@@ -135,4 +135,11 @@ public class McpToolsTests : IDisposable
         Assert.Contains("MvcAction HomeController.Index Home.cs:5", entries);
         Assert.Equal("No entry point matches.", Tools().EntryPoints(kind: "WcfOperation"));
     }
+
+    [Fact]
+    public void A_flow_is_traced_from_an_entry_point_or_said_to_be_missing()
+    {
+        Assert.StartsWith("## HomeController.Index", Tools().TraceFlow("HomeController.Index"));
+        Assert.Equal("No method Nope.Nothing in this solution.", Tools().TraceFlow("Nope.Nothing"));
+    }
 }

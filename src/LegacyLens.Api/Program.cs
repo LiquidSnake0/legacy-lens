@@ -69,6 +69,23 @@ if (args is ["entries", var entriesRoot])
     return;
 }
 
+// One flow traced from an entry point inward: `flow <path> Type.Member
+// [--depth N]`, every link with its file and line and how sure it is.
+if (args is ["flow", var flowRoot, var flowEntry, ..])
+{
+    var depthAt = Array.IndexOf(args, "--depth");
+    var depth = depthAt > 0 && int.TryParse(args.ElementAtOrDefault(depthAt + 1), out var d) ? d : 3;
+    var flow = FlowTracer.ForSolution(flowRoot, new ProjectGraph().Build(flowRoot)).Trace(flowEntry, depth);
+    if (flow is null)
+    {
+        Console.Error.WriteLine($"No method {flowEntry} in this solution.");
+        Environment.ExitCode = 2;
+        return;
+    }
+    Console.Out.Write(FlowWriter.Write(flow));
+    return;
+}
+
 // The assessment of a codebase whose source is gone: a folder of assemblies,
 // read for their metadata with ILSpy's engine. Nothing is decompiled or run.
 if (args is ["binaries", var binariesRoot, ..])

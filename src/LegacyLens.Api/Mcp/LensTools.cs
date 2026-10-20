@@ -17,19 +17,31 @@ namespace LegacyLens.Api.Mcp;
 /// The assessment is made once, on the first question, and kept: it takes
 /// seconds on a large solution and the answers have to agree with each other.
 /// </summary>
-public sealed class Codebase(string root)
+public sealed class Codebase
 {
-    private readonly Lazy<(Assessment Assessment, string Report)> _assessment = new(() =>
+    public Codebase(string root)
     {
-        var assessment = new Assessor().Assess(root);
-        return (assessment, new ReportWriter().Write(assessment));
-    });
+        Root = Path.GetFullPath(root);
+        _assessment = new(() =>
+        {
+            var assessment = new Assessor().Assess(root);
+            return (assessment, new ReportWriter().Write(assessment));
+        });
+        _flows = new(() => FlowTracer.ForSolution(root, _assessment.Value.Assessment.Map));
+    }
 
-    public string Root { get; } = Path.GetFullPath(root);
+    private readonly Lazy<(Assessment Assessment, string Report)> _assessment;
+
+    public string Root { get; }
 
     public Assessment Assessment => _assessment.Value.Assessment;
 
     public string Report => _assessment.Value.Report;
+
+    private readonly Lazy<FlowTracer>? _flows;
+
+    /// <summary>The flow tracer over the same files, built on the first trace.</summary>
+    public FlowTracer Flows => (_flows ?? throw new InvalidOperationException()).Value;
 
     /// <summary>
     /// The full path for a path relative to the root, or null when it would
@@ -98,6 +110,16 @@ public sealed class LensTools(Codebase codebase)
             text.AppendLine($"{e.Kind} {e.Type}{(e.Member.Length > 0 ? "." + e.Member : "")}{(e.Detail is null ? "" : $" [{e.Detail}]")} {e.Path}:{e.Line}");
         if (entries.Count > 300) text.AppendLine($"Stopped at 300; filter by kind or project.");
         return text.ToString();
+    }
+
+    [McpServerTool(Name = "trace_flow", ReadOnly = true, Idempotent = true)]
+    [Description("Traces one flow from an entry point inward: every call the solution answers, with the file:line where it is made and the declaration that answers it, and how sure each link is (resolved, through interface, inferred when several implementations could answer, unimplemented). Calls into packages and the framework end a branch and are counted. Take the entry from entry_points.")]
+    public string TraceFlow(
+        [Description("Type.Member, for example BlogController.Item")] string entry,
+        [Description("How many calls deep, 1 to 6")] int depth = 3)
+    {
+        var flow = codebase.Flows.Trace(entry, Math.Clamp(depth, 1, 6));
+        return flow is null ? $"No method {entry} in this solution." : FlowWriter.Write(flow);
     }
 
     [McpServerTool(Name = "risky_files", ReadOnly = true, Idempotent = true)]
