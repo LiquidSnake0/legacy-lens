@@ -58,7 +58,9 @@ public static class SourceTree
         {
             if (Directory.Exists(entry))
             {
-                if (Skipped(entry)) continue;
+                // A linked directory is not followed: it can point outside
+                // the codebase, or back up into it and never end.
+                if (Skipped(entry) || new DirectoryInfo(entry).LinkTarget is not null) continue;
 
                 foreach (var found in Under(entry, wanted)) yield return found;
             }

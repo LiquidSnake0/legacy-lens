@@ -22,6 +22,7 @@ public sealed class Codebase
     public Codebase(string root)
     {
         Root = Path.GetFullPath(root);
+        _realRoot = new(() => Real(Root) ?? Root);
         _assessment = new(() =>
         {
             var assessment = new Assessor().Assess(root);
@@ -45,30 +46,54 @@ public sealed class Codebase
 
     /// <summary>
     /// The full path for a path relative to the root, or null when it would
-    /// leave it, by its name or through a symbolic link.
+    /// leave it, by its name or through a symbolic link anywhere along it: a
+    /// linked file, or a linked directory on the way to an ordinary one.
     /// </summary>
     public string? Inside(string relative)
     {
         var full = Path.GetFullPath(Path.Combine(Root, relative));
-        return Contains(full) && Contains(Resolved(full)) ? full : null;
+        if (!Under(full, Root)) return null;
+        var real = Real(full);
+        return real is not null && Under(real, _realRoot.Value) ? full : null;
     }
 
-    private bool Contains(string full)
+    private readonly Lazy<string> _realRoot;
+
+    private static bool Under(string path, string root)
     {
-        var prefix = Root.EndsWith(Path.DirectorySeparatorChar) ? Root : Root + Path.DirectorySeparatorChar;
-        return full.StartsWith(prefix, StringComparison.Ordinal);
+        var prefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+        return path.StartsWith(prefix, StringComparison.Ordinal);
     }
 
-    private static string Resolved(string full)
+    /// <summary>
+    /// The path with every symbolic link along it followed, component by
+    /// component, as realpath does. Null when the links go round in a circle.
+    /// </summary>
+    internal static string? Real(string path, int hops = 0)
     {
-        try
+        if (hops > 40) return null;
+
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full) ?? "";
+        var current = root;
+
+        foreach (var part in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
         {
-            return new FileInfo(full).ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? full;
+            var next = Path.Combine(current, part);
+            FileSystemInfo info = Directory.Exists(next) ? new DirectoryInfo(next) : new FileInfo(next);
+            if (info.LinkTarget is not null)
+            {
+                var target = Path.IsPathRooted(info.LinkTarget)
+                    ? info.LinkTarget
+                    : Path.Combine(current, info.LinkTarget);
+                var resolved = Real(target, hops + 1);
+                if (resolved is null) return null;
+                next = resolved;
+            }
+            current = next;
         }
-        catch (IOException)
-        {
-            return full;
-        }
+
+        return current;
     }
 }
 
