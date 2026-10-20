@@ -55,5 +55,10 @@
   "NHibernate": {
     "strands": false,
     "why": "Ships for netstandard2.0 and runs on modern .NET."
+  },
+
+  "System.ServiceModel": {
+    "strands": true,
+    "why": "Part of the .NET Framework, not a package. The server side of WCF does not exist on modern .NET: CoreWCF serves the same contracts under its own namespace. Code that only calls services keeps its namespace through the System.ServiceModel client packages."
   }
 }
