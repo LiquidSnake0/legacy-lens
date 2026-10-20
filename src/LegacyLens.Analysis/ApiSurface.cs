@@ -142,6 +142,14 @@ public class ApiSurface
                  "System.Data.Entity.Infrastructure"],
             ["NHibernate"] = ["NHibernate", "NHibernate.Cfg", "NHibernate.Criterion"],
             ["Owin"] = ["Owin", "Microsoft.Owin"],
+
+            // WCF. Part of the .NET Framework rather than a package, and read
+            // the same way: what the code uses of it, and what replaces each
+            // type, CoreWCF on the server and the WCF client packages for calls.
+            ["System.ServiceModel"] =
+                ["System.ServiceModel", "System.ServiceModel.Web", "System.ServiceModel.Description",
+                 "System.ServiceModel.Dispatcher", "System.ServiceModel.Channels",
+                 "System.ServiceModel.Activation"],
         };
 
     /// <summary>

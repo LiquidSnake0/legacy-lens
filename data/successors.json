@@ -313,5 +313,84 @@
         "PatternLayout": null
       }
     }
+  ],
+
+  "System.ServiceModel": [
+    {
+      "package": "CoreWCF.Primitives",
+      "note": "CoreWCF serves WCF on modern .NET: the same contracts, attributes and bindings under the CoreWCF namespace, hosted by ASP.NET Core (AddServiceModelServices and UseServiceModel in Program.cs) instead of a ServiceHost. It is a community project under the .NET Foundation, not part of .NET, and the server side only. Version 1.9.0 pulls System.Security.Cryptography.Xml 8.0.3, which carries advisories GHSA-r955-8q5j-3h83 and GHSA-vrv5-2jg9-4mmr: pin a fixed version above it. Type names checked by reflection on CoreWCF.Primitives, .Http, .NetTcp and .WebHttp 1.9.0.",
+      "types": {
+        "//": "Attributes are recorded under both spellings: source writes [ServiceContract], metadata says ServiceContractAttribute.",
+        "ServiceContract": "CoreWCF.ServiceContractAttribute",
+        "ServiceContractAttribute": "CoreWCF.ServiceContractAttribute",
+        "OperationContract": "CoreWCF.OperationContractAttribute",
+        "OperationContractAttribute": "CoreWCF.OperationContractAttribute",
+        "ServiceBehavior": "CoreWCF.ServiceBehaviorAttribute",
+        "ServiceBehaviorAttribute": "CoreWCF.ServiceBehaviorAttribute",
+        "FaultContract": "CoreWCF.FaultContractAttribute",
+        "FaultContractAttribute": "CoreWCF.FaultContractAttribute",
+        "MessageContract": "CoreWCF.MessageContractAttribute",
+        "MessageContractAttribute": "CoreWCF.MessageContractAttribute",
+        "ServiceKnownType": "CoreWCF.ServiceKnownTypeAttribute",
+        "ServiceKnownTypeAttribute": "CoreWCF.ServiceKnownTypeAttribute",
+        "WebGet": "CoreWCF.Web.WebGetAttribute",
+        "WebGetAttribute": "CoreWCF.Web.WebGetAttribute",
+        "WebInvoke": "CoreWCF.Web.WebInvokeAttribute",
+        "WebInvokeAttribute": "CoreWCF.Web.WebInvokeAttribute",
+        "FaultException": "CoreWCF.FaultException",
+        "CommunicationException": "CoreWCF.CommunicationException",
+        "OperationContext": "CoreWCF.OperationContext",
+        "WebOperationContext": "CoreWCF.Web.WebOperationContext",
+        "InstanceContextMode": "CoreWCF.InstanceContextMode",
+        "ConcurrencyMode": "CoreWCF.ConcurrencyMode",
+        "EndpointAddress": "CoreWCF.EndpointAddress",
+        "BasicHttpBinding": "CoreWCF.BasicHttpBinding",
+        "NetTcpBinding": "CoreWCF.NetTcpBinding",
+        "WSHttpBinding": "CoreWCF.WSHttpBinding",
+        "WebHttpBinding": "CoreWCF.WebHttpBinding",
+        "SecurityMode": "CoreWCF.SecurityMode",
+        "BindingElement": "CoreWCF.Channels.BindingElement",
+        "IDispatchMessageInspector": "CoreWCF.Dispatcher.IDispatchMessageInspector",
+        "IServiceBehavior": "CoreWCF.Description.IServiceBehavior",
+        "IEndpointBehavior": "CoreWCF.Description.IEndpointBehavior",
+        "InstanceContext": "CoreWCF.InstanceContext",
+        "ServiceHostBase": "CoreWCF.ServiceHostBase",
+        "ServiceDescription": "CoreWCF.Description.ServiceDescription",
+        "ServiceEndpoint": "CoreWCF.Description.ServiceEndpoint",
+        "ChannelDispatcher": "CoreWCF.Dispatcher.ChannelDispatcher",
+        "BindingParameterCollection": "CoreWCF.Channels.BindingParameterCollection",
+        "IExtension": "CoreWCF.IExtension<T>",
+        "IInstanceProvider": "CoreWCF.Dispatcher.IInstanceProvider",
+        "Message": "CoreWCF.Channels.Message",
+        "//host": "No type-level counterpart: hosting is ASP.NET Core's, configured in Program.cs. The code that built a host is rewritten as two calls, which is small, but it is a change and not a rename.",
+        "ServiceHost": null,
+        "ServiceHostFactory": null,
+        "WebServiceHost": null,
+        "AspNetCompatibilityRequirements": null,
+        "AspNetCompatibilityRequirementsAttribute": null
+      }
+    },
+    {
+      "package": "System.ServiceModel.Http",
+      "note": "The WCF client, shipped by Microsoft for modern .NET: ChannelFactory, ClientBase and the HTTP bindings keep their names and their namespace. It calls services; it does not host them. Type names checked by reflection on System.ServiceModel.Http and .Primitives 8.1.2.",
+      "types": {
+        "ChannelFactory": "System.ServiceModel.ChannelFactory",
+        "ClientBase": "System.ServiceModel.ClientBase<TChannel>",
+        "ServiceContract": "System.ServiceModel.ServiceContractAttribute",
+        "ServiceContractAttribute": "System.ServiceModel.ServiceContractAttribute",
+        "OperationContract": "System.ServiceModel.OperationContractAttribute",
+        "OperationContractAttribute": "System.ServiceModel.OperationContractAttribute",
+        "FaultException": "System.ServiceModel.FaultException",
+        "CommunicationException": "System.ServiceModel.CommunicationException",
+        "OperationContext": "System.ServiceModel.OperationContext",
+        "EndpointAddress": "System.ServiceModel.EndpointAddress",
+        "BasicHttpBinding": "System.ServiceModel.BasicHttpBinding",
+        "WSHttpBinding": "System.ServiceModel.WSHttpBinding",
+        "SecurityMode": "System.ServiceModel.SecurityMode",
+        "IClientMessageInspector": "System.ServiceModel.Dispatcher.IClientMessageInspector",
+        "IEndpointBehavior": "System.ServiceModel.Description.IEndpointBehavior",
+        "ServiceHost": null
+      }
+    }
   ]
 }
