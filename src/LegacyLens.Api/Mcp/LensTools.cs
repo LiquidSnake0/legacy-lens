@@ -275,14 +275,20 @@ public sealed class LensTools(Codebase codebase)
         return count == 0 ? "No match." : text.ToString();
     }
 
+    private string Sections(params string[] names) => Slice(codebase.Report, names);
+
     /// <summary>
     /// The named sections of the report, each from its heading to the next
     /// heading of the same level, in the order asked for. A section the report
     /// left out because it had nothing in it is said to be absent.
+    ///
+    /// Line endings are made Unix ones first: the report is written with the
+    /// platform's, and on Windows, where the code being assessed usually is,
+    /// no heading would match otherwise.
     /// </summary>
-    private string Sections(params string[] names)
+    public static string Slice(string written, params string[] names)
     {
-        var report = codebase.Report;
+        var report = written.ReplaceLineEndings("\n");
         var text = new StringBuilder();
 
         foreach (var name in names)
