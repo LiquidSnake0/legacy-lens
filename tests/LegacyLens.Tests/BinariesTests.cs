@@ -61,14 +61,18 @@ public class BinariesTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private string Compile(string name, string source, params string[] references)
+    private string Compile(string name, string source, params string[] references) =>
+        Compile(name, source, Platform.AnyCpu, references);
+
+    private string Compile(string name, string source, Platform platform, params string[] references)
     {
         var path = Path.Combine(_root, "bin", name + ".dll");
         var compilation = CSharpCompilation.Create(name,
             [CSharpSyntaxTree.ParseText(source)],
             references.Select(r => MetadataReference.CreateFromFile(r))
-                .Append(MetadataReference.CreateFromFile(typeof(object).Assembly.Location)),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+                .Append(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))
+                .Append(MetadataReference.CreateFromFile(typeof(System.Runtime.InteropServices.DllImportAttribute).Assembly.Location)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, platform: platform));
         var result = compilation.Emit(path);
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         return path;
@@ -129,5 +133,33 @@ public class BinariesTests : IDisposable
         Assert.Contains("| `Microsoft.AspNet.Mvc` |", report);
         Assert.Contains("**Members, not calls.**", report);
         Assert.Contains("**Which assemblies are yours is a rule, not a measurement.**", report);
+    }
+
+    [Fact]
+    public void Native_calls_and_a_fixed_platform_are_read_from_the_headers()
+    {
+        Compile("Shop.Native", """
+            using System.Runtime.InteropServices;
+            public static class Files
+            {
+                [DllImport("kernel32.dll")] public static extern bool MoveFileEx(string a, string b, int f);
+            }
+            """, Platform.X86);
+
+        var native = Assess().Yours.Single(a => a.Name == "Shop.Native");
+
+        Assert.Equal("x86 only", native.Platform);
+        Assert.Equal(["kernel32.dll!MoveFileEx"], native.NativeCalls);
+        Assert.Contains("`kernel32.dll!MoveFileEx` (Windows only)", new BinaryReportWriter().Write(Assess()));
+    }
+
+    [Fact]
+    public void Ordinary_names_are_not_taken_for_obfuscation_and_the_module_is_not_a_type()
+    {
+        var shop = Assess().Yours.Single(a => a.Name == "Shop.Web");
+
+        Assert.Equal(0, shop.Obfuscated);
+        Assert.Equal(1, shop.Types); // HomeController; <Module> is not a type
+        Assert.Equal("AnyCPU", shop.Platform);
     }
 }

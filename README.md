@@ -1417,10 +1417,18 @@ LegacyLens binaries path/to/bin --yours Contoso
   each type is attributed to the assembly the compiler resolved it to, where
   reading source has to guess from what a file imports.
 
+- **Native code and platform**: P/Invoke calls, with Windows system libraries
+  marked, and assemblies fixed to one processor.
+
 Run on `lib/` of SmartStore.NET with `--yours SmartStore`, it finds
 `SmartStore.Licensing`, a component shipped without its source: .NET Framework
-4.7.2, 143 types, built on `System.Web`, using 28 members of 15 MVC types of
-which `Microsoft.AspNetCore.Mvc` covers 79%, and Autofac.
+4.7.2, 142 types, built on `System.Web`, using 28 members of 15 MVC types of
+which `Microsoft.AspNetCore.Mvc` covers 79%, and Autofac. It calls
+`kernel32.dll!MoveFileEx`, which is not in a Linux container, and it is
+obfuscated: 1,068 of its 1,321 type and method names are not names a compiler
+writes, which the report says because it limits what anyone can read there.
+Identity, framework, signing and type count agree with an independent reading
+by [REA](https://github.com/morluto/rea)'s managed inspector.
 
 **It says what it cannot.** A count is of distinct members referenced, not of
 calls, because metadata records a member once however often it is called. No
