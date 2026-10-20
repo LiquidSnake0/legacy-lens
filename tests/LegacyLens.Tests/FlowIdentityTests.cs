@@ -77,4 +77,30 @@ public class FlowIdentityTests
         Assert.Empty(valid.ReachedBy); // a generated test is not counted twice
         Assert.Empty(Assert.Single(valid.Next).RecordedBy); // Clean ran, but nothing proves which branch
     }
+
+    [Fact]
+    public void Nested_types_of_one_name_and_a_generic_and_its_namesake_stay_apart()
+    {
+        var tracer = new FlowTracer([("a.cs", """
+            namespace N
+            {
+                public class A { public class Options { public void Apply() { } } }
+                public class B { public class Options { public void Apply() { } } }
+                public class Repository { public void Get(int id) { } }
+                public class Repository<T> { public void Get(int id) { } }
+                public class Desk
+                {
+                    B.Options _options; Repository<string> _typed; Repository _plain;
+                    public void Run() { _options.Apply(); _typed.Get(1); _plain.Get(1); }
+                }
+            }
+            """, false)]);
+
+        var steps = tracer.Trace("Desk.Run")!.Steps;
+
+        Assert.Equal(["Options.Apply a.cs:4", "Repository.Get a.cs:6", "Repository.Get a.cs:5"],
+            steps.Select(s => Assert.Single(s.Targets)));
+        Assert.All(steps, s => Assert.Equal(Link.Resolved, s.Link));
+        Assert.Equal(["N.Repository.Get", "N.Repository`1.Get"], tracer.Candidates("Repository.Get").Order());
+    }
 }

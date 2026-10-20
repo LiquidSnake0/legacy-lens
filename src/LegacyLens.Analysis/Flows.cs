@@ -199,7 +199,9 @@ public class FlowTracer
         if (dot <= 0) return [];
         var (type, member) = (Dotted(entry[..dot]), entry[(dot + 1)..]);
         if (_types.ContainsKey(type)) return Find(type, member, null) is null ? [] : [$"{type}.{member}"];
-        return (_bySimple.GetValueOrDefault(type) ?? [])
+        // `Repository.Get` also names `Repository<T>.Get`: nobody types the arity.
+        return _bySimple.Where(e => e.Key == type || e.Key.StartsWith(type + "`", StringComparison.Ordinal))
+            .SelectMany(e => e.Value)
             .Where(full => Find(full, member, null) is not null)
             .Select(full => $"{full}.{member}")
             .ToList();
@@ -383,11 +385,11 @@ public class FlowTracer
                 // A type from outside, extended inside: `IEnumerable<T>.ToPagedList()`.
                 var outside = Extension(receiverType, name, arguments, Generic(invocation));
                 if (outside is null) { counts[0]++; continue; }
-                steps.Add(Step($"{Short(receiverType)}.{name}", at, Link.Resolved, [outside], depth, visited, counts));
+                steps.Add(Step($"{Shown(receiverType)}.{name}", at, Link.Resolved, [outside], depth, visited, counts));
                 continue;
             }
 
-            var call = $"{Short(receiverType)}.{name}";
+            var call = $"{Shown(receiverType)}.{name}";
             var direct = Overloads(receiverType, name, invocation, method, locals);
             if (direct.Count == 0 && Extension(receiverType, name, arguments, Generic(invocation)) is { } extension)
             {
@@ -474,10 +476,18 @@ public class FlowTracer
 
     private static string Key(MethodDecl m) => $"{m.Type}.{m.Name}/{m.Parameters}@{m.Path}:{m.Line}";
 
-    private static string Describe(MethodDecl m) => $"{Short(m.Type)}.{m.Name} {m.Path}:{m.Line}";
+    private static string Describe(MethodDecl m) => $"{Shown(m.Type)}.{m.Name} {m.Path}:{m.Line}";
 
     /// <summary>The simple name of a full name: `Orchard.Blogs.BlogService` as `BlogService`.</summary>
     private static string Short(string full) => full[(full.LastIndexOf('.') + 1)..];
+
+    /// <summary>A short name as a reader writes it: `Repository`1` as `Repository`.</summary>
+    private static string Shown(string full)
+    {
+        var name = Short(full);
+        var tick = name.IndexOf('`');
+        return tick < 0 ? name : name[..tick];
+    }
 
     /// <summary>A written dotted name without its `global::`.</summary>
     private static string Dotted(string written) =>
@@ -495,7 +505,18 @@ public class FlowTracer
         if (written is null) return null;
         var name = Dotted(written);
         if (_types.ContainsKey(name)) return name;
-        if (name.Contains('.')) name = Short(name);
+        if (name.Contains('.'))
+        {
+            // `B.Options` written inside N: N.B.Options, then the enclosing
+            // namespaces and the usings, before giving up on the qualifier.
+            var scoped = context is not null && _types.TryGetValue(context, out var where) ? where.Scope : [];
+            foreach (var ns in scoped)
+            {
+                var candidate = ns.Length == 0 ? name : $"{ns}.{name}";
+                if (_types.ContainsKey(candidate)) return candidate;
+            }
+            name = Short(name);
+        }
         if (!_bySimple.TryGetValue(name, out var candidates)) return name;
         if (candidates.Count == 1) return candidates[0];
 
@@ -752,8 +773,8 @@ public class FlowTracer
 
             var typed = arguments.Select(a => ArgumentType(a.Expression, caller, locals)).ToList();
             var kept = fitting.Where(m => m.Ordered is null || typed.Select((t, i) =>
-                    t is null || i >= m.Ordered.Count || m.Ordered[i] is null || m.Ordered[i] == Short(t)
-                    || m.Ordered[i] == "object" || Ancestors(t).Select(Short).Contains(m.Ordered[i]!)).All(ok => ok))
+                    t is null || i >= m.Ordered.Count || m.Ordered[i] is null || Short(m.Ordered[i]!) == Short(t)
+                    || m.Ordered[i] == "object" || Ancestors(t).Select(Short).Contains(Short(m.Ordered[i]!))).All(ok => ok))
                 .ToList();
             return kept.Count == 0 ? fitting : kept;
         }
@@ -813,10 +834,16 @@ public class FlowTracer
         if (syntax is not (ClassDeclarationSyntax or InterfaceDeclarationSyntax or RecordDeclarationSyntax or StructDeclarationSyntax))
             return null;
 
-        var name = syntax.Identifier.ValueText;
+        var arity = syntax.TypeParameterList?.Parameters.Count ?? 0;
+        var name = arity == 0 ? syntax.Identifier.ValueText : $"{syntax.Identifier.ValueText}`{arity}";
         var namespaces = syntax.Ancestors().OfType<BaseNamespaceDeclarationSyntax>().Reverse()
             .Select(n => n.Name.ToString()).ToList();
-        var ns = string.Join(".", namespaces);
+        // A nested type lives in its containing type, which is where a name
+        // written inside it is looked for first.
+        var containers = syntax.Ancestors().OfType<TypeDeclarationSyntax>().Reverse()
+            .Select(t => t.TypeParameterList is { Parameters.Count: > 0 } p ? $"{t.Identifier.ValueText}`{p.Parameters.Count}" : t.Identifier.ValueText)
+            .ToList();
+        var ns = string.Join(".", namespaces.Concat(containers));
         var full = ns.Length == 0 ? name : $"{ns}.{name}";
 
         if (!_types.TryGetValue(full, out var type))
@@ -911,9 +938,12 @@ public class FlowTracer
     /// <summary>`Orchard.IFoo` and `IFoo&lt;T&gt;` as `IFoo`; `var`, arrays and tuples as nothing.</summary>
     private static string? Simple(TypeSyntax type) => type switch
     {
-        QualifiedNameSyntax q => Simple(q.Right),
+        // Kept qualified, `B.Options`, because the qualifier is what tells two
+        // nested Options apart; Resolve looks it up under each scope.
+        QualifiedNameSyntax q => Simple(q.Left) is { } left && Simple(q.Right) is { } right ? $"{left}.{right}" : null,
         AliasQualifiedNameSyntax a => Simple(a.Name),
-        GenericNameSyntax g => g.Identifier.ValueText,
+        // The arity is part of the name: Repository and Repository<T> are two types.
+        GenericNameSyntax g => $"{g.Identifier.ValueText}`{g.TypeArgumentList.Arguments.Count}",
         IdentifierNameSyntax i when !i.IsVar => i.Identifier.ValueText,
         NullableTypeSyntax n => Simple(n.ElementType),
         _ => null,
