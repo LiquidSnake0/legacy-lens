@@ -357,7 +357,7 @@ public class FlowTracer
         var steps = new List<FlowStep>();
         if (method.Body is null || depth <= 0) return steps;
 
-        var locals = Locals(method);
+        var locals = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var invocation in method.Body.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             var (receiverType, name) = Target(invocation, method, locals);
@@ -511,7 +511,10 @@ public class FlowTracer
             case IdentifierNameSyntax id:
             {
                 var name = id.Identifier.ValueText;
-                if (locals.TryGetValue(name, out var local)) return local;
+                // The nearest declaration in scope, walking out from the use:
+                // a local of the same name in another branch, or a lambda's
+                // parameter, is not this one.
+                if (Scoped(id, name, method, out var scoped)) return scoped;
                 if (method.ParameterTypes.TryGetValue(name, out var parameter)) return Resolve(parameter, method.Type);
                 var member = Member(method.Type, name);
                 if (member is not null) return member;
@@ -561,6 +564,100 @@ public class FlowTracer
         }
     }
 
+    /// <summary>
+    /// The declaration of <paramref name="name"/> that is in scope at
+    /// <paramref name="use"/>, from the innermost scope out to the method's
+    /// body: locals of the enclosing blocks, foreach, for, using and catch
+    /// variables, lambda and local-function parameters, and pattern variables.
+    /// True when one is found, with its type or null when syntax does not say
+    /// it: a name shadowed by something untyped is not a field of that name.
+    /// </summary>
+    private bool Scoped(SyntaxNode use, string name, MethodDecl method, out string? type)
+    {
+        type = null;
+        foreach (var scope in use.Ancestors())
+        {
+            if (scope == method.Body) return Declared(scope, name, method, out type);
+
+            switch (scope)
+            {
+                case BlockSyntax or SwitchSectionSyntax when Declared(scope, name, method, out type):
+                    return true;
+                case ForEachStatementSyntax f when f.Identifier.ValueText == name:
+                    type = f.Type.IsVar ? null : Resolve(Simple(f.Type), method.Type);
+                    return true;
+                case ForStatementSyntax f when f.Declaration?.Variables.Any(v => v.Identifier.ValueText == name) == true:
+                    type = f.Declaration.Type.IsVar ? null : Resolve(Simple(f.Declaration.Type), method.Type);
+                    return true;
+                case UsingStatementSyntax u when u.Declaration?.Variables.FirstOrDefault(v => v.Identifier.ValueText == name) is { } v:
+                    type = Typed(u.Declaration.Type, v, method);
+                    return true;
+                case CatchClauseSyntax c when c.Declaration?.Identifier.ValueText == name:
+                    type = Resolve(Simple(c.Declaration.Type), method.Type);
+                    return true;
+                case SimpleLambdaExpressionSyntax l when l.Parameter.Identifier.ValueText == name:
+                    type = l.Parameter.Type is null ? null : Resolve(Simple(l.Parameter.Type), method.Type);
+                    return true;
+                case ParenthesizedLambdaExpressionSyntax l when l.ParameterList.Parameters.FirstOrDefault(p => p.Identifier.ValueText == name) is { } p:
+                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type);
+                    return true;
+                case LocalFunctionStatementSyntax f when f.ParameterList.Parameters.FirstOrDefault(p => p.Identifier.ValueText == name) is { } p:
+                    type = p.Type is null ? null : Resolve(Simple(p.Type), method.Type);
+                    return true;
+                case QueryExpressionSyntax q when q.FromClause.Identifier.ValueText == name
+                                                  || q.Body.Clauses.OfType<FromClauseSyntax>().Any(f => f.Identifier.ValueText == name)
+                                                  || q.Body.Clauses.OfType<LetClauseSyntax>().Any(l => l.Identifier.ValueText == name):
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>A local or pattern variable declared directly in this block or switch section.</summary>
+    private bool Declared(SyntaxNode scope, string name, MethodDecl method, out string? type)
+    {
+        type = null;
+        var statements = scope switch
+        {
+            BlockSyntax b => b.Statements.AsEnumerable(),
+            SwitchSectionSyntax s => s.Statements,
+            ArrowExpressionClauseSyntax a => [],
+            _ => [],
+        };
+
+        foreach (var statement in statements)
+        {
+            if (statement is LocalDeclarationStatementSyntax local
+                && local.Declaration.Variables.FirstOrDefault(v => v.Identifier.ValueText == name) is { } variable)
+            {
+                type = Typed(local.Declaration.Type, variable, method);
+                return true;
+            }
+
+            // `x is Order o`, `out var o`, `out Order o`: in scope for the
+            // statement that declares them, and after it in the block.
+            foreach (var designation in statement.DescendantNodes(n => n is not (LambdaExpressionSyntax or LocalFunctionStatementSyntax or BlockSyntax) || n == statement)
+                         .OfType<SingleVariableDesignationSyntax>()
+                         .Where(d => d.Identifier.ValueText == name))
+            {
+                type = designation.Parent switch
+                {
+                    DeclarationPatternSyntax pattern => Resolve(Simple(pattern.Type), method.Type),
+                    DeclarationExpressionSyntax { Type.IsVar: false } declaration => Resolve(Simple(declaration.Type), method.Type),
+                    _ => null,
+                };
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>A variable's type: written, or `var` with a `new` that names it.</summary>
+    private string? Typed(TypeSyntax declared, VariableDeclaratorSyntax variable, MethodDecl method) =>
+        declared.IsVar
+            ? variable.Initializer?.Value is ObjectCreationExpressionSyntax created ? Resolve(Simple(created.Type), method.Type) : null
+            : Resolve(Simple(declared), method.Type);
+
     /// <summary>A dotted run of names, which is how a namespace is written in an expression.</summary>
     private static bool IsQualifiedName(ExpressionSyntax expression) => expression switch
     {
@@ -568,25 +665,6 @@ public class FlowTracer
         MemberAccessExpressionSyntax m => m.Name is IdentifierNameSyntax && IsQualifiedName(m.Expression),
         _ => false,
     };
-
-    /// <summary>Locals declared with a type, or with <c>var</c> and a <c>new</c>.</summary>
-    private Dictionary<string, string> Locals(MethodDecl method)
-    {
-        var locals = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (method.Body is null) return locals;
-
-        foreach (var declaration in method.Body.DescendantNodes().OfType<VariableDeclarationSyntax>())
-        foreach (var variable in declaration.Variables)
-        {
-            var type = declaration.Type.IsVar
-                ? variable.Initializer?.Value is ObjectCreationExpressionSyntax created ? Simple(created.Type) : null
-                : Simple(declaration.Type);
-            var resolved = Resolve(type, method.Type);
-            if (resolved is not null) locals[variable.Identifier.ValueText] = resolved;
-        }
-
-        return locals;
-    }
 
     /// <summary>A field's or property's type on a type or the solution's ancestors of it.</summary>
     private string? Member(string type, string name)
