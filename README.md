@@ -1357,9 +1357,10 @@ LegacyLens flow path/to/solution BlogController.Item --depth 3
 
 From an entry point inward: every call the solution answers, with the line it
 is made on and the declaration that answers it. Each link says how sure it is.
-**Resolved** when one declaration answers; **through interface** when the
-interface has one implementation in the solution; **inferred**, with every
-candidate, when several could and which one runs is decided at run time;
+**Resolved** when one declaration answers; **only implementation** when an
+interface or an abstract member has one implementation in the solution;
+**inferred**, with every candidate, when several could and which one runs is
+decided at run time, a virtual member with overrides included;
 **unimplemented** when nothing in the solution implements it. Calls into
 packages and the framework end a branch and are counted, not listed.
 
@@ -1371,7 +1372,7 @@ lands on a private method. Each of those was a wrong link on Orchard first.
 
 Checked link by link against the source on `BlogController.Item`, three calls
 deep: 22 links, every one with the right declaration, the right overload and
-the right line: nine resolved, seven through an interface, six inferred. Each
+the right line: nine resolved, seven through an interface's only implementation, six inferred. Each
 inferred one is a real choice the container
 makes at run time: Orchard's Glimpse decorators and its setup mode.
 

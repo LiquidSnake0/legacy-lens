@@ -9,7 +9,7 @@ public enum Link
 {
     /// <summary>One declaration in the solution answers the call.</summary>
     Resolved,
-    /// <summary>The call goes through an interface with one implementation in the solution.</summary>
+    /// <summary>The call goes through an interface or an abstract member with one implementation in the solution.</summary>
     ThroughInterface,
     /// <summary>Several implementations could answer; which one runs is decided at run time.</summary>
     Inferred,
@@ -72,7 +72,8 @@ public class FlowTracer
     private sealed record MethodDecl(string Type, string Name, int Parameters, string? Returns, string Path, int Line,
         IReadOnlyDictionary<string, string> ParameterTypes, SyntaxNode? Body,
         int Required = 0, bool Params = false, string? Extends = null, IReadOnlyList<string?>? Ordered = null,
-        int Generic = 0, bool Callable = true, bool IsTest = false)
+        int Generic = 0, bool Callable = true, bool IsTest = false,
+        bool Abstract = false, bool Virtual = false, bool Override = false)
     {
         /// <summary>Whether a call with that many arguments can bind here, optional and params arrays included.</summary>
         public bool Takes(int arguments) =>
@@ -103,6 +104,9 @@ public class FlowTracer
     /// <summary>Every full name declared under each simple name.</summary>
     private readonly Dictionary<string, List<string>> _bySimple = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<string>> _implementations = new(StringComparer.Ordinal);
+
+    /// <summary>Every non-test class under each class it derives from, at any depth.</summary>
+    private readonly Dictionary<string, List<string>> _descendants = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<MethodDecl>> _extensions = new(StringComparer.Ordinal);
 
     /// <summary>The types each file imports with <c>using static</c>, whose methods it calls unqualified.</summary>
@@ -149,6 +153,11 @@ public class FlowTracer
             if (_types.TryGetValue(ancestor, out var declared) && declared.Interface)
             {
                 if (!_implementations.TryGetValue(ancestor, out var list)) _implementations[ancestor] = list = [];
+                if (!list.Contains(type.FullName)) list.Add(type.FullName);
+            }
+            else if (declared is not null)
+            {
+                if (!_descendants.TryGetValue(ancestor, out var list)) _descendants[ancestor] = list = [];
                 if (!list.Contains(type.FullName)) list.Add(type.FullName);
             }
         }
@@ -388,6 +397,27 @@ public class FlowTracer
 
             if (!type.Interface)
             {
+                // An abstract or virtual member is answered at run time by
+                // whichever override the object has: the class's own
+                // declaration is not the end of it.
+                if (direct.Count == 1 && (direct[0].Abstract || direct[0].Virtual))
+                {
+                    var overrides = (_descendants.GetValueOrDefault(direct[0].Type) ?? [])
+                        .SelectMany(d => _types[d].Methods.Where(m => m.Override && m.Name == name
+                            && m.Takes(arguments) && (Generic(invocation) == 0 || m.Generic == Generic(invocation))))
+                        .ToList();
+                    var answers = direct[0].Abstract ? overrides : overrides.Prepend(direct[0]).ToList();
+
+                    steps.Add(answers.Count switch
+                    {
+                        0 => new FlowStep(call, at, Link.Unimplemented, [], []),
+                        1 when direct[0].Abstract => Step(call, at, Link.ThroughInterface, answers, depth, visited, counts),
+                        1 => Step(call, at, Link.Resolved, answers, depth, visited, counts),
+                        _ => new FlowStep(call, at, Link.Inferred, answers.Select(Describe).ToList(), []),
+                    });
+                    continue;
+                }
+
                 steps.Add(direct.Count switch
                 {
                     0 => Count(counts), // inherited from outside the solution
@@ -857,7 +887,10 @@ public class FlowTracer
                         test && method.AttributeLists.SelectMany(l => l.Attributes)
                             .Select(a => a.Name.ToString().Split('.')[^1])
                             .Select(n => n.EndsWith("Attribute", StringComparison.Ordinal) ? n[..^9] : n)
-                            .Any(TestAttributes.Contains));
+                            .Any(TestAttributes.Contains),
+                        method.Modifiers.Any(m => m.IsKind(SyntaxKind.AbstractKeyword)),
+                        method.Modifiers.Any(m => m.IsKind(SyntaxKind.VirtualKeyword)),
+                        method.Modifiers.Any(m => m.IsKind(SyntaxKind.OverrideKeyword)));
                     type.Methods.Add(declaration);
                     if (extends is not null)
                     {
@@ -920,7 +953,7 @@ public static class FlowWriter
             $"Left out: {flow.LeavesSolution:N0} calls into packages or the framework, which end a branch, "
           + $"and {flow.Untyped:N0} whose receiver syntax alone could not type.");
         text.AppendLine();
-        text.AppendLine("Resolved: one declaration answers. Through interface: the only implementation in the solution. "
+        text.AppendLine("Resolved: one declaration answers. Only implementation: the one class implementing the interface or abstract member. "
                       + "Inferred: several could, and which runs is decided at run time. Unimplemented: nothing in the solution implements it.");
         return text.ToString();
     }
@@ -943,7 +976,7 @@ public static class FlowWriter
             var label = step.Link switch
             {
                 Link.Resolved => "resolved",
-                Link.ThroughInterface => "through interface",
+                Link.ThroughInterface => "only implementation",
                 Link.Inferred => $"inferred, {step.Targets.Count} candidates",
                 _ => "unimplemented",
             };
