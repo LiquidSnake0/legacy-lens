@@ -334,10 +334,31 @@ public class AssemblyReader
         {
             var parent = metadata.GetMemberReference(handle).Parent;
             if (parent.Kind == HandleKind.TypeReference) counts[(TypeReferenceHandle)parent]++;
+            // DbSet<Order>.Add: the parent is the instantiation, whose blob
+            // names the generic type it instantiates.
+            else if (parent.Kind == HandleKind.TypeSpecification && Instantiated(metadata, (TypeSpecificationHandle)parent) is { } generic)
+                counts[generic]++;
         }
 
         foreach (var key in counts.Keys.ToList()) counts[key] = Math.Max(1, counts[key]);
         return counts;
+    }
+
+    /// <summary>The generic type reference a type specification instantiates, if that is what it is.</summary>
+    private static TypeReferenceHandle? Instantiated(MetadataReader metadata, TypeSpecificationHandle handle)
+    {
+        try
+        {
+            var blob = metadata.GetBlobReader(metadata.GetTypeSpecification(handle).Signature);
+            if (blob.ReadSignatureTypeCode() != SignatureTypeCode.GenericTypeInstance) return null;
+            blob.ReadSignatureTypeCode(); // class or value type
+            var generic = blob.ReadTypeHandle();
+            return generic.Kind == HandleKind.TypeReference ? (TypeReferenceHandle)generic : null;
+        }
+        catch (BadImageFormatException)
+        {
+            return null;
+        }
     }
 
     private static List<FrameworkGap> Gaps(List<(BinaryAssembly Assembly, PEFile File)> yours)
