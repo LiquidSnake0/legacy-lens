@@ -1375,6 +1375,27 @@ the right line: nine resolved, seven through an interface, six inferred. Each
 inferred one is a real choice the container
 makes at run time: Orchard's Glimpse decorators and its setup mode.
 
+### Which tests reach each link
+
+Every link of a flow says which tests reach it, or that none does. Each test
+method (`[Test]`, `[Fact]`, `[TestMethod]` and their kin) is followed inward
+with the same rules, four calls deep, keeping only the links that are certain.
+Two things a test does differently from production are taken into account: a
+stub declared in a test project is never offered as an implementation of a
+production interface, and a test class's container registrations
+(`RegisterType<X>().As<I>()`, `AddScoped<I, X>()`, `Bind<I>().To<X>()`) decide
+which implementation its calls through `I` reach, as they do when it runs. A
+call on a mock reaches nothing.
+
+**Reached is not covered.** It is evidence that a test's own calls lead there,
+read from the code. Proving it takes running the tests with coverage, which on
+a .NET Framework solution means Windows, and is the next step.
+
+On `BlogController.Item`: 7 of 22 links are reached by a test. Checked by hand:
+no test in Orchard touches `BlogService`, `BlogPostService`, `FeedManager` or
+`Pager`; `IAuthorizer.Authorize` appears in tests only inside mocks; and
+`ContentQueryTests.SkipAndTakeProvidePagination` does call `Slice`.
+
 ## Without the source: a folder of assemblies
 
 Sometimes part of the code is only there as a DLL: a vendor's component, a
