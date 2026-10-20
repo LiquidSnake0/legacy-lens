@@ -165,4 +165,62 @@ public class FlowsTests
 
         Assert.Equal("Shop.cs:8", Only(flow).CalledAt);
     }
+
+    private const string Mail = """
+        public class Mailer { public void Go() { } public void Ship() { } }
+        public class Printer { public void Go() { } }
+        public class Order { public void Ship() { } }
+        """;
+
+    [Fact]
+    public void A_local_of_the_same_name_in_another_branch_is_not_this_one()
+    {
+        var flow = Trace("Desk.Send", Mail + """
+            public class Desk
+            {
+                public void Send(bool b)
+                {
+                    if (b) { Mailer x = new Mailer(); x.Go(); }
+                    else { var x = new Printer(); x.Go(); }
+                }
+            }
+            """);
+
+        Assert.Equal(["Mailer.Go Shop.cs:1", "Printer.Go Shop.cs:2"], flow.Steps.Select(s => Assert.Single(s.Targets)));
+    }
+
+    [Fact]
+    public void A_lambda_or_foreach_variable_hides_a_field_of_the_same_name()
+    {
+        var flow = Trace("Desk.Send", Mail + """
+            public class Desk
+            {
+                Mailer order;
+                public void Send(System.Collections.Generic.List<Order> orders)
+                {
+                    orders.ForEach(order => order.Ship());
+                    foreach (var order in orders) order.Ship();
+                    foreach (Order typed in orders) typed.Ship();
+                }
+            }
+            """);
+
+        // The two untyped ones are said to be untyped, not taken for the
+        // field; the typed foreach resolves to Order, not Mailer.
+        Assert.Equal("Order.Ship Shop.cs:3", Assert.Single(Assert.Single(flow.Steps).Targets));
+        Assert.Equal(2, flow.Untyped);
+    }
+
+    [Fact]
+    public void A_pattern_variable_is_typed_by_its_pattern()
+    {
+        var flow = Trace("Desk.Send", Mail + """
+            public class Desk
+            {
+                public void Send(object o) { if (o is Printer p) p.Go(); }
+            }
+            """);
+
+        Assert.Equal("Printer.Go Shop.cs:2", Assert.Single(Assert.Single(flow.Steps).Targets));
+    }
 }
